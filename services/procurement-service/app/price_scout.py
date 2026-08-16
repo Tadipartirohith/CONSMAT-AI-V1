@@ -1,19 +1,21 @@
 """Price-scout — pull external market prices as advisory offers.
 
 Providers (config `SCOUT_PROVIDER`):
-  - `auto`  : `web` if a Gemini key is configured (live Google-Search grounding), else `llm` if any
-              Hub LLM is configured, else `stub`.
-  - `web`   : Gemini with **live Google Search grounding** — the model actually searches the internet
-              (IndiaMART / TradeIndia / manufacturer sites) and returns grounded current prices with
-              real source URLs. Prices are still treated as INDICATIVE (public listings, not a firm
-              quote to us) but they are real, cited numbers rather than the model's guess.
+  - `auto`  : `tavily` if a Tavily key is set (free-tier live web search), else `web` if a Gemini key
+              is configured (Google-Search grounding), else `llm` if any Hub LLM is configured, else `stub`.
+  - `tavily`: **live web search** via Tavily's free-tier API. Real dealer/marketplace results are
+              fetched, then the Hub LLM extracts structured prices from them — every offer keeps its
+              real source URL. Prices are INDICATIVE (public listings, not a firm quote to us).
+  - `web`   : Gemini with **live Google Search grounding** — the model searches the internet and returns
+              grounded prices with real source URLs. (Needs a Gemini plan with Search-grounding quota;
+              the free tier returns 429.)
   - `llm`   : ask the Hub LLM for *indicative* market prices from memory (no live search). Estimates.
   - `stub`  : a small curated offline set (for demo / no-key).
 
 External offers are **advisory only** — the deterministic buy plan still uses the registered vendor
 registry. The hub can onboard a promising external offer as a real vendor price. There is intentionally
-NO bespoke IndiaMART scraper: no clean price API + ToS/anti-bot make it a fragile foundation; live
-Google-Search grounding is the sanctioned way to reach the open web.
+NO bespoke IndiaMART scraper: no clean price API + ToS/anti-bot make it a fragile foundation; a live
+search API (Tavily) or Google-Search grounding is the sanctioned way to reach the open web.
 """
 from __future__ import annotations
 
@@ -63,13 +65,50 @@ _STUB = {
 }
 
 
+_TAVILY_EXTRACT = (
+    "You are given raw web search results about construction-material prices in India. Extract the "
+    "current dealer/marketplace offers you can actually see in the results. Output STRICT JSON only: "
+    "{\"offers\": [{\"seller\": string, \"product\": string, \"price\": number (INR per the material's "
+    "usual unit), \"url\": string (the real source URL from the results), \"note\": string}]}. Use ONLY "
+    "prices present in the results — do not invent numbers. Keep each offer's real source URL. Convert "
+    "obvious per-tonne/per-bag units to the requested unit only when the result states it. 3-6 offers; "
+    "omit any you cannot price."
+)
+
+
 def _provider() -> str:
     p = settings.scout_provider.lower()
     if p == "auto":
+        if settings.scout_api_key:
+            return "tavily"
         if settings.ai_provider.lower() == "gemini" and settings.ai_api_key:
             return "web"
         return "llm" if llm.is_configured() else "stub"
     return p
+
+
+def _tavily_search(query: str, max_results: int = 6) -> list[dict]:
+    """Live web search via Tavily's free-tier API. Returns [{title, url, content}]."""
+    payload = {"query": query, "max_results": max_results, "search_depth": "basic"}
+    req = urllib.request.Request(
+        "https://api.tavily.com/search", data=json.dumps(payload).encode("utf-8"), method="POST",
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {settings.scout_api_key}"})
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        j = json.loads(resp.read().decode("utf-8"))
+    return [{"title": r.get("title", ""), "url": r.get("url", ""), "content": r.get("content", "")}
+            for r in j.get("results", [])]
+
+
+def _tavily_offers(material_name: str, brands: list[str], unit: str) -> list[dict]:
+    """Search the web (Tavily) then let the Hub LLM extract structured priced offers from the results."""
+    brand_q = " ".join(brands[:3]) if brands else ""
+    query = f"{brand_q} {material_name} price {unit} dealer wholesale Hyderabad India".strip()
+    results = _tavily_search(query)
+    if not results:
+        return []
+    extracted = llm.complete_json(_TAVILY_EXTRACT, json.dumps(
+        {"unit": unit, "material": material_name, "results": results}))
+    return _coerce(extracted.get("offers")) if extracted else []
 
 
 def _coerce(offers: list) -> list[dict]:
@@ -134,6 +173,21 @@ def scout(material_id: str, material_name: str = "", brands: list[str] | None = 
     provider = _provider()
     name = material_name or material_id
     unit = _UNIT_HINT.get(material_id, "INR per usual unit")
+
+    if provider == "tavily":
+        try:
+            offers = _tavily_offers(name, brands or [], unit)
+            if offers:
+                return offers, "tavily"
+        except Exception as e:  # noqa: BLE001 — degrade to grounding/estimate/stub on any failure
+            body = ""
+            try:
+                body = e.read().decode("utf-8")[:300]  # type: ignore[attr-defined]
+            except Exception:
+                pass
+            print(f"[price-scout] tavily search failed: {type(e).__name__}: {e} | {body}", flush=True)
+        provider = "web" if (settings.ai_provider.lower() == "gemini" and settings.ai_api_key) \
+            else ("llm" if llm.is_configured() else "stub")  # fall through
 
     if provider == "web":
         try:
