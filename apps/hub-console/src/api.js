@@ -46,6 +46,8 @@ export const proc = {
   orders: () => req("proc", "/procurement/orders"),
   receive: (id) => req("proc", `/procurement/orders/${id}/receive`, { method: "POST" }),
   llmStatus: () => req("proc", "/procurement/llm-status"),
+  scout: (material_id) => req("proc", "/procurement/scout", body({ material_id })),
+  externalOffers: (m) => req("proc", `/external-offers${m ? `?material_id=${m}` : ""}`),
 };
 
 export const price = {

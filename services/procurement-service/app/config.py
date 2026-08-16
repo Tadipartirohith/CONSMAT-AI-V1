@@ -23,5 +23,8 @@ class Settings(BaseSettings):
     ai_model: str = ""
     ai_base_url: str = ""
 
+    # Price-scout (external market intelligence): auto | stub | llm | serpapi (serpapi = extension point)
+    scout_provider: str = "auto"
+
 
 settings = Settings()

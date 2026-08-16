@@ -7,7 +7,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import catalog_client, models
+from . import catalog_client, models, price_scout
 
 
 class ProcurementError(Exception):
@@ -115,6 +115,50 @@ def delete_price(db: Session, vendor_id: str, product_id: str) -> None:
         raise ProcurementError(f"No price for {product_id} from {vendor_id}")
     db.delete(row)
     db.commit()
+
+
+def run_scout(db: Session, material_id: str, material_name: str = "") -> dict:
+    """Price-scout external market intelligence for a material and store the offers (advisory)."""
+    brands = sorted({p.brand for p in db.execute(
+        select(models.VendorPrice).where(models.VendorPrice.material_id == material_id)
+    ).scalars() if p.brand})
+    offers, provider = price_scout.scout(material_id, material_name, brands)
+    # refresh indicative offers for this material (keep firm/imported ones)
+    db.query(models.ExternalOffer).filter(
+        models.ExternalOffer.material_id == material_id,
+        models.ExternalOffer.confidence == "indicative",
+    ).delete()
+    for o in offers:
+        db.add(models.ExternalOffer(
+            material_id=material_id, product_name=o["product_name"], source=provider,
+            seller=o["seller"], price=_dec(o["price"]), url=o["url"],
+            confidence="indicative", note=o["note"],
+        ))
+    db.commit()
+    return {"provider": provider, "material_id": material_id, "count": len(offers)}
+
+
+def list_external_offers(db: Session, material_id: str | None = None) -> list[models.ExternalOffer]:
+    stmt = select(models.ExternalOffer).order_by(models.ExternalOffer.price.asc())
+    if material_id:
+        stmt = stmt.where(models.ExternalOffer.material_id == material_id)
+    return list(db.execute(stmt).scalars())
+
+
+def import_offers(db: Session, offers: list[dict]) -> int:
+    """Ingest a supplier price list (firm external offers) — e.g. from a CSV upload."""
+    n = 0
+    for o in offers:
+        if not o.get("material_id") or o.get("price") is None:
+            continue
+        db.add(models.ExternalOffer(
+            material_id=o["material_id"], product_name=o.get("product_name", ""), source="csv",
+            seller=o.get("seller", ""), price=_dec(o["price"]), url=o.get("url", ""),
+            confidence="firm", note=o.get("note", "price list"),
+        ))
+        n += 1
+    db.commit()
+    return n
 
 
 def market_prices(db: Session, material_id: str) -> list[dict]:

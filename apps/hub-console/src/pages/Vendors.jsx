@@ -91,7 +91,40 @@ export default function Vendors() {
           </Table>
         )}
       </Card>
+
+      <MarketScan material={material} />
     </div>
+  );
+}
+
+function MarketScan({ material }) {
+  const offers = useAsync(() => proc.externalOffers(material), [material]);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const scan = async () => {
+    setBusy(true); setMsg(null);
+    try { const r = await proc.scout(material); setMsg(`Scouted ${r.count} offer(s) via ${r.provider}.`); offers.reload(); }
+    catch (e) { setMsg(e.message); } finally { setBusy(false); }
+  };
+  return (
+    <Card title={`External market scan — ${material}`}
+      right={<Button size="sm" onClick={scan} disabled={busy}>{busy ? "Scanning…" : "Scan the market"}</Button>}>
+      {msg && <p className="mb-2 text-xs text-muted">{msg}</p>}
+      <p className="mb-2 text-[11px] text-[#f59e0b]">Advisory only — indicative internet prices, not firm quotes. Verify before purchase.</p>
+      {offers.data?.length ? (
+        <Table head={["Seller", "Product", "Price", "Source", ""]}>
+          {offers.data.map((o) => (
+            <tr key={o.id} className="border-b border-border/50">
+              <Td>{o.seller || "—"}</Td>
+              <Td className="text-muted">{o.product_name || "—"}</Td>
+              <Td mono>{inr(o.price)}</Td>
+              <Td className="text-muted">{o.source}</Td>
+              <Td><Badge tone={o.confidence === "firm" ? "ok" : "warn"}>{o.confidence}</Badge></Td>
+            </tr>
+          ))}
+        </Table>
+      ) : <p className="text-sm text-muted">No external offers yet — click “Scan the market”.</p>}
+    </Card>
   );
 }
 

@@ -55,8 +55,17 @@ def analyze(body: schemas.AnalyzeIn, db: Session = Depends(get_db)):
     profit = procurement_engine.profitability(result, selling)
     # Market context for the LLM (all vendors per material, not just the chosen one).
     market = {d["material_id"]: service.market_prices(db, d["material_id"]) for d in demand}
+    # External market intelligence (indicative internet prices / imported price lists), if scouted.
+    external = {}
+    for d in demand:
+        offers = service.list_external_offers(db, d["material_id"])
+        if offers:
+            external[d["material_id"]] = [
+                {"seller": o.seller, "product": o.product_name, "price": float(o.price),
+                 "source": o.source, "confidence": o.confidence} for o in offers]
     advice = llm.analyze({
         "demand": demand, "plan": result, "profitability": profit, "market": market,
+        "external_offers": external,
     })
     return {
         "plan": result,
@@ -70,6 +79,24 @@ def analyze(body: schemas.AnalyzeIn, db: Session = Depends(get_db)):
 @router.post("/procurement/orders", response_model=schemas.OrderOut, status_code=201, dependencies=[Depends(HUB_WRITE)])
 def create_order(body: schemas.OrderIn, db: Session = Depends(get_db)):
     return _run(orders.create_order, db=db, lines=[l.model_dump() for l in body.lines], note=body.note)
+
+
+@router.post("/procurement/scout", dependencies=[Depends(HUB_WRITE)])
+def scout(body: schemas.ScoutIn, db: Session = Depends(get_db)):
+    """Pull indicative external market prices for a material (advisory market intelligence)."""
+    return service.run_scout(db, body.material_id, body.material_name)
+
+
+@router.get("/external-offers", response_model=list[schemas.ExternalOfferOut])
+def external_offers(material_id: str | None = None, db: Session = Depends(get_db)):
+    return service.list_external_offers(db, material_id)
+
+
+@router.post("/external-offers/import", dependencies=[Depends(HUB_WRITE)])
+def import_offers(body: schemas.ImportIn, db: Session = Depends(get_db)):
+    """Ingest a supplier price list (firm external offers, e.g. from CSV)."""
+    n = service.import_offers(db, [o.model_dump() for o in body.offers])
+    return {"imported": n}
 
 
 @router.get("/procurement/orders", response_model=list[schemas.OrderOut])

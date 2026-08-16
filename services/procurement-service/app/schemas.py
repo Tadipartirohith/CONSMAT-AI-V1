@@ -55,6 +55,36 @@ class PriceIn(BaseModel):
     min_qty: float = Field(default=0, ge=0)
 
 
+class ExternalOfferOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    material_id: str
+    product_name: str
+    source: str
+    seller: str
+    price: float
+    url: str
+    confidence: str
+    note: str
+
+
+class ScoutIn(BaseModel):
+    material_id: str = Field(min_length=1)
+    material_name: str = ""
+
+
+class ImportOffer(BaseModel):
+    material_id: str = Field(min_length=1)
+    product_name: str = ""
+    seller: str = ""
+    price: float = Field(ge=0)
+    url: str = ""
+
+
+class ImportIn(BaseModel):
+    offers: list[ImportOffer] = Field(min_length=1)
+
+
 class MarketPriceOut(BaseModel):
     vendor_id: str
     vendor_name: str

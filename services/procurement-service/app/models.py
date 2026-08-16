@@ -63,6 +63,27 @@ class VendorPrice(Base):
     vendor: Mapped["Vendor"] = relationship(back_populates="prices")
 
 
+class ExternalOffer(Base):
+    """A price observed from an external source (price-scout / supplier price list).
+
+    Advisory market intelligence — NOT part of the deterministic buy plan (the plan buys from the
+    registered vendor registry). `confidence` distinguishes `indicative` (LLM/web estimate) from `firm`
+    (an uploaded supplier price list). The hub can onboard a promising offer as a registered vendor price.
+    """
+    __tablename__ = "external_offers"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    material_id: Mapped[str] = mapped_column(String(40), index=True, nullable=False)
+    product_name: Mapped[str] = mapped_column(String(200), default="")
+    source: Mapped[str] = mapped_column(String(40), default="")      # llm | stub | csv | serpapi | …
+    seller: Mapped[str] = mapped_column(String(160), default="")
+    price: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
+    url: Mapped[str] = mapped_column(String(300), default="")
+    confidence: Mapped[str] = mapped_column(String(16), default="indicative")  # indicative | firm
+    note: Mapped[str] = mapped_column(String(255), default="")
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class ProcurementOrder(Base):
     """A hub purchase from vendors. On receive, each line posts an inbound to inventory-service."""
     __tablename__ = "procurement_orders"
