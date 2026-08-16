@@ -39,7 +39,7 @@ design each roadmap step. Date format: YYYY-MM-DD.
 |----|----------|---------|-------------|
 | Q1 | Manager vs supervisor: which actions need manager approval, and value thresholds? | Roles/permissions | Step 1–3 |
 | Q2 | Exact phase→material weight matrix — **default set in site-service `bom.py` (sums to 1.0/material); still tunable.** Per-floor RCC repetition modelled at building level for now. | BOM/JIT | 🟡 default set |
-| Q3 | Margin model: flat %, per-consumer-tier %, or per-material? | Pricing | Step 7 |
+| ~~Q3~~ | ~~Margin model~~ → **Resolved: one margin-rule table with precedence (material+tier > material > tier > global > service-default). Supports flat, per-tier, and per-material at once.** | Pricing | ✅ |
 | ~~Q4~~ | ~~Backend shape~~ → **Resolved: microservices (D8)** | Architecture | ✅ |
 | ~~Q5~~ | ~~DB & migrations~~ → **Resolved: SQLAlchemy 2.0 + Alembic + Postgres (D9)** | Persistence | ✅ |
 | ~~Q11~~ | ~~Material/catalog ownership~~ → **Resolved: inventory-service owns the catalog and exposes `GET /materials`; other services reference `material_id` as an opaque string (no cross-service FK). Extract a catalog-service later if it grows.** | Architecture | ✅ |

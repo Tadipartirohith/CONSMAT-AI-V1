@@ -42,6 +42,7 @@ services:
       API_PREFIX: /api/v1
       JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
       INVENTORY_URL: http://inventory-service:8000
+      PRICING_URL: http://pricing-service:8000
       # Hub LLM (procurement intelligence) — stub unless configured in .env
       AI_PROVIDER: ${AI_PROVIDER:-stub}
       AI_API_KEY: ${AI_API_KEY:-}
@@ -64,6 +65,24 @@ services:
       INVENTORY_URL: http://inventory-service:8000
     ports:
       - "${SITE_PORT:-8003}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      inventory-service:
+        condition: service_healthy
+    restart: unless-stopped
+
+  pricing-service:
+    build: ../services/pricing-service
+    container_name: consmat-v1-pricing
+    environment:
+      DATABASE_URL: postgresql+psycopg://consmat:consmat@db:5432/pricing
+      API_PREFIX: /api/v1
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
+      INVENTORY_URL: http://inventory-service:8000
+      DEFAULT_MARGIN_PCT: ${DEFAULT_MARGIN_PCT:-10}
+    ports:
+      - "${PRICING_PORT:-8004}:8000"
     depends_on:
       db:
         condition: service_healthy

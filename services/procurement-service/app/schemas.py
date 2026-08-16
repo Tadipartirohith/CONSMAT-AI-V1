@@ -76,6 +76,8 @@ class PlanIn(BaseModel):
 class AnalyzeIn(BaseModel):
     demand: list[DemandLine] = Field(min_length=1)
     selling_prices: dict[str, float] | None = None
+    # if selling_prices is omitted but a tier is given, fetch prices from pricing-service
+    tier: str | None = None
 
 
 class OrderLineIn(BaseModel):

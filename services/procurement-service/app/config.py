@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     jwt_alg: str = "HS256"
     # inventory-service base URL (procurement receipts post inbound here).
     inventory_url: str = "http://localhost:8001"
+    # pricing-service base URL (fetch hub selling prices for profitability).
+    pricing_url: str = "http://localhost:8004"
 
     # --- Hub LLM (procurement intelligence). stub = deterministic only, no key. ---
     ai_provider: str = "stub"          # stub | gemini | openai | groq | openrouter | anthropic | openai-compat

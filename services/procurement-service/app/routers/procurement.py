@@ -4,7 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from .. import llm, orders, procurement_engine, schemas, service
+from .. import llm, orders, pricing_client, procurement_engine, schemas, service
 from ..config import settings
 from ..db import get_db
 
@@ -37,10 +37,18 @@ def make_plan(body: schemas.PlanIn, db: Session = Depends(get_db)):
 
 @router.post("/procurement/analyze")
 def analyze(body: schemas.AnalyzeIn, db: Session = Depends(get_db)):
-    """Deterministic plan + profitability, with optional Hub LLM advice layered on top."""
+    """Deterministic plan + profitability, with optional Hub LLM advice layered on top.
+
+    If `selling_prices` is omitted but a `tier` is given, they are fetched from pricing-service so the
+    profitability reflects the hub's real selling prices."""
     demand = [d.model_dump() for d in body.demand]
     result = procurement_engine.plan(db, demand)
-    profit = procurement_engine.profitability(result, body.selling_prices)
+    selling = body.selling_prices
+    price_source = "provided" if selling else None
+    if selling is None and body.tier:
+        selling = pricing_client.selling_prices(body.tier)
+        price_source = "pricing-service" if selling else "unavailable"
+    profit = procurement_engine.profitability(result, selling)
     # Market context for the LLM (all vendors per material, not just the chosen one).
     market = {d["material_id"]: service.market_prices(db, d["material_id"]) for d in demand}
     advice = llm.analyze({
@@ -49,6 +57,7 @@ def analyze(body: schemas.AnalyzeIn, db: Session = Depends(get_db)):
     return {
         "plan": result,
         "profitability": profit,
+        "price_source": price_source,
         "advice": advice,
         "engine": "llm" if advice is not None else "deterministic",
     }

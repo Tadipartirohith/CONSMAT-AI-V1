@@ -72,5 +72,5 @@ suppliers / vendors  ──►  HUB  ──►  SPOKE  ──►  retail consume
 4. ✅ **Procurement + Hub LLM** — cheapest-source planning, profitability, LLM advice (pluggable, graceful fallback), orders that receive into inventory ([services/procurement-service](./services/procurement-service)).
 5. ✅ **Site & phase management** — spokes/consumers/sites, architect plans → BOM, 9-phase progress, phase-driven JIT dispatch drawing down inventory ([services/site-service](./services/site-service)).
 6. ✅ **Spoke ops** — geofence coverage + auto-assignment, consumer intake & classification, spokesperson territory dashboard ([services/site-service](./services/site-service)).
-7. **Pricing & margin** ← next — hub selling price.
+7. ✅ **Pricing & margin** — hub sets selling price via margin-rule precedence (per-material/per-tier/global); feeds procurement profitability ([services/pricing-service](./services/pricing-service)).
 8. **Frontends** — hub console, spoke app, consumer portal.

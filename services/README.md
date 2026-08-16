@@ -8,10 +8,10 @@ to each other synchronously over REST to start; event-driven flows (e.g. phase t
 
 | Service | Owns | Status | Roadmap step |
 |---------|------|--------|--------------|
-| **inventory-service** | Hub stock + append-only ledger (+ materials reference for now) | 🟢 building | Step 2 |
-| procurement-service | Vendors, price lists, procurement orders, procurement LLM | ⚪ planned | Steps 3–4 |
-| site-service | Spokes, consumers, sites, plans, BOM, phases, dispatch triggers | ⚪ planned | Steps 5–6 |
-| pricing-service | Selling price + margin (per consumer tier) | ⚪ planned | Step 7 |
+| **inventory-service** | Hub stock + append-only ledger (+ materials catalog) | 🟢 built | Step 2 |
+| **procurement-service** | Vendors, price lists, procurement orders, procurement LLM | 🟢 built | Steps 3–4 |
+| **site-service** | Spokes, consumers, sites, plans, BOM, phases, dispatch, spoke ops | 🟢 built | Steps 5–6 |
+| **pricing-service** | Selling price + margin (rule precedence); feeds procurement profitability | 🟢 built | Step 7 |
 | identity-service | Users, roles, JWT issuance | ⚪ planned | (cross-cutting) |
 | gateway | API gateway / routing | ⚪ deferred | later |
 
