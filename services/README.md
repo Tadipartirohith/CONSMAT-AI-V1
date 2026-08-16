@@ -14,7 +14,7 @@ to each other synchronously over REST to start; event-driven flows (e.g. phase t
 | **pricing-service** | Selling price + margin (rule precedence); feeds procurement profitability | 🟢 built | Step 7 |
 | **identity-service** | Users, roles, JWT issuance; every service validates locally with the shared secret | 🟢 built | (cross-cutting) |
 | **payment-service** | Config-driven payment gateway (mock default; providers + key env-names in config.yaml) | 🟢 built | (cross-cutting) |
-| gateway | API gateway / routing | ⚪ deferred | later |
+| **gateway** (top-level [`../gateway`](../gateway)) | Single nginx ingress fronting all services under `/api/<service>/`; all frontend + external API traffic flows through it | 🟢 built | (cross-cutting) |
 
 ## Conventions
 

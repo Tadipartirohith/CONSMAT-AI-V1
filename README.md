@@ -51,6 +51,7 @@ suppliers / vendors  ──►  HUB  ──►  SPOKE  ──►  retail consume
 | Path | Purpose |
 |------|---------|
 | [`docs/`](./docs) | Design documentation (HLD, LLD, SLD, decisions) |
+| [`gateway/`](./gateway) | API gateway — ✅ single nginx ingress fronting all services (`/api/<service>/`) |
 | [`services/`](./services) | Backend microservices — ✅ identity · inventory · procurement · site · pricing · payment (FastAPI) |
 | [`apps/hub-console/`](./apps/hub-console) | Hub operations console (supervisor + manager) — ✅ built (React/Vite, `:8095`) |
 | [`apps/spoke-app/`](./apps/spoke-app) | Spoke app (spokesperson + architect + civil engineer) — ✅ built (React/Vite, `:8096`) |
@@ -75,9 +76,10 @@ suppliers / vendors  ──►  HUB  ──►  SPOKE  ──►  retail consume
 7. ✅ **Pricing & margin** — hub sets selling price via margin-rule precedence (per-material/per-tier/global); feeds procurement profitability ([services/pricing-service](./services/pricing-service)).
 8. ✅ **Frontends** — hub-console (`:8095`) · spoke-app (`:8096`) · consumer-portal (`:8097`), all React/Vite/Tailwind served via nginx path-proxy.
 
-**Steps 1–8 complete + auth + payments + Hub LLM wired.** ✅ **identity-service + JWT auth** (Q12) ·
-✅ **payment-service** (config-driven gateway, mock default — D11) · ✅ **Hub LLM set to Gemini**
-(`infra/.env`, add a key to go live — D12). Remaining (deferred): API gateway.
+**Steps 1–8 complete + auth + payments + Hub LLM + API gateway.** ✅ **identity-service + JWT auth**
+(Q12) · ✅ **payment-service** (config-driven, mock default — D11) · ✅ **Hub LLM set to Gemini**
+(`infra/.env`, add a key to go live — D12) · ✅ **API gateway** (single ingress — D13). All major and
+cross-cutting pieces are in place; real payment-provider API calls remain as extension points.
 
 ## Running the stack
 
@@ -90,6 +92,7 @@ docker compose -f infra/docker-compose.yml up -d --build
 | Hub console | http://localhost:8095 |
 | Spoke app | http://localhost:8096 |
 | Consumer portal | http://localhost:8097 |
+| API gateway | http://localhost:8088 (single API ingress; try `/` and `/health`) |
 | identity-service | http://localhost:8005/docs |
 | payment-service | http://localhost:8006/docs |
 | inventory-service | http://localhost:8001/docs |
@@ -98,8 +101,9 @@ docker compose -f infra/docker-compose.yml up -d --build
 | pricing-service | http://localhost:8004/docs |
 
 One PostgreSQL instance (host port 5433) with a database per service. Each service self-migrates and
-seeds on start. The frontends reach the services through their own nginx path-proxy, so no CORS is
-needed. Tear down with `docker compose -f infra/docker-compose.yml down` (add `-v` to wipe data).
+seeds on start. Frontend API traffic flows browser → app nginx → **gateway** → service (same-origin, no
+CORS); external clients can call the gateway directly. Tear down with
+`docker compose -f infra/docker-compose.yml down` (add `-v` to wipe data).
 
 **Demo logins** (password `consmat123`): `manager@consmat.com` / `supervisor@consmat.com` (hub console) ·
 `spoke@consmat.com` / `architect@consmat.com` / `civil@consmat.com` (spoke app) · `demo@consmat.com`

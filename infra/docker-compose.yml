@@ -129,11 +129,11 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  hub-console:
-    build: ../apps/hub-console
-    container_name: consmat-v1-hub-console
+  gateway:
+    build: ../gateway
+    container_name: consmat-v1-gateway
     ports:
-      - "${HUB_CONSOLE_PORT:-8095}:80"
+      - "${GATEWAY_PORT:-8088}:80"
     depends_on:
       - identity-service
       - inventory-service
@@ -143,14 +143,22 @@ services:
       - payment-service
     restart: unless-stopped
 
+  hub-console:
+    build: ../apps/hub-console
+    container_name: consmat-v1-hub-console
+    ports:
+      - "${HUB_CONSOLE_PORT:-8095}:80"
+    depends_on:
+      - gateway
+    restart: unless-stopped
+
   spoke-app:
     build: ../apps/spoke-app
     container_name: consmat-v1-spoke-app
     ports:
       - "${SPOKE_APP_PORT:-8096}:80"
     depends_on:
-      - site-service
-      - inventory-service
+      - gateway
     restart: unless-stopped
 
   consumer-portal:
@@ -159,10 +167,7 @@ services:
     ports:
       - "${CONSUMER_PORTAL_PORT:-8097}:80"
     depends_on:
-      - identity-service
-      - site-service
-      - pricing-service
-      - payment-service
+      - gateway
     restart: unless-stopped
 
 volumes:
