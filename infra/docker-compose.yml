@@ -102,5 +102,15 @@ services:
       - pricing-service
     restart: unless-stopped
 
+  spoke-app:
+    build: ../apps/spoke-app
+    container_name: consmat-v1-spoke-app
+    ports:
+      - "${SPOKE_APP_PORT:-8096}:80"
+    depends_on:
+      - site-service
+      - inventory-service
+    restart: unless-stopped
+
 volumes:
   pgdata:

@@ -53,7 +53,7 @@ suppliers / vendors  ──►  HUB  ──►  SPOKE  ──►  retail consume
 | [`docs/`](./docs) | Design documentation (HLD, LLD, SLD, decisions) |
 | `backend/` | Backend service(s) — *to be built* |
 | [`apps/hub-console/`](./apps/hub-console) | Hub operations console (supervisor + manager) — ✅ built (React/Vite) |
-| `apps/spoke-app/` | Spoke app (spokesperson + architect + civil engineer) — *to be built* |
+| [`apps/spoke-app/`](./apps/spoke-app) | Spoke app (spokesperson + architect + civil engineer) — ✅ built (React/Vite) |
 | `apps/consumer-portal/` | Retail consumer portal — *to be built* |
 | `infra/` | Deployment (Docker Compose, etc.) — *to be built* |
 
@@ -73,4 +73,4 @@ suppliers / vendors  ──►  HUB  ──►  SPOKE  ──►  retail consume
 5. ✅ **Site & phase management** — spokes/consumers/sites, architect plans → BOM, 9-phase progress, phase-driven JIT dispatch drawing down inventory ([services/site-service](./services/site-service)).
 6. ✅ **Spoke ops** — geofence coverage + auto-assignment, consumer intake & classification, spokesperson territory dashboard ([services/site-service](./services/site-service)).
 7. ✅ **Pricing & margin** — hub sets selling price via margin-rule precedence (per-material/per-tier/global); feeds procurement profitability ([services/pricing-service](./services/pricing-service)).
-8. 🟡 **Frontends** — ✅ hub-console (inventory/vendors/procurement+LLM/pricing, React/Vite/Tailwind, served on `:8095`); spoke-app + consumer-portal next.
+8. 🟡 **Frontends** — ✅ hub-console (`:8095`) · ✅ spoke-app (intake/sites/plans/phase-driven dispatch, `:8096`); consumer-portal next.
