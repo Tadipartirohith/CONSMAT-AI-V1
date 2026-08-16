@@ -1,8 +1,8 @@
 # Consmat AI — V1 (Hub-and-Spoke)
 
-> **Status:** 🟡 Design phase — this repository is a clean-slate rebuild. Code is added step by step as
-> each design area is confirmed. See [`docs/`](./docs) for the design and [`docs/DECISIONS.md`](./docs/DECISIONS.md)
-> for open questions and decisions.
+> **Status:** 🟢 Steps 1–8 complete — 4 backend microservices + 3 React frontends, all running via
+> `docker compose`. See [`docs/`](./docs) for the design and [`docs/DECISIONS.md`](./docs/DECISIONS.md)
+> for decisions and the remaining deferred items (auth, payments, gateway).
 
 Consmat AI V1 is a **hub-and-spoke construction-materials distribution platform**. It replaces the
 earlier buyer-centric marketplace with a distribution network where a central **hub** procures, owns,
@@ -51,11 +51,11 @@ suppliers / vendors  ──►  HUB  ──►  SPOKE  ──►  retail consume
 | Path | Purpose |
 |------|---------|
 | [`docs/`](./docs) | Design documentation (HLD, LLD, SLD, decisions) |
-| `backend/` | Backend service(s) — *to be built* |
-| [`apps/hub-console/`](./apps/hub-console) | Hub operations console (supervisor + manager) — ✅ built (React/Vite) |
-| [`apps/spoke-app/`](./apps/spoke-app) | Spoke app (spokesperson + architect + civil engineer) — ✅ built (React/Vite) |
-| `apps/consumer-portal/` | Retail consumer portal — *to be built* |
-| `infra/` | Deployment (Docker Compose, etc.) — *to be built* |
+| [`services/`](./services) | Backend microservices — ✅ inventory · procurement · site · pricing (FastAPI) |
+| [`apps/hub-console/`](./apps/hub-console) | Hub operations console (supervisor + manager) — ✅ built (React/Vite, `:8095`) |
+| [`apps/spoke-app/`](./apps/spoke-app) | Spoke app (spokesperson + architect + civil engineer) — ✅ built (React/Vite, `:8096`) |
+| [`apps/consumer-portal/`](./apps/consumer-portal) | Retail consumer portal — ✅ built (React/Vite, `:8097`) |
+| [`infra/`](./infra) | Deployment — ✅ `docker-compose.yml` (Postgres + 4 services + 3 apps) |
 
 ## Design documents
 
@@ -73,4 +73,26 @@ suppliers / vendors  ──►  HUB  ──►  SPOKE  ──►  retail consume
 5. ✅ **Site & phase management** — spokes/consumers/sites, architect plans → BOM, 9-phase progress, phase-driven JIT dispatch drawing down inventory ([services/site-service](./services/site-service)).
 6. ✅ **Spoke ops** — geofence coverage + auto-assignment, consumer intake & classification, spokesperson territory dashboard ([services/site-service](./services/site-service)).
 7. ✅ **Pricing & margin** — hub sets selling price via margin-rule precedence (per-material/per-tier/global); feeds procurement profitability ([services/pricing-service](./services/pricing-service)).
-8. 🟡 **Frontends** — ✅ hub-console (`:8095`) · ✅ spoke-app (intake/sites/plans/phase-driven dispatch, `:8096`); consumer-portal next.
+8. ✅ **Frontends** — hub-console (`:8095`) · spoke-app (`:8096`) · consumer-portal (`:8097`), all React/Vite/Tailwind served via nginx path-proxy.
+
+**Steps 1–8 complete.** Remaining (deferred, cross-cutting): identity-service/auth (Q12), payments, API gateway — see [docs/DECISIONS.md](./docs/DECISIONS.md).
+
+## Running the stack
+
+```bash
+docker compose -f infra/docker-compose.yml up -d --build
+```
+
+| Component | URL |
+|-----------|-----|
+| Hub console | http://localhost:8095 |
+| Spoke app | http://localhost:8096 |
+| Consumer portal | http://localhost:8097 |
+| inventory-service | http://localhost:8001/docs |
+| procurement-service | http://localhost:8002/docs |
+| site-service | http://localhost:8003/docs |
+| pricing-service | http://localhost:8004/docs |
+
+One PostgreSQL instance (host port 5433) with a database per service. Each service self-migrates and
+seeds on start. The frontends reach the services through their own nginx path-proxy, so no CORS is
+needed. Tear down with `docker compose -f infra/docker-compose.yml down` (add `-v` to wipe data).

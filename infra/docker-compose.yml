@@ -112,5 +112,14 @@ services:
       - inventory-service
     restart: unless-stopped
 
+  consumer-portal:
+    build: ../apps/consumer-portal
+    container_name: consmat-v1-consumer-portal
+    ports:
+      - "${CONSUMER_PORTAL_PORT:-8097}:80"
+    depends_on:
+      - site-service
+    restart: unless-stopped
+
 volumes:
   pgdata:
