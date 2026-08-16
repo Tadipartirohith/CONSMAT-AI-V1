@@ -59,6 +59,11 @@ export const pay = {
   create: (b) => req("pay", "/payments", body(b)),
 };
 
+export const site = {
+  sites: () => req("site", "/sites"),
+  backfillAll: () => req("site", "/backfill", { method: "POST" }),
+};
+
 export const TIERS = ["individual", "contractor", "commercial", "government"];
 export const MATERIALS = ["cement", "steel", "sand", "aggregate", "bricks"];
 export const inr = (n) =>
