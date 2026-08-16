@@ -1,128 +1,176 @@
 # Consmat AI V1 — System-Level Design (SLD)
 
-> **Status:** 🟡 Design phase · **Version:** 0.1 · This describes the **target** deployment landscape for
-> V1. Components are built step by step (see [HLD roadmap](./HLD.md#15-build-roadmap)); nothing here is
-> deployed yet.
+> **Status:** 🟢 As-built · **Version:** 1.0 · **Orchestration:** Docker Compose (`infra/docker-compose.yml`)
 
-For architecture see [HLD.md](./HLD.md); for the domain model see [LLD.md](./LLD.md).
-
----
-
-## 1. Scope
-
-V1 introduces a key change from V0: because the hub must track **every inbound/outbound inventory
-movement**, the system moves from an in-memory store to a **persistent database**. The target landscape
-is a backend service, a persistent DB, an LLM provider (procurement advice), and three role-specific
-frontends.
+The deployment landscape as it actually runs: containers, ports, networking, persistence, configuration,
+integrations, and operations. See [HLD.md](./HLD.md) for architecture and [LLD.md](./LLD.md) for internals.
 
 ---
 
-## 2. Target Deployment Landscape
+## 1. Deployment Topology
+
+**11 containers** on the Compose default bridge network, from one compose file. One PostgreSQL, six
+FastAPI services, one nginx gateway, three nginx-served SPAs.
 
 ```mermaid
 flowchart TB
-    subgraph Browsers["Users"]
-        HubU["Hub staff<br/>(manager / supervisor)"]
-        SpokeU["Spoke team<br/>(spokesperson / architect / civil engr)"]
-        ConsU["Consumer"]
-    end
-
-    subgraph Host["Docker host / cloud"]
-        subgraph Edge["nginx per app"]
-            HC["hub-console"]
-            SA["spoke-app"]
-            CP["consumer-portal"]
+    Browser["Browsers"]
+    subgraph Host["Docker host — compose network"]
+        subgraph Edge["Frontends (nginx)"]
+            HC["hub-console<br/>8095→80"]
+            SA["spoke-app<br/>8096→80"]
+            CP["consumer-portal<br/>8097→80"]
         end
-        BK["backend<br/>FastAPI (/api/v1)"]
-        DB[("PostgreSQL<br/>inventory ledger + domain")]
+        GW["gateway (nginx)<br/>8088→80"]
+        subgraph Services["FastAPI services (container :8000)"]
+            ID["identity 8005"]
+            INV["inventory 8001"]
+            PROC["procurement 8002"]
+            PRICE["pricing 8004"]
+            SITE["site 8003"]
+            PAY["payment 8006"]
+        end
+        DB[("postgres 5433→5432<br/>dbs: identity, inventory,<br/>procurement, pricing, site, payment")]
     end
+    LLM["Gemini API"]
 
-    LLM["LLM API<br/>(Gemini / OpenAI-compatible)"]
-
-    HubU --> HC
-    SpokeU --> SA
-    ConsU --> CP
-    HC -->|"/api"| BK
-    SA -->|"/api"| BK
-    CP -->|"/api"| BK
-    BK --> DB
-    BK -. "procurement advice (optional)" .-> LLM
+    Browser --> HC & SA & CP
+    HC & SA & CP -->|"/inv /proc /price /pay /site /id → gateway"| GW
+    GW -->|"/api/&lt;service&gt;/ → :8000/api/v1/"| ID & INV & PROC & PRICE & SITE & PAY
+    ID & INV & PROC & PRICE & SITE & PAY --> DB
+    INV & PRICE & SITE -. "internal, direct by service name + service token" .- PROC
+    PROC -. optional .-> LLM
 ```
 
 ---
 
-## 3. Service Inventory (target)
+## 2. Container Inventory
 
-| Service | Role | Notes |
-|---------|------|-------|
-| `backend` | FastAPI API (`/api/v1`) | Modular monolith to start; service split TBD |
-| `db` | PostgreSQL | Durable inventory ledger + domain; **new in V1** |
-| `hub-console` | React SPA (nginx) | Manager + supervisor operations |
-| `spoke-app` | React SPA (nginx) | Spokesperson + architect + civil engineer |
-| `consumer-portal` | React SPA (nginx) | Consumer status/orders (V1 scope TBD) |
+| Container | Image/build | Host→Container | Depends on |
+|-----------|-------------|----------------|------------|
+| consmat-v1-db | postgres:16-alpine | 5433→5432 | — |
+| consmat-v1-identity | ./services/identity-service | 8005→8000 | db |
+| consmat-v1-inventory | ./services/inventory-service | 8001→8000 | db |
+| consmat-v1-procurement | ./services/procurement-service | 8002→8000 | db, inventory |
+| consmat-v1-pricing | ./services/pricing-service | 8004→8000 | db, inventory |
+| consmat-v1-site | ./services/site-service | 8003→8000 | db, inventory |
+| consmat-v1-payment | ./services/payment-service | 8006→8000 | db |
+| consmat-v1-gateway | ./gateway | 8088→80 | all 6 services |
+| consmat-v1-hub-console | ./apps/hub-console | 8095→80 | gateway |
+| consmat-v1-spoke-app | ./apps/spoke-app | 8096→80 | gateway |
+| consmat-v1-consumer-portal | ./apps/consumer-portal | 8097→80 | gateway |
 
-Frontends serve static assets and reverse-proxy `/api` to the backend (same-origin), as in V0.
+All services: `python:3.11-slim`, healthcheck `GET /health`, `restart: unless-stopped`. Frontends/gateway:
+multi-stage node→`nginx:1.27-alpine`. Ports are overridable via `${*_PORT}` env.
+
+> Gateway host port is **8088** (8080 is taken by CVAT on the dev machine).
 
 ---
 
-## 4. Persistence (new in V1)
+## 3. Networking & Routing
 
-- **PostgreSQL** holds domain entities and the **append-only inventory ledger** ([LLD §5](./LLD.md#5-inventory--ledger)).
-- Requirements: transactional reserve/deduct (no oversell), auditable movements, migrations.
-- Seed/reference data (materials, phases, initial vendors) loaded via migration/seed scripts.
-- Connection via `DATABASE_URL`; schema migrations via a tool (Alembic or equivalent) — TBD.
+Three hops, all same-origin from the browser's perspective (no CORS needed for the apps):
+
+```
+browser → app nginx (static + /xxx proxy) → gateway (/api/<service>/) → service (/api/v1/)
+```
+
+- **App nginx** proxies path prefixes to the gateway, e.g. hub-console `/inv/* → gateway/api/inventory/*`, `/id/* → gateway/api/identity/*`, etc.
+- **Gateway** maps `/api/<service>/* → http://<service>:8000/api/v1/*` for identity/inventory/procurement/site/pricing/payment; adds central CORS; serves `/` (route index) and `/health`.
+- **Internal service-to-service** calls do **not** go through the gateway — they hit the target directly by compose service name (`http://inventory-service:8000`, `http://pricing-service:8000`) with a minted `service` JWT.
+- **External/programmatic clients** can call the gateway directly (`http://localhost:8088/api/...`) with CORS.
 
 ---
 
-## 5. Environment Configuration (planned)
+## 4. Persistence
+
+- **One PostgreSQL 16** container; **database per service** (identity, inventory, procurement, pricing, site, payment) on the same server (D10).
+- Each service **self-provisions** on start: `ensure_db` creates its database if absent → `alembic upgrade head` → seed (`entrypoint.sh`). No shared-volume init ordering needed.
+- Volume `pgdata`; wipe with `docker compose … down -v`.
+- Seeded data: materials + `per_sqft` (inventory), vendors + prices (procurement), margin rules
+  (pricing), 9 phases + demo spoke/consumer/coverage (site), demo users (identity).
+
+---
+
+## 5. Environment Configuration
+
+Compose substitution reads **`infra/.env`** (gitignored). A committed **`infra/.env.example`** documents it.
 
 | Variable | Purpose |
 |----------|---------|
-| `BACKEND_PORT`, `HUB_PORT`, `SPOKE_PORT`, `CONSUMER_PORT` | Host ports |
-| `DATABASE_URL` | PostgreSQL DSN (required in V1) |
-| `JWT_SECRET` | Auth signing secret |
-| `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL`, `AI_BASE_URL` | Procurement LLM (pluggable; `stub` disables) |
-| `PAYMENT_*`, `NOTIFY_API_KEY`, `OSRM_URL` | Optional integrations (stubbed initially) |
+| `JWT_SECRET` | Shared HS256 secret — every service must agree |
+| `DEMO_PASSWORD` | Seeded demo-user password (`consmat123`) |
+| `AI_PROVIDER` / `AI_API_KEY` / `AI_MODEL` / `AI_BASE_URL` | Hub LLM (procurement); **gemini + gemini-flash-lite-latest** |
+| `RAZORPAY_* / STRIPE_* / PAYU_* / CASHFREE_*` | Payment secrets (only if config.yaml selects that provider) |
+| `*_PORT` | Host port overrides |
 
-Secrets live only in `.env` (gitignored). A committed `.env.example` documents the variables.
+Per-service env (in compose): `DATABASE_URL`, `API_PREFIX`, `JWT_SECRET`, plus `INVENTORY_URL`/`PRICING_URL`
+for internal calls, and `AI_*` for procurement.
 
 ---
 
 ## 6. External Integrations
 
-| Integration | Status in V1 | Notes |
-|-------------|--------------|-------|
-| **Procurement LLM** | Planned/active | Advice only; deterministic fallback; free-tier quota caveats carry from V0 |
-| **Payment** | Stubbed | Adapter interface; consumer billing later |
-| **Logistics (hub→site)** | Basic first | Distance/ETA like V0; OSRM optional later |
-| **Notifications** | Off | Phase/dispatch alerts to spoke/consumer later |
+| Integration | Status | Notes |
+|-------------|--------|-------|
+| **Gemini LLM** | **Live** | Procurement advice; `gemini-flash-lite-latest`; free-tier quota; deterministic fallback |
+| **Payment gateway** | **Mock (active)** | `payment-service/config.yaml` `provider: mock` (settles instantly); razorpay/stripe/payu/cashfree are extension points reading env secrets |
+| **OSRM / notifications** | Not present in v1 | (were V0 concepts; not carried over) |
 
 ---
 
-## 7. Networking & Security
+## 7. Security
 
-- Same-origin frontends (nginx proxies `/api` → backend); CORS locked in non-local environments.
-- JWT bearer auth; role-scoped guards ([LLD §4](./LLD.md#4-roles--permissions)).
-- TLS terminated at ingress in production; secrets via environment, never committed.
-
----
-
-## 8. Build & Run (to be defined)
-
-Deployment scripts (`docker-compose.yml`, Dockerfiles) are added under `infra/` and each app directory
-as those steps are implemented. This section is a placeholder until the backend + DB land.
+| Area | As-built | Production note |
+|------|----------|-----------------|
+| Auth | JWT (HS256) issued by identity, validated per service; role guards | Rotate `JWT_SECRET`; short-lived tokens |
+| Secrets | `infra/.env` (gitignored); provider keys by env-var name from config.yaml | Use a secrets manager |
+| CORS | Central at the gateway | Restrict origins for prod |
+| Transport | Plain HTTP locally | Terminate TLS at the gateway/ingress |
+| Passwords | bcrypt | Enforce policy on real signups |
+| Payments | Mock; no real charge | Wire provider with webhook signature verification |
 
 ---
 
-## 9. Migration from V0
+## 8. Build & Run
 
-V1 is a clean rebuild, not an in-place migration. Reusable assets from V0:
-- Domain math (BOM coefficients, distance/logistics, cheapest-vendor selection → hub procurement).
-- The pluggable LLM provider abstraction (`AI_PROVIDER` + base-URL resolution).
-- Docker/nginx packaging patterns.
+```bash
+docker compose -f infra/docker-compose.yml up -d --build
+```
 
-Not carried over: the buyer-centric marketplace flows, the in-memory store, and the vendor-direct
-checkout.
+| Component | URL |
+|-----------|-----|
+| hub-console | http://localhost:8095 |
+| spoke-app | http://localhost:8096 |
+| consumer-portal | http://localhost:8097 |
+| API gateway | http://localhost:8088 (`/`, `/health`, `/api/...`) |
+| identity / inventory / procurement / site / pricing / payment | :8005 / :8001 / :8002 / :8003 / :8004 / :8006 (`/docs` each) |
+
+Demo logins (password `consmat123`): `manager@` `supervisor@` (hub) · `spoke@` `architect@` `civil@`
+(spoke) · `demo@` (consumer) · `admin@` `vendor@`. Tear down: `down` (add `-v` to wipe data).
+
+**Enable/verify the Hub LLM:** put a Gemini key on `AI_API_KEY=` in `infra/.env`, then
+`docker compose -f infra/docker-compose.yml up -d procurement-service`; check
+`GET /api/procurement/procurement/llm-status` (via gateway) → `live: true`.
+
+---
+
+## 9. Observability
+
+- Each service: `GET /health` (drives the Docker healthcheck) and Swagger at `/docs`.
+- Gateway: `GET /health` and `/` route index.
+- Hub LLM: `/procurement/llm-status`; LLM errors logged as `[hub-llm] ERROR …`.
+- Logs: `docker compose -f infra/docker-compose.yml logs -f <service>`.
+
+---
+
+## 10. Scaling & Limitations
+
+- **Database-per-service** already isolates state, but all databases share one Postgres instance — split to separate instances/clusters to scale independently.
+- **Single hub** simplifies v1; multi-hub would add hub routing to procurement/inventory.
+- Services are individually replicable behind the gateway once their Postgres is externalized.
+- The gateway is a single ingress (and a single point of failure) — run it replicated behind a load balancer for HA.
+- Internal calls are synchronous REST; event-driven flows (e.g. phase triggers) are a future option.
 
 ---
 

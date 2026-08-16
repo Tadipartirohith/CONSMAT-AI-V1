@@ -60,10 +60,10 @@ suppliers / vendors  ──►  HUB  ──►  SPOKE  ──►  retail consume
 
 ## Design documents
 
-- [**HLD**](./docs/HLD.md) — High-Level Design: architecture, actors, flows, modules.
-- [**LLD**](./docs/LLD.md) — Low-Level Design: domain & role model (first cut), phases, LLM procurement.
-- [**SLD**](./docs/SLD.md) — System-Level Design: deployment landscape, persistence, integrations.
-- [**DECISIONS**](./docs/DECISIONS.md) — decision log and open questions.
+- [**HLD**](./docs/HLD.md) — High-Level Design (as-built v1.0): architecture, actors, services, flows, auth.
+- [**LLD**](./docs/LLD.md) — Low-Level Design (as-built v1.0): data models, full API reference, algorithms, roles.
+- [**SLD**](./docs/SLD.md) — System-Level Design (as-built v1.0): deployment topology, networking, config, ops.
+- [**DECISIONS**](./docs/DECISIONS.md) — decision log (D1–D13) and open questions.
 
 ## Build roadmap (one step at a time)
 

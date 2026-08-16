@@ -1,306 +1,259 @@
 # Consmat AI V1 — Low-Level Design (LLD)
 
-> **Status:** 🟡 Design phase · **Version:** 0.1 · **Scope of this cut:** the **domain & role model**
-> (roadmap Step 1). API surface and service internals are added as later steps are designed.
+> **Status:** 🟢 As-built · **Version:** 1.0 · **API version:** `v1` (each service serves under `/api/v1`)
 
-This document defines the entities, relationships, roles, the 9-phase construction model, the inventory
-ledger, and the Hub LLM's procurement design. See [HLD.md](./HLD.md) for architecture and
-[DECISIONS.md](./DECISIONS.md) for decisions/open questions.
+Detailed internal design of the running system: services, data models, the full API surface, auth,
+domain algorithms, and cross-service calls. See [HLD.md](./HLD.md) for the big picture and
+[SLD.md](./SLD.md) for deployment.
 
 ---
 
 ## Table of Contents
-1. [Domain overview](#1-domain-overview)
-2. [Entity–relationship model](#2-entityrelationship-model)
-3. [Entity definitions](#3-entity-definitions)
-4. [Roles & permissions](#4-roles--permissions)
-5. [Inventory & ledger](#5-inventory--ledger)
-6. [Sites, phases & JIT demand](#6-sites-phases--jit-demand)
-7. [Hub LLM — procurement intelligence](#7-hub-llm--procurement-intelligence)
-8. [Pricing & margin](#8-pricing--margin)
-9. [Open design items](#9-open-design-items)
+1. [Service architecture](#1-service-architecture)
+2. [Data model](#2-data-model)
+3. [Domain algorithms](#3-domain-algorithms)
+4. [API reference](#4-api-reference)
+5. [Authentication & roles](#5-authentication--roles)
+6. [Hub LLM](#6-hub-llm)
+7. [Cross-service calls](#7-cross-service-calls)
+8. [Frontend internals](#8-frontend-internals)
+9. [Configuration](#9-configuration)
 
 ---
 
-## 1. Domain Overview
+## 1. Service Architecture
 
-The domain has three tiers — **upstream** (vendors), **hub** (inventory/procurement/pricing/dispatch),
-and **field** (spokes, sites, consumers). The hub is the only stock-holding node. Demand originates at
-sites and is satisfied phase by phase from hub inventory; the hub replenishes via procurement.
+Six FastAPI services, each with **its own database**, an identical stack, and the same layout
+(`app/` = FastAPI, `alembic/` = migrations, `Dockerfile`, `tests/`). Each service self-creates its DB,
+runs migrations, and seeds on start.
+
+| Service | Host port | Database | Purpose |
+|---------|-----------|----------|---------|
+| identity | 8005 | identity | Users, roles, JWT issuance |
+| inventory | 8001 | inventory | Materials catalog, stock + ledger |
+| procurement | 8002 | procurement | Vendors + prices, planning, LLM, orders |
+| pricing | 8004 | pricing | Margin rules, selling price |
+| site | 8003 | site | Spokes/consumers/sites, plans, phases, dispatch, backfill |
+| payment | 8006 | payment | Config-driven gateway, payments |
+
+Stack: **FastAPI 0.115 · SQLAlchemy 2.0 · Alembic · PostgreSQL · PyJWT** (+ bcrypt in identity, PyYAML in
+payment). LLM/HTTP calls use the Python stdlib `urllib`.
 
 ---
 
-## 2. Entity–Relationship Model
+## 2. Data Model
 
+Database-per-service; `material_id`, `consumer_id`, `spoke_id`, `vendor_id` are **opaque cross-service
+references** (no cross-DB foreign keys).
+
+### 2.1 identity
+- **users** — `id` (email, PK), `name`, `role`, `org_ref` (spoke/consumer/vendor id), `password_hash` (bcrypt), `active`.
+
+### 2.2 inventory
 ```mermaid
 erDiagram
-    HUB ||--o{ INVENTORY_ITEM : holds
-    INVENTORY_ITEM ||--o{ LEDGER_ENTRY : records
-    MATERIAL ||--o{ INVENTORY_ITEM : "stocked as"
-    HUB ||--o{ VENDOR : "registers"
+    MATERIAL ||--o| INVENTORY_ITEM : "stocked as"
+    MATERIAL ||--o{ LEDGER_ENTRY : records
+    MATERIAL { string id PK; string name; string unit; string grade; float per_sqft }
+    INVENTORY_ITEM { string material_id PK; num on_hand; num reserved; num avg_cost }
+    LEDGER_ENTRY { int id PK; string material_id; string direction; num qty; num unit_cost; num balance_after; string ref_type; string ref_id; datetime at }
+```
+`direction ∈ {inbound, outbound, adjustment}`; `on_hand` is the running sum of ledger `qty`.
+
+### 2.3 procurement
+```mermaid
+erDiagram
     VENDOR ||--o{ VENDOR_PRICE : "price list"
-    MATERIAL ||--o{ VENDOR_PRICE : "priced as"
-    HUB ||--o{ PROCUREMENT_ORDER : places
-    VENDOR ||--o{ PROCUREMENT_ORDER : fulfils
     PROCUREMENT_ORDER ||--|{ PROCUREMENT_LINE : contains
+    VENDOR { string id PK; string name; string city; bool is_hub_self; bool active }
+    VENDOR_PRICE { int id PK; string vendor_id; string material_id; num price; num min_qty }
+    PROCUREMENT_ORDER { int id PK; string status; num total_cost; datetime received_at }
+    PROCUREMENT_LINE { int id PK; int order_id; string material_id; string vendor_id; num qty; num unit_cost; bool received }
+```
+`ProcurementOrder.status ∈ {draft, approved, received, cancelled}`; `code = PO-{id}`.
 
+### 2.4 pricing
+- **margin_rules** — `id`, `material_id?` (NULL = any), `tier?` (NULL = any), `margin_pct`.
+
+### 2.5 site
+```mermaid
+erDiagram
+    SPOKE ||--o{ SPOKE_AREA : covers
     SPOKE ||--o{ CONSUMER : serves
-    SPOKE ||--|| ARCHITECT : "has"
-    SPOKE ||--|| CIVIL_ENGINEER : "has"
     CONSUMER ||--o{ SITE : owns
-    SITE ||--|| SITE_PLAN : "has"
-    SITE_PLAN ||--|| BOM : yields
-    BOM ||--|{ BOM_LINE : contains
+    SITE ||--|{ BOM_LINE : has
     SITE ||--|{ PHASE_PROGRESS : "tracked by"
-    PHASE ||--o{ PHASE_PROGRESS : "instance of"
-    SITE ||--o{ DISPATCH : "receives"
+    SITE ||--o{ DISPATCH : receives
     DISPATCH ||--|{ DISPATCH_LINE : contains
-    DISPATCH ||--o{ LEDGER_ENTRY : "outbound"
-
-    USER ||--o{ SPOKE : "spokesperson login"
-    USER ||--o{ HUB : "hub staff login"
-
-    MATERIAL {
-        string id PK
-        string name
-        string unit
-        string grade
-        float per_sqft
-    }
-    INVENTORY_ITEM {
-        string material_id FK
-        float on_hand
-        float reserved
-        float avg_cost
-    }
-    LEDGER_ENTRY {
-        string id PK
-        string material_id FK
-        string direction
-        float qty
-        float unit_cost
-        string ref_type
-        string ref_id
-        datetime at
-    }
-    VENDOR {
-        string id PK
-        string name
-        string city
-        bool is_hub_self
-        bool active
-    }
-    VENDOR_PRICE {
-        string vendor_id FK
-        string material_id FK
-        float price
-        float min_qty
-        datetime updated_at
-    }
-    PROCUREMENT_ORDER {
-        string id PK
-        string vendor_id FK
-        string status
-        float total_cost
-        datetime created_at
-    }
-    SPOKE {
-        string id PK
-        string name
-        string geofence
-        string spokesperson_user FK
-    }
-    CONSUMER {
-        string id PK
-        string name
-        string tier
-        string spoke_id FK
-    }
-    SITE {
-        string id PK
-        string consumer_id FK
-        float area_sqft
-        int floors
-        string current_phase
-        string status
-    }
-    BOM_LINE {
-        string material_id FK
-        float total_qty
-        string phase_weights
-    }
-    PHASE {
-        string id PK
-        int seq
-        string name
-        bool repeats_per_floor
-    }
-    PHASE_PROGRESS {
-        string site_id FK
-        string phase_id FK
-        int floor
-        string status
-        datetime completed_at
-    }
-    DISPATCH {
-        string id PK
-        string site_id FK
-        string phase_id FK
-        string status
-        datetime dispatched_at
-    }
+    SPOKE { string id PK; string name; string geofence; bool active }
+    SPOKE_AREA { int id PK; string spoke_id; string area }
+    CONSUMER { string id PK; string name; string tier; string spoke_id }
+    SITE { int id PK; string consumer_id; num area_sqft; int floors; string construction_type; string status; num total_area }
+    BOM_LINE { int id PK; int site_id; string material_id; num total_qty }
+    PHASE_PROGRESS { int id PK; int site_id; int phase_seq; string status; datetime completed_at }
+    DISPATCH { int id PK; int site_id; int phase_seq; string status }
+    DISPATCH_LINE { int id PK; int dispatch_id; string material_id; num qty; string status }
 ```
+`consumer.tier ∈ {individual, contractor, commercial, government}`; `phase_progress.status ∈ {pending,
+in_progress, done}`; `dispatch.status ∈ {dispatched, partial, pending}`; `dispatch_line.status ∈
+{dispatched, short}`. Reference table **phases** (9 rows, `seq, name, repeats_per_floor`).
+
+### 2.6 payment
+- **payments** — `id`, `ref` (e.g. `SITE-1`), `consumer_id`, `amount`, `currency`, `provider`,
+  `provider_ref`, `status ∈ {pending, paid, failed, refunded}`, `created_at`, `paid_at`; `code = PAY-{id}`.
 
 ---
 
-## 3. Entity Definitions
+## 3. Domain Algorithms
 
-### Upstream & hub
-- **Material** — `id, name, category, unit, grade, per_sqft` (BOM coefficient). The 5 base materials
-  (cement, TMT steel, sand, aggregate, bricks) carry from V0; extensible.
-- **Vendor** — `id, name, city, phone, gstin, active, is_hub_self` (`is_hub_self=true` models the hub's
-  own supply as a vendor). Registered and maintained by the hub.
-- **VendorPrice** — `vendor_id, material_id, price, min_qty, updated_at` — a vendor's quoted price for a
-  material (the "vendor list with their pricings"; the hub can add vendors/prices anytime).
-- **InventoryItem** — per material: `on_hand, reserved, avg_cost` (weighted-average cost for valuation).
-- **LedgerEntry** — immutable movement: `direction ∈ {inbound, outbound, adjustment}`, `qty, unit_cost,
-  ref_type ∈ {procurement, dispatch, adjustment}, ref_id, at`.
-- **ProcurementOrder** / **ProcurementLine** — hub buys from a vendor; lines are `{material_id, qty,
-  unit_cost}`. Receiving posts inbound ledger entries.
+### 3.1 Inventory (inventory-service)
+- **Weighted-average cost:** each inbound → `avg_cost = (on_hand·avg_cost + qty·unit_cost)/(on_hand+qty)`; outbound valued at `avg_cost`.
+- **Reservations:** `available = on_hand − reserved`; `reserve` holds without a ledger move; `outbound(from_reservation)` converts it.
+- **Guards:** oversell blocked (409); adjustments can't drive `on_hand` negative. Item row locked (`SELECT … FOR UPDATE`) during mutation.
+- **Ledger:** every movement appends one entry with `balance_after`; `on_hand` is reconstructable.
 
-### Field
-- **Spoke** — `id, name, geofence, spokesperson_user`; has one **Architect** and one **CivilEngineer**.
-- **Consumer** — `id, name, tier ∈ {individual, contractor, commercial, government}, spoke_id, contact`.
-- **Site** — `id, consumer_id, location, area_sqft, floors, current_phase, status`.
-- **SitePlan** — architect's plan for a site; yields the **BOM**.
-- **BOM** / **BOMLine** — `{material_id, total_qty, phase_weights}` where `phase_weights` distributes the
-  total across the 9 phases (see [§6](#6-sites-phases--jit-demand)).
-- **Phase** — the 9 canonical phases; `repeats_per_floor` true for RCC superstructure.
-- **PhaseProgress** — per site (and per floor where relevant): `status ∈ {pending, in_progress, done}`.
-- **Dispatch** / **DispatchLine** — hub → site shipment for a phase; posts outbound ledger entries.
+### 3.2 Procurement (procurement-service)
+- **Cheapest-source plan:** for each demand line, pick the cheapest **active** vendor from the market view; `line_cost = qty × price`; flag `below_min_qty`.
+- **Profitability:** with selling prices, per line `margin = sell − buy`; totals + `loss_making` flags.
 
-### Identity
-- **User** — `id, email, name, role, org_ref` (`org_ref` = spoke_id for field roles, hub for hub roles,
-  vendor_id for vendors). Roles in [§4](#4-roles--permissions).
+### 3.3 Pricing (pricing-service)
+- **Margin precedence:** `(material,tier) > (material,*) > (*,tier) > (*,*) > service default`.
+- **Selling price** = inventory `avg_cost` × (1 + margin%).
+
+### 3.4 BOM & 9-phase (site-service, `bom.py`)
+- **BOM total:** `qty = area_sqft × floors × per_sqft × type_mult` (economy 0.9 / standard 1.0 / premium 1.18); cement ceil, others round.
+- **9 phases:** excavation & footing · foundation & plinth · RCC superstructure (repeats/floor) · masonry · roofing/slab · internal plastering · external plastering · flooring & tiling · MEP & finishing.
+- **Phase slice:** each material's total distributed by a tunable weight matrix (sums to 1.0/material).
+
+### 3.5 Dispatch & backfill (site-service)
+- **Dispatch:** completing phase N computes phase N+1's slice and posts an `outbound` per material to inventory; a 409 marks that line `short` → dispatch `partial`/`pending` (the demand signal).
+- **Backfill:** `backfill_site` / `backfill_all` retry every `short` line against current stock; on success the line → `dispatched` and the dispatch status is recomputed (heals `partial` → `dispatched`). Idempotent.
+
+### 3.6 Geofence (site-service, `geofence.py`)
+- A spoke covers area keywords; a location is served by the spoke whose keyword appears in it (most specific wins). Intake auto-assigns the spoke.
 
 ---
 
-## 4. Roles & Permissions
+## 4. API Reference
 
-| Role | Scope | Can do | Cannot do |
-|------|-------|--------|-----------|
-| **hub_manager** | hub | Set prices/margin, approve procurement, manage vendor registry, manage hub staff, all hub reads | — |
-| **hub_supervisor** | hub | Execute inventory movements, run/receive procurement, dispatch to sites | Change pricing, add/remove staff, approve high-value procurement (TBD threshold) |
-| **spokesperson** | own spoke | Consumer intake & classification, manage own sites, view dispatch status | Access other spokes, hub inventory writes |
-| **architect** | own spoke | Create site plans → BOM | Modify phase progress, pricing |
-| **civil_engineer** | own spoke | Update phase progress (JIT trigger), site status | Create plans, pricing |
-| **consumer** | own sites | View own site status, orders, quotations | Any write beyond own requests |
-| **vendor** | own record | Maintain own price list, view own procurement orders | Anything hub-internal |
+All paths under `/api/v1`. Auth column: *any* = any authenticated user; otherwise the required role(s);
+*none* = public. Reads are generally *any*; writes are role-scoped.
 
-> The **manager vs supervisor** split (approval thresholds, which actions require manager sign-off) is an
-> open item — see [DECISIONS.md](./DECISIONS.md).
+### 4.1 identity
+| Method | Path | Auth |
+|--------|------|------|
+| POST | `/auth/login` | none |
+| GET | `/auth/me` | any |
+| GET / POST | `/users` | admin, hub_manager |
 
----
+### 4.2 inventory
+| Method | Path | Auth |
+|--------|------|------|
+| GET | `/materials` · `/inventory` · `/inventory/{m}` · `/inventory/{m}/ledger` · `/ledger` | any |
+| POST | `/inventory/inbound` · `/outbound` · `/adjust` · `/reserve` · `/release` | service, hub_supervisor, hub_manager |
 
-## 5. Inventory & Ledger
+### 4.3 procurement
+| Method | Path | Auth |
+|--------|------|------|
+| GET | `/vendors` · `/vendors/{id}` · `/prices/{m}` · `/procurement/orders` · `/procurement/llm-status` | any |
+| POST | `/vendors` · PUT `/vendors/{id}/prices` · PATCH/DELETE `/vendors/{id}` · DELETE price | hub_supervisor, hub_manager |
+| POST | `/procurement/plan` · `/procurement/analyze` | any |
+| POST | `/procurement/orders` · `/procurement/orders/{id}/receive` | hub_supervisor, hub_manager |
 
-The hub is the sole stock location (D3). Correctness rests on an **append-only ledger**; `on_hand` is
-the ledger's running sum and can be recomputed for audit.
+### 4.4 pricing
+| Method | Path | Auth |
+|--------|------|------|
+| GET | `/margins` · `/price/{m}?tier=` · `/selling-prices?tier=` · POST `/quote` | any |
+| PUT | `/margins` · DELETE `/margins/{id}` | hub_manager |
 
-```mermaid
-flowchart LR
-    PO["Procurement received"] -->|"+qty inbound"| L["LedgerEntry"]
-    D["Dispatch to site"] -->|"-qty outbound"| L
-    ADJ["Adjustment / wastage"] -->|"± adjustment"| L
-    L --> OH["InventoryItem.on_hand"]
-    L --> AC["InventoryItem.avg_cost (weighted)"]
-```
+### 4.5 site
+| Method | Path | Auth |
+|--------|------|------|
+| GET | `/phases` · `/spokes` · `/spokes/{id}` · `/spokes/{id}/sites` · `/spokes/{id}/dashboard` · `/consumers` · `/sites` · `/sites/{id}` | any |
+| POST | `/spokes` · `/spokes/{id}/areas` · `/consumers` · PATCH `/consumers/{id}` · `/intake` · `/sites` · `/sites/{id}/plan` · `/sites/{id}/start` · `/sites/{id}/phases/{seq}/complete` | spokesperson, architect, civil_engineer |
+| POST | `/sites/{id}/backfill` · `/backfill` | field roles + hub_supervisor, hub_manager |
 
-- **Reservation:** when a phase is scheduled, its materials are `reserved` (not yet outbound) to prevent
-  double-allocation; dispatch converts reservation → outbound.
-- **Valuation:** `avg_cost` updated on each inbound (weighted average) — feeds profitability analysis.
-- **Transactionality:** reserve/deduct must be atomic (DB transaction) to avoid oversell.
+### 4.6 payment
+| Method | Path | Auth |
+|--------|------|------|
+| GET | `/payments/config` · `/payments` · `/payments/{id}` | any |
+| POST | `/payments` · `/payments/{id}/confirm` | consumer, hub_manager, hub_supervisor, spokesperson |
 
----
-
-## 6. Sites, Phases & JIT Demand
-
-### 6.1 BOM derivation
-Total per-material quantity follows the V0 approach: `qty = area_sqft × floors × per_sqft ×
-type_multiplier`. The architect's plan may override/refine per site.
-
-### 6.2 The 9-phase model
-| Seq | Phase | Repeats/floor | Primary materials (indicative) |
-|-----|-------|---------------|--------------------------------|
-| 1 | Excavation & footing | no | (minimal — PCC: cement, aggregate, sand) |
-| 2 | Foundation & plinth beam | no | cement, steel, sand, aggregate, some bricks |
-| 3 | RCC superstructure | **yes** | cement, steel, aggregate, sand |
-| 4 | Masonry / brickwork | no | bricks, cement, sand |
-| 5 | Roofing / terrace slab | no | cement, steel, aggregate, sand |
-| 6 | Internal plastering | no | cement, sand |
-| 7 | External plastering | no | cement, sand |
-| 8 | Flooring & tiling | no | cement, sand (+ tiles, out of catalog) |
-| 9 | MEP & finishing | no | (minimal bulk — mostly fixtures, out of catalog) |
-
-Each `BOMLine.phase_weights` distributes that material's total across these phases (weights sum to 1.0).
-The exact coefficient matrix is **tunable** and will be pinned during Step 5 design.
-
-### 6.3 JIT trigger
-```mermaid
-stateDiagram-v2
-    [*] --> pending
-    pending --> in_progress: civil engineer starts phase
-    in_progress --> done: civil engineer marks complete
-    done --> next_dispatch: hub dispatches phase N+1 materials
-    next_dispatch --> [*]
-```
-Completing phase *N* computes phase *N+1*'s material slice from the BOM, reserves/deducts it from hub
-inventory, and creates a **Dispatch** (hub → site). Insufficient stock triggers **procurement**
-([§7](#7-hub-llm--procurement-intelligence)).
+*(admin bypasses all role checks.)*
 
 ---
 
-## 7. Hub LLM — Procurement Intelligence
+## 5. Authentication & Roles
 
-The LLM operates on the **procurement side** (successor to V0's buyer assistant). It advises; it never
-sets prices or stock.
+- **Issuance (identity):** `POST /auth/login` verifies bcrypt, returns a JWT — `{sub, role, name, org_ref, iat, exp}` (HS256, 24h).
+- **Validation (every service):** an identical `app/auth.py` decodes the token with the shared
+  `JWT_SECRET`; `current_user` (401 if missing/invalid), `require_role(*roles)` (403; admin bypass).
+- **Service tokens:** `service_token()` mints a short-lived `{role: service}` JWT for internal calls.
+- **Roles:** `admin, hub_manager, hub_supervisor, spokesperson, architect, civil_engineer, consumer,
+  vendor` (+ `service`).
 
-**Inputs:** a demand/BOM to fulfil, the **vendor registry + price lists**, current inventory `avg_cost`,
-and the hub's selling prices.
+| Area | Read | Write |
+|------|------|-------|
+| inventory | any | service / hub staff |
+| procurement (vendors, orders) | any | hub staff |
+| pricing (margins) | any | hub_manager |
+| site (field actions) | any | spoke team |
+| site (backfill) | any | spoke team + hub staff |
+| payment (create) | any | consumer / hub / spokesperson |
 
-**Outputs (structured):**
-- `profitability` — expected margin if fulfilled at current selling prices.
-- `alternatives` — substitute materials/grades or vendor mixes that improve margin.
-- `sourcing` — cheapest vendor(s)/quantities to procure (a market/price scan).
-- `recommendation` — a ranked procurement plan for hub approval.
-
-**Determinism boundary:** the LLM ranks and explains; the actual costs, quantities, and margins are
-computed by deterministic functions over vendor prices + inventory. Provider is pluggable
-(OpenAI-compatible incl. Gemini), consistent with V0's `AI_PROVIDER` abstraction. On any LLM error, the
-hub falls back to a deterministic cheapest-vendor selection (the V0 `split_fill` logic, relocated
-upstream).
-
----
-
-## 8. Pricing & Margin
-
-- **Selling price** is set by the hub (D1); modelled as `landed_cost + margin`, with margin potentially
-  keyed to **consumer tier** (D5: individual/contractor/commercial/government).
-- **Landed cost** for a site dispatch = weighted-average inventory cost + hub→site logistics.
-- The margin model (flat %, per-tier %, or per-material) is an **open item** — see
-  [DECISIONS.md](./DECISIONS.md).
+Demo users (password `consmat123`): `admin@`, `manager@`, `supervisor@`, `spoke@`, `architect@`,
+`civil@`, `demo@` (consumer), `vendor@` — all `@consmat.com`.
 
 ---
 
-## 9. Open Design Items
+## 6. Hub LLM
 
-Tracked in [DECISIONS.md](./DECISIONS.md); highlights:
-- Manager vs supervisor approval thresholds.
-- Exact phase→material weight matrix (Step 5).
-- Margin model (flat / per-tier / per-material).
-- Backend service boundaries (modular monolith vs services).
-- Database choice & schema migrations (Postgres assumed).
-- Whether the consumer portal is in V1 scope or later.
+- **Where:** procurement-service `app/llm.py`; endpoint `POST /procurement/analyze`, status `/procurement/llm-status`.
+- **Provider:** pluggable (`AI_PROVIDER` = stub | gemini | openai | groq | openrouter | openai-compat | anthropic); **live on `gemini` / `gemini-flash-lite-latest`**. Transport = stdlib `urllib`, `response_format=json_object`, temp 0.
+- **Input:** demand, deterministic plan, profitability, and the full market prices per material.
+- **Output (advice only):** `summary`, `profitability_note`, `alternatives[]`, `flags[]`, `recommendation`.
+- **Determinism boundary:** the LLM never computes money; on any error/quota it returns `None` and
+  `/analyze` reports `engine: deterministic`. Selling prices for profitability are fetched from
+  pricing-service when a `tier` is given.
+
+---
+
+## 7. Cross-Service Calls
+
+Internal calls go **directly** by service name (not via the gateway), each carrying a `service` token:
+
+| Caller | Callee | For |
+|--------|--------|-----|
+| procurement | inventory | `POST /inventory/inbound` (receive an order) |
+| procurement | pricing | `GET /selling-prices?tier=` (profitability) |
+| site | inventory | `GET /materials` (BOM coefficients), `POST /inventory/outbound` (dispatch) |
+| pricing | inventory | `GET /inventory/{m}` (landed `avg_cost`) |
+
+Configured via `INVENTORY_URL` / `PRICING_URL` env (e.g. `http://inventory-service:8000`).
+
+---
+
+## 8. Frontend Internals
+
+React 18 + Vite + Tailwind; each app: `src/api.js` (fetch wrapper attaching the JWT, 401 → logout),
+`src/auth.js` (login/token), a `Login` page, and role display. API paths (`/inv`, `/proc`, `/price`,
+`/pay`, `/site`, `/id`) are proxied by the app's nginx **to the gateway**.
+
+| App | Notable pages / actions |
+|-----|-------------------------|
+| hub-console | Overview (stock, margins, **network re-dispatch**), Inventory (inbound/ledger), Vendors (registry/prices/market), Procurement (plan/analyze **+ LLM advice**/order/receive), Pricing (rules/lookup), Payments |
+| spoke-app | Territory (dashboard), Intake (classify + geofence), Sites, Site detail (plan/start/complete phase **/ backfill**) |
+| consumer-portal | Projects, phase timeline + delivery status, **Pay for project** (price BOM at tier → pay) |
+
+---
+
+## 9. Configuration
+
+- **Catalog & BOM** — materials + `per_sqft` seeded in inventory; 9 phases + weight matrix in site (`bom.py`); construction-type multipliers in code.
+- **Pricing** — margin rules seeded (global 12%, per-tier 18/12/9/10, cement+individual 20%).
+- **Payments** — provider + API bases + secret **env-var names** in `payment-service/config.yaml`; secrets in env.
+- **AI + secrets** — `infra/.env` (gitignored): `JWT_SECRET`, `AI_PROVIDER/AI_API_KEY/AI_MODEL`, gateway/provider secrets.
+- **Ports & URLs** — see [SLD.md](./SLD.md).
 
 ---
 
