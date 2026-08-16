@@ -29,10 +29,12 @@ def plan(db: Session, demand: list[dict]) -> dict:
     total = Decimal("0")
     for d in demand:
         mid = d["material_id"]
+        pid = d.get("product_id") or ""
         qty = _dec(d["qty"])
-        market = service.market_prices(db, mid)  # cheapest first, active vendors only
+        # A specific product (brand) if requested; otherwise the cheapest brand for the material.
+        market = service.product_offers(db, pid) if pid else service.market_prices(db, mid)
         if not market:
-            unavailable.append(mid)
+            unavailable.append(pid or mid)
             continue
         best = market[0]
         unit_cost = _dec(best["price"])

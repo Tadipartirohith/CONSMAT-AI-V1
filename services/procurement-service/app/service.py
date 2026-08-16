@@ -180,3 +180,20 @@ def market_prices(db: Session, material_id: str) -> list[dict]:
          "city": v.city}
         for p, v in rows
     ]
+
+
+def product_offers(db: Session, product_id: str) -> list[dict]:
+    """Cheapest-first vendor offers for one specific product (brand SKU)."""
+    rows = db.execute(
+        select(models.VendorPrice, models.Vendor)
+        .join(models.Vendor, models.Vendor.id == models.VendorPrice.vendor_id)
+        .where(models.VendorPrice.product_id == product_id, models.Vendor.active.is_(True))
+        .order_by(models.VendorPrice.price.asc())
+    ).all()
+    return [
+        {"vendor_id": v.id, "vendor_name": v.name, "is_hub_self": v.is_hub_self,
+         "material_id": p.material_id, "product_id": p.product_id, "brand": p.brand,
+         "product_name": p.product_name, "price": float(p.price), "min_qty": float(p.min_qty),
+         "city": v.city}
+        for p, v in rows
+    ]

@@ -1,18 +1,28 @@
-import { useState } from "react";
-import { proc, MATERIALS, inr } from "../api.js";
+import { useEffect, useState } from "react";
+import { proc, inv, MATERIALS, inr } from "../api.js";
 import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync } from "../components/ui.jsx";
 
 export default function Procurement() {
   const orders = useAsync(() => proc.orders());
-  const [rows, setRows] = useState([{ material_id: "cement", qty: 200 }, { material_id: "steel", qty: 4 }]);
+  const products = useAsync(() => inv.products());
+  const [rows, setRows] = useState([]);
   const [result, setResult] = useState(null);
   const [msg, setMsg] = useState(null);
   const [busy, setBusy] = useState(false);
 
+  // seed a default demand (first cement + steel product) once the catalog loads
+  useEffect(() => {
+    if (products.data && rows.length === 0) {
+      const pick = (m, q) => { const p = products.data.find((x) => x.material_id === m); return p ? [{ product_id: p.id, product_name: p.name, material_id: m, qty: q }] : []; };
+      const init = [...pick("cement", 200), ...pick("steel", 4)];
+      if (init.length) setRows(init);
+    }
+  }, [products.data]); // eslint-disable-line
+
   const setRow = (i, k, v) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
-  const addRow = () => setRows([...rows, { material_id: "sand", qty: 10 }]);
   const delRow = (i) => setRows(rows.filter((_, j) => j !== i));
-  const demand = () => rows.map((r) => ({ material_id: r.material_id, qty: Number(r.qty) }));
+  const addRow = (prod, qty) => setRows([...rows, { product_id: prod.id, product_name: prod.name, material_id: prod.material_id, qty }]);
+  const demand = () => rows.map((r) => ({ material_id: r.material_id, product_id: r.product_id, qty: Number(r.qty) }));
 
   const analyze = async () => {
     setBusy(true); setMsg(null);
@@ -46,18 +56,17 @@ export default function Procurement() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Demand → cheapest-source plan">
           <div className="space-y-2">
+            {rows.length === 0 && <p className="text-xs text-muted">Search and add products to procure.</p>}
             {rows.map((r, i) => (
               <div key={i} className="flex items-center gap-2">
-                <Select value={r.material_id} onChange={(e) => setRow(i, "material_id", e.target.value)}>
-                  {MATERIALS.map((m) => <option key={m} value={m}>{m}</option>)}
-                </Select>
-                <Input type="number" step="any" value={r.qty} onChange={(e) => setRow(i, "qty", e.target.value)} />
+                <span className="flex-1 truncate text-sm text-white/80" title={r.product_name}>{r.product_name}</span>
+                <div className="w-24"><Input type="number" step="any" value={r.qty} onChange={(e) => setRow(i, "qty", e.target.value)} /></div>
                 <Button size="sm" variant="ghost" onClick={() => delRow(i)}>✕</Button>
               </div>
             ))}
-            <div className="flex items-center gap-2 pt-1">
-              <Button size="sm" variant="ghost" onClick={addRow}>+ material</Button>
-              <Button onClick={analyze} disabled={busy}>Analyze</Button>
+            <AddDemandRow products={products.data || []} onAdd={addRow} onReload={products.reload} />
+            <div className="flex pt-1">
+              <Button onClick={analyze} disabled={busy || rows.length === 0}>Analyze</Button>
             </div>
           </div>
         </Card>
@@ -101,7 +110,7 @@ export default function Procurement() {
               <Td mono>{o.code}</Td>
               <Td><Badge tone={o.status === "received" ? "ok" : "warn"}>{o.status}</Badge></Td>
               <Td mono>{inr(o.total_cost)}</Td>
-              <Td className="text-muted">{o.lines.map((l) => `${l.material_id}×${l.qty}`).join(", ")}</Td>
+              <Td className="text-muted">{o.lines.map((l) => `${l.product_name || l.material_id}×${l.qty}`).join(", ")}</Td>
               <Td>{o.status !== "received" && <Button size="sm" onClick={() => receive(o.id)} disabled={busy}>Receive</Button>}</Td>
             </tr>
           ))}
@@ -120,5 +129,59 @@ function Advice({ advice }) {
       {advice.recommendation && <p className="mt-1 text-white/80"><b>Recommendation:</b> {advice.recommendation}</p>}
       {advice.flags?.length > 0 && <p className="mt-1 text-[#f59e0b]">⚑ {advice.flags.join(" · ")}</p>}
     </div>
+  );
+}
+
+function AddDemandRow({ products, onAdd, onReload }) {
+  const [q, setQ] = useState("");
+  const [pid, setPid] = useState("");
+  const [qty, setQty] = useState(100);
+  const [showNew, setShowNew] = useState(false);
+  const ql = q.toLowerCase();
+  const filtered = products.filter((p) => !q || p.name.toLowerCase().includes(ql) || (p.brand || "").toLowerCase().includes(ql));
+  const add = () => {
+    const prod = products.find((p) => p.id === pid);
+    if (prod) { onAdd(prod, Number(qty)); setPid(""); setQ(""); }
+  };
+  return (
+    <div className="border-t border-border/50 pt-2">
+      <Input value={q} placeholder="search product by name… (e.g. ultratech, ppc, aac)" onChange={(e) => { setQ(e.target.value); setPid(""); }} />
+      <div className="mt-2 flex items-center gap-2">
+        <Select value={pid} onChange={(e) => setPid(e.target.value)}>
+          <option value="">{filtered.length ? "select product…" : "no match"}</option>
+          {filtered.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </Select>
+        <div className="w-24"><Input type="number" step="any" value={qty} onChange={(e) => setQty(e.target.value)} /></div>
+        <Button size="sm" onClick={add} disabled={!pid}>Add</Button>
+      </div>
+      <button type="button" onClick={() => setShowNew(!showNew)} className="mt-2 text-[11px] text-accent hover:underline">
+        {showNew ? "− cancel" : "+ New product not in the catalog?"}
+      </button>
+      {showNew && <NewProduct onDone={() => { onReload(); setShowNew(false); }} />}
+    </div>
+  );
+}
+
+function NewProduct({ onDone }) {
+  const [f, setF] = useState({ material_id: "cement", name: "", brand: "", grade: "" });
+  const [msg, setMsg] = useState(null);
+  const create = async (e) => {
+    e.preventDefault(); setMsg(null);
+    try { const p = await inv.createProduct(f); setMsg(`Added: ${p.name}`); onDone(); }
+    catch (e) { setMsg(e.message); }
+  };
+  return (
+    <form onSubmit={create} className="mt-2 space-y-2 border border-border/60 bg-panel2 p-2.5">
+      <div className="flex gap-2">
+        <Select value={f.material_id} onChange={(e) => setF({ ...f, material_id: e.target.value })}>{MATERIALS.map((m) => <option key={m} value={m}>{m}</option>)}</Select>
+        <Input value={f.brand} placeholder="brand" onChange={(e) => setF({ ...f, brand: e.target.value })} />
+      </div>
+      <Input value={f.name} placeholder="full product name" required onChange={(e) => setF({ ...f, name: e.target.value })} />
+      <div className="flex gap-2">
+        <Input value={f.grade} placeholder="grade (optional)" onChange={(e) => setF({ ...f, grade: e.target.value })} />
+        <Button size="sm" type="submit">Create</Button>
+      </div>
+      {msg && <p className="text-[11px] text-muted">{msg}</p>}
+    </form>
   );
 }

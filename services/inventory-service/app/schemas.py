@@ -27,6 +27,14 @@ class ProductOut(BaseModel):
     active: bool
 
 
+class ProductIn(BaseModel):
+    material_id: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    brand: str = ""
+    grade: str = ""
+    unit: str = ""
+
+
 class StockOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     material_id: str

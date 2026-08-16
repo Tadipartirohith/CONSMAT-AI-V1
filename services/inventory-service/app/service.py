@@ -137,6 +137,27 @@ def list_materials(db: Session) -> list[models.Material]:
     return list(db.execute(select(models.Material).order_by(models.Material.id)).scalars())
 
 
+def create_product(db: Session, material_id: str, name: str, brand: str = "",
+                   grade: str = "", unit: str = "") -> models.Product:
+    import re
+    mat = db.get(models.Material, material_id)
+    if mat is None:
+        raise ValueError(f"Unknown material: {material_id}")
+    if not name.strip():
+        raise ValueError("Product name is required")
+    base = f"{material_id}-" + (re.sub(r"[^a-z0-9]+", "-", (brand or name).lower()).strip("-")[:40] or "product")
+    pid, n = base, 1
+    while db.get(models.Product, pid) is not None:
+        n += 1
+        pid = f"{base}-{n}"
+    p = models.Product(id=pid, material_id=material_id, brand=brand.strip(), name=name.strip(),
+                       grade=grade.strip(), unit=unit.strip() or mat.unit)
+    db.add(p)
+    db.commit()
+    db.refresh(p)
+    return p
+
+
 def list_products(db: Session, material_id: str | None = None) -> list[models.Product]:
     stmt = select(models.Product).where(models.Product.active.is_(True)).order_by(models.Product.name)
     if material_id:

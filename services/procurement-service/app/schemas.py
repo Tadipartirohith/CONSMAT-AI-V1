@@ -102,6 +102,7 @@ class MarketPriceOut(BaseModel):
 
 class DemandLine(BaseModel):
     material_id: str = Field(min_length=1)
+    product_id: str = ""      # optional: procure this specific product (brand); else cheapest brand
     qty: float = Field(gt=0)
 
 

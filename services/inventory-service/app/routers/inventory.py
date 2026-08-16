@@ -38,6 +38,15 @@ def list_products(material_id: str | None = None, db: Session = Depends(get_db))
     return service.list_products(db, material_id)
 
 
+@router.post("/products", response_model=schemas.ProductOut, status_code=201, dependencies=[Depends(HUB_WRITE)])
+def create_product(body: schemas.ProductIn, db: Session = Depends(get_db)):
+    """Add a new branded product (SKU) to the catalog."""
+    try:
+        return service.create_product(db, body.material_id, body.name, body.brand, body.grade, body.unit)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
 @router.get("/products/{product_id}", response_model=schemas.ProductOut)
 def get_product(product_id: str, db: Session = Depends(get_db)):
     p = service.get_product(db, product_id)
