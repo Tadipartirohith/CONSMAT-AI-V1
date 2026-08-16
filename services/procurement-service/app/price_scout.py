@@ -66,13 +66,21 @@ _STUB = {
 
 
 _TAVILY_EXTRACT = (
-    "You are given raw web search results about construction-material prices in India. Extract the "
-    "current dealer/marketplace offers you can actually see in the results. Output STRICT JSON only: "
-    "{\"offers\": [{\"seller\": string, \"product\": string, \"price\": number (INR per the material's "
-    "usual unit), \"url\": string (the real source URL from the results), \"note\": string}]}. Use ONLY "
-    "prices present in the results — do not invent numbers. Keep each offer's real source URL. Convert "
-    "obvious per-tonne/per-bag units to the requested unit only when the result states it. 3-6 offers; "
-    "omit any you cannot price."
+    "You are given raw web search results (JSON) about construction-material prices in India, plus the "
+    "target pricing unit in the input's 'unit' field. Extract the current dealer/marketplace offers you "
+    "can actually see in the results, each priced per that unit. Output STRICT JSON only: {\"offers\": "
+    "[{\"seller\": string, \"product\": string, \"price\": number (INR per the input unit), \"url\": "
+    "string, \"note\": string}]}.\n"
+    "Rules:\n"
+    "- Use ONLY prices actually present in the results — never invent or estimate a number.\n"
+    "- seller, price and url must come from the SAME result — do not mix a price from one listing with a "
+    "seller/URL from another. If a result has no clear seller, use its site name.\n"
+    "- The price must be the FULL price for one input unit. REJECT teaser/partial values: 'starting "
+    "from', per-kg or per-piece figures presented for a bagged/bulk unit, EMIs, or a number implausibly "
+    "low for the unit (e.g. a per-kg rate mistaken for a full 50kg bag). If you cannot get a real "
+    "full-unit price for a result, omit it.\n"
+    "- In note, record anything qualifying the price (min order, 'starting from', location, date).\n"
+    "Return up to 6 offers; fewer clean offers is better than padding with dubious ones."
 )
 
 
