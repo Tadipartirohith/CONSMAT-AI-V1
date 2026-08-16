@@ -121,6 +121,19 @@ class DecideChangeIn(BaseModel):
     approve: bool
 
 
+class NotificationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    site_id: int
+    spoke_id: str
+    audience: str
+    phase_seq: int
+    kind: str
+    message: str
+    read: bool
+    created_at: datetime | None = None
+
+
 class DispatchLineOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     material_id: str

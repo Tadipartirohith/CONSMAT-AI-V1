@@ -14,6 +14,8 @@ from ..db import get_db
 FIELD = require_role("spokesperson", "architect", "civil_engineer")
 # Backfill is a dispatch action either side can trigger after a replenishment.
 BACKFILL = require_role("spokesperson", "architect", "civil_engineer", "hub_supervisor", "hub_manager")
+# Scheduling (phase dates) + oversight: the field team plus the hub, since the manager sits above the spoke.
+SCHEDULE = require_role("spokesperson", "architect", "civil_engineer", "hub_supervisor", "hub_manager")
 router = APIRouter(tags=["sites"], dependencies=[Depends(current_user)])
 
 
@@ -130,7 +132,7 @@ def set_bom(site_id: int, body: schemas.SetBomIn, db: Session = Depends(get_db))
     return _run(service.set_bom, db=db, site_id=site_id, lines=[l.model_dump() for l in body.lines])
 
 
-@router.post("/sites/{site_id}/phases/{seq}/dates", dependencies=[Depends(FIELD)])
+@router.post("/sites/{site_id}/phases/{seq}/dates", dependencies=[Depends(SCHEDULE)])
 def set_phase_dates(site_id: int, seq: int, body: schemas.PhaseDatesIn,
                     user: dict = Depends(current_user), db: Session = Depends(get_db)):
     """Set/modify a phase's planned start & end. A civil engineer's end-date change needs approval."""
@@ -175,3 +177,22 @@ def backfill_site(site_id: int, db: Session = Depends(get_db)):
 def backfill_all(db: Session = Depends(get_db)):
     """Network-wide backfill across all sites (hub action after a replenishment)."""
     return service.backfill_all(db)
+
+
+# ---- Notifications + JIT scheduler ----
+@router.get("/notifications", response_model=list[schemas.NotificationOut])
+def list_notifications(spoke_id: str | None = None, site_id: int | None = None,
+                       unread_only: bool = False, db: Session = Depends(get_db)):
+    """Field-team notifications (JIT dispatch warnings). Filter by spoke, site, or unread."""
+    return service.list_notifications(db, spoke_id=spoke_id, site_id=site_id, unread_only=unread_only)
+
+
+@router.post("/notifications/{notif_id}/read", response_model=schemas.NotificationOut)
+def read_notification(notif_id: int, db: Session = Depends(get_db)):
+    return _run(service.mark_notification_read, db=db, notif_id=notif_id)
+
+
+@router.post("/scheduler/tick", dependencies=[Depends(BACKFILL)])
+def scheduler_tick(db: Session = Depends(get_db)):
+    """Manually run one JIT scheduler pass (the same logic runs automatically in the background)."""
+    return service.run_scheduler_tick(db)

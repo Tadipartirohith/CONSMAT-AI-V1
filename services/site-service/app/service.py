@@ -356,21 +356,33 @@ def backfill_all(db: Session) -> dict:
     return {"sites": results}
 
 
+def _ensure_phase_dispatched(db: Session, site: models.Site, seq: int) -> models.Dispatch | None:
+    """Dispatch a phase's materials once (idempotent). The scheduler may pre-dispatch before the CE
+    completes the prior phase; this guard stops a second dispatch on completion."""
+    ph = _phase(site, seq)
+    if ph is None or ph.dispatched:
+        return None
+    dispatch = _dispatch_phase(db, site, seq)
+    ph.dispatched = True
+    return dispatch
+
+
 def start_site(db: Session, site_id: int) -> models.Dispatch:
     """Kick off construction: phase 1 in-progress + dispatch its materials."""
     site = db.get(models.Site, site_id)
     if site is None:
         raise SiteError(f"Unknown site: SITE-{site_id}")
     if not site.bom_lines:
-        raise SiteError("Generate a plan before starting the site")
+        raise SiteError("Enter a Bill of Materials before starting the site")
     p1 = _phase(site, 1)
     if p1 is None or p1.status != models.PH_PENDING:
         raise SiteError("Site already started")
     p1.status = models.PH_IN_PROGRESS
     site.status = "active"
-    dispatch = _dispatch_phase(db, site, 1)
+    dispatch = _ensure_phase_dispatched(db, site, 1)
     db.commit()
-    db.refresh(dispatch)
+    if dispatch is not None:
+        db.refresh(dispatch)
     return dispatch
 
 
@@ -393,7 +405,7 @@ def complete_phase(db: Session, site_id: int, seq: int) -> dict:
     dispatch = None
     if nxt is not None and nxt.status == models.PH_PENDING:
         nxt.status = models.PH_IN_PROGRESS
-        dispatch = _dispatch_phase(db, site, next_seq)
+        dispatch = _ensure_phase_dispatched(db, site, next_seq)  # skips if the scheduler pre-dispatched
     elif nxt is None:
         site.status = "completed"
     db.commit()
@@ -482,3 +494,75 @@ def decide_phase_change(db: Session, change_id: int, approve: bool, actor_role: 
     db.commit()
     db.refresh(chg)
     return chg
+
+
+# ---- Notifications + JIT scheduler ----
+
+def _notify(db: Session, site: models.Site, kind: str, message: str, *, phase_seq: int = 0,
+            audience: str = "field") -> models.Notification:
+    spoke_id = site.consumer.spoke_id if site.consumer else ""
+    n = models.Notification(site_id=site.id, spoke_id=spoke_id, audience=audience,
+                            phase_seq=phase_seq, kind=kind, message=message)
+    db.add(n)
+    return n
+
+
+def list_notifications(db: Session, *, spoke_id: str | None = None, site_id: int | None = None,
+                       unread_only: bool = False) -> list[models.Notification]:
+    stmt = select(models.Notification).order_by(models.Notification.id.desc())
+    if spoke_id:
+        stmt = stmt.where(models.Notification.spoke_id == spoke_id)
+    if site_id is not None:
+        stmt = stmt.where(models.Notification.site_id == site_id)
+    if unread_only:
+        stmt = stmt.where(models.Notification.read.is_(False))
+    return list(db.execute(stmt.limit(100)).scalars())
+
+
+def mark_notification_read(db: Session, notif_id: int) -> models.Notification:
+    n = db.get(models.Notification, notif_id)
+    if n is None:
+        raise SiteError(f"Unknown notification: {notif_id}")
+    n.read = True
+    db.commit()
+    db.refresh(n)
+    return n
+
+
+def run_scheduler_tick(db: Session, *, today=None, notice_days: int = 3, dispatch_days: int = 2) -> dict:
+    """JIT scheduler: for each active site, warn the field team ~3 days before the current phase's end
+    date and pre-dispatch the next phase's materials ~1 day later, so construction is never halted."""
+    from datetime import date as _date
+    today = today or _date.today()
+    actions: list[dict] = []
+    for site in db.execute(select(models.Site).where(models.Site.status == "active")).scalars():
+        cur = next((p for p in site.phases if p.status == models.PH_IN_PROGRESS), None)
+        if cur is None or cur.planned_end is None:
+            continue
+        nxt = _phase(site, cur.phase_seq + 1)
+        if nxt is None or nxt.dispatched:
+            continue
+        days_left = (cur.planned_end - today).days
+        if days_left <= notice_days:
+            warned = db.execute(select(models.Notification).where(
+                models.Notification.site_id == site.id,
+                models.Notification.phase_seq == nxt.phase_seq,
+                models.Notification.kind == "dispatch_pending")).first()
+            if not warned:
+                _notify(db, site, "dispatch_pending",
+                        f"Phase {cur.phase_seq} ends {cur.planned_end}. Dispatching phase "
+                        f"{nxt.phase_seq} materials within a day so work is not halted.",
+                        phase_seq=nxt.phase_seq)
+                actions.append({"site": site.code, "kind": "dispatch_pending", "phase": nxt.phase_seq})
+        if days_left <= dispatch_days:
+            dispatch = _ensure_phase_dispatched(db, site, nxt.phase_seq)
+            if dispatch is not None:
+                shorts = [l.product_name or l.material_id for l in dispatch.lines if l.status == "short"]
+                msg = f"Phase {nxt.phase_seq} materials dispatched ({dispatch.code})."
+                if shorts:
+                    msg += f" Short: {', '.join(shorts)} (procurement needed)."
+                _notify(db, site, "dispatched", msg, phase_seq=nxt.phase_seq)
+                actions.append({"site": site.code, "kind": "dispatched", "phase": nxt.phase_seq,
+                                "dispatch": dispatch.code})
+    db.commit()
+    return {"ran_at": str(today), "actions": actions}

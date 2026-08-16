@@ -144,6 +144,24 @@ class PhaseDateChange(Base):
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class Notification(Base):
+    """A message to the field team (civil engineer / spokesperson) about a site.
+
+    Written by the JIT scheduler: 3 days before a phase's end it warns that next-phase stock is about
+    to dispatch, and again when the stock is dispatched, so work is never halted for want of material.
+    """
+    __tablename__ = "notifications"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    site_id: Mapped[int] = mapped_column(ForeignKey("sites.id"), index=True)
+    spoke_id: Mapped[str] = mapped_column(String(48), default="", index=True)
+    audience: Mapped[str] = mapped_column(String(24), default="field")  # field|civil_engineer|spokesperson
+    phase_seq: Mapped[int] = mapped_column(Integer, default=0)
+    kind: Mapped[str] = mapped_column(String(32), default="")  # dispatch_pending|dispatched|low_stock
+    message: Mapped[str] = mapped_column(String(300), default="")
+    read: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class Dispatch(Base):
     __tablename__ = "dispatches"
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
