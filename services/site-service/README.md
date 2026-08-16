@@ -34,8 +34,22 @@ FastAPI · SQLAlchemy 2.0 · Alembic · PostgreSQL (own database, per D10).
 | POST | `/sites/{id}/plan` | Architect: generate BOM + phases |
 | POST | `/sites/{id}/start` | Begin: dispatch phase 1 |
 | POST | `/sites/{id}/phases/{seq}/complete` | Civil engineer: complete phase → JIT dispatch next |
+| GET | `/spokes/{id}` | Spoke detail + coverage areas |
+| POST | `/spokes/{id}/areas` | Add a geofence coverage keyword |
+| GET | `/spokes/{id}/sites` | Territory sites (via the spoke's consumers) |
+| GET | `/spokes/{id}/dashboard` | Territory summary: consumers by tier, sites by status, shortfalls needing attention |
+| POST | `/intake` | Consumer intake → classify + auto-assign spoke by geofence |
+| PATCH | `/consumers/{id}` | Reclassify tier / update phone |
 
 Interactive docs at `/docs`. Health at `/health`.
+
+## Spoke ops (Step 6)
+- **Geofence (Q7):** each spoke covers area keywords; a location is served by the spoke whose covered
+  keyword appears in it (most specific wins). `POST /spokes/{id}/areas` manages coverage.
+- **Intake:** `POST /intake {name, tier, location}` classifies the consumer and **auto-assigns** the
+  serving spoke by geofence (fails if no spoke covers the location).
+- **Territory view:** `/spokes/{id}/dashboard` gives the spokesperson their consumers (by tier), sites
+  (by status), and any dispatches with material shortfalls to chase.
 
 ## Run (via infra compose)
 ```bash

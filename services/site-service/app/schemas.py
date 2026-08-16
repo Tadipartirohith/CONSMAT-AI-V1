@@ -19,6 +19,31 @@ class SpokeOut(BaseModel):
     active: bool
 
 
+class AreaIn(BaseModel):
+    area: str = Field(min_length=1)
+
+
+class SpokeDetailOut(SpokeOut):
+    areas: list[str] = []
+
+    @classmethod
+    def from_spoke(cls, spoke) -> "SpokeDetailOut":
+        return cls(id=spoke.id, name=spoke.name, geofence=spoke.geofence, active=spoke.active,
+                   areas=[a.area for a in spoke.areas])
+
+
+class IntakeIn(BaseModel):
+    name: str = Field(min_length=1)
+    tier: str = "individual"
+    location: str = Field(min_length=1)
+    phone: str = ""
+
+
+class ConsumerUpdate(BaseModel):
+    tier: str | None = None
+    phone: str | None = None
+
+
 class ConsumerIn(BaseModel):
     name: str = Field(min_length=1)
     tier: str = "individual"

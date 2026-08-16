@@ -45,7 +45,7 @@ design each roadmap step. Date format: YYYY-MM-DD.
 | ~~Q11~~ | ~~Material/catalog ownership~~ → **Resolved: inventory-service owns the catalog and exposes `GET /materials`; other services reference `material_id` as an opaque string (no cross-service FK). Extract a catalog-service later if it grows.** | Architecture | ✅ |
 | Q12 | Inter-service auth: shared-secret JWT validated per service vs a dedicated identity-service issuing tokens | Security | Step 3 |
 | Q6 | Is the consumer portal in V1 scope, or spoke-mediated only at first? | Frontends | Step 8 |
-| Q7 | Site geolocation & spoke geofencing method (how a site maps to a spoke) | Spoke ops | Step 6 |
+| ~~Q7~~ | ~~Site geolocation & spoke geofencing~~ → **Resolved: area-keyword matching (spoke covers keywords; location served by the spoke whose keyword appears, most-specific wins). Lat/lng deferred.** | Spoke ops | ✅ |
 | Q8 | Procurement approval workflow (auto vs manual, and who) | Procurement | Step 4 |
 | Q9 | Materials catalog beyond the 5 base items (tiles, cement types, MEP) | Catalog | later |
 | Q10 | Credit terms per consumer tier | Pricing/finance | later |

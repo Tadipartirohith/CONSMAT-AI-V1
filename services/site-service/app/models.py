@@ -36,6 +36,18 @@ class Spoke(Base):
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     consumers: Mapped[list["Consumer"]] = relationship(back_populates="spoke")
+    areas: Mapped[list["SpokeArea"]] = relationship(back_populates="spoke", cascade="all, delete-orphan")
+
+
+class SpokeArea(Base):
+    """A location keyword the spoke covers (its geofence). A site whose location contains this
+    keyword is served by this spoke (Q7)."""
+    __tablename__ = "spoke_areas"
+    __table_args__ = (UniqueConstraint("spoke_id", "area", name="uq_spoke_area"),)
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    spoke_id: Mapped[str] = mapped_column(ForeignKey("spokes.id"), index=True)
+    area: Mapped[str] = mapped_column(String(80), nullable=False)
+    spoke: Mapped["Spoke"] = relationship(back_populates="areas")
 
 
 class Consumer(Base):
