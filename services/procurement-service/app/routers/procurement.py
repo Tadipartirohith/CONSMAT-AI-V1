@@ -42,15 +42,16 @@ def make_plan(body: schemas.PlanIn, db: Session = Depends(get_db)):
 def analyze(body: schemas.AnalyzeIn, db: Session = Depends(get_db)):
     """Deterministic plan + profitability, with optional Hub LLM advice layered on top.
 
-    If `selling_prices` is omitted but a `tier` is given, they are fetched from pricing-service so the
-    profitability reflects the hub's real selling prices."""
+    Procurement is tier-agnostic: it buys at the cheapest source regardless of consumer. Profitability is
+    a reference lens — computed against the hub's LIST price (pricing-service, no tier) unless explicit
+    `selling_prices` are supplied."""
     demand = [d.model_dump() for d in body.demand]
     result = procurement_engine.plan(db, demand)
     selling = body.selling_prices
     price_source = "provided" if selling else None
-    if selling is None and body.tier:
-        selling = pricing_client.selling_prices(body.tier)
-        price_source = "pricing-service" if selling else "unavailable"
+    if selling is None:
+        selling = pricing_client.selling_prices(None)  # list price (no tier)
+        price_source = "list-price" if selling else "unavailable"
     profit = procurement_engine.profitability(result, selling)
     # Market context for the LLM (all vendors per material, not just the chosen one).
     market = {d["material_id"]: service.market_prices(db, d["material_id"]) for d in demand}

@@ -1,11 +1,10 @@
 import { useState } from "react";
-import { proc, MATERIALS, TIERS, inr } from "../api.js";
+import { proc, MATERIALS, inr } from "../api.js";
 import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync } from "../components/ui.jsx";
 
 export default function Procurement() {
   const orders = useAsync(() => proc.orders());
   const [rows, setRows] = useState([{ material_id: "cement", qty: 200 }, { material_id: "steel", qty: 4 }]);
-  const [tier, setTier] = useState("individual");
   const [result, setResult] = useState(null);
   const [msg, setMsg] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -17,7 +16,7 @@ export default function Procurement() {
 
   const analyze = async () => {
     setBusy(true); setMsg(null);
-    try { setResult(await proc.analyze({ demand: demand(), tier })); }
+    try { setResult(await proc.analyze({ demand: demand() })); }
     catch (e) { setMsg(e.message); } finally { setBusy(false); }
   };
 
@@ -58,11 +57,7 @@ export default function Procurement() {
             ))}
             <div className="flex items-center gap-2 pt-1">
               <Button size="sm" variant="ghost" onClick={addRow}>+ material</Button>
-              <div className="ml-auto flex items-center gap-2">
-                <span className="text-[11px] uppercase text-muted">tier</span>
-                <Select value={tier} onChange={(e) => setTier(e.target.value)}>{TIERS.map((t) => <option key={t} value={t}>{t}</option>)}</Select>
-                <Button onClick={analyze} disabled={busy}>Analyze</Button>
-              </div>
+              <Button onClick={analyze} disabled={busy}>Analyze</Button>
             </div>
           </div>
         </Card>
@@ -85,11 +80,11 @@ export default function Procurement() {
               <div className="mt-3 flex flex-wrap items-center gap-4 text-sm">
                 <span>Buy total: <span className="font-mono text-white">{inr(result.plan.total_cost)}</span></span>
                 {p && <>
-                  <span>Sell: <span className="font-mono text-white">{inr(p.sell_total)}</span></span>
+                  <span>Sell @ list: <span className="font-mono text-white">{inr(p.sell_total)}</span></span>
                   <span>Margin: <span className={`font-mono ${p.profitable ? "text-emerald-400" : "text-red-400"}`}>{inr(p.margin_total)} ({p.margin_pct}%)</span></span>
                   <Badge tone={p.profitable ? "ok" : "bad"}>{p.profitable ? "profitable" : "loss"}</Badge>
                 </>}
-                <span className="text-[11px] text-muted">prices: {result.price_source || "—"}</span>
+                <span className="text-[11px] text-muted">profitability vs {result.price_source || "—"}</span>
                 <Button size="sm" onClick={createOrder} disabled={busy || !result.plan.lines.length}>Create order</Button>
               </div>
               {result.advice && <Advice advice={result.advice} />}

@@ -81,9 +81,9 @@ class PlanIn(BaseModel):
 
 class AnalyzeIn(BaseModel):
     demand: list[DemandLine] = Field(min_length=1)
+    # Procurement is tier-agnostic (buying doesn't depend on who we sell to). Profitability is a
+    # reference lens: computed against the hub's LIST price unless explicit selling_prices are given.
     selling_prices: dict[str, float] | None = None
-    # if selling_prices is omitted but a tier is given, fetch prices from pricing-service
-    tier: str | None = None
 
 
 class OrderLineIn(BaseModel):
