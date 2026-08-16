@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from . import models, service
-from .inventory_client import InventoryUnavailable, post_inbound
+from .inventory_client import InventoryUnavailable, post_inbound, post_product_inbound
 
 
 def _dec(x) -> Decimal:
@@ -69,12 +69,16 @@ def receive_order(db: Session, order_id: int) -> models.ProcurementOrder:
         if line.received:
             continue
         try:
-            post_inbound(line.material_id, float(line.qty), float(line.unit_cost), order.code)
+            # Brand-level receipt when the line names a product; else the legacy material-level path.
+            if getattr(line, "product_id", ""):
+                post_product_inbound(line.product_id, float(line.qty), float(line.unit_cost), order.code)
+            else:
+                post_inbound(line.material_id, float(line.qty), float(line.unit_cost), order.code)
         except InventoryUnavailable as e:
             db.commit()  # persist any lines already marked received this run
             raise service.ProcurementError(
                 f"Received {sum(1 for l in order.lines if l.received)}/{len(order.lines)} lines; "
-                f"stopped at {line.material_id}: {e}"
+                f"stopped at {line.product_id or line.material_id}: {e}"
             )
         line.received = True
 
