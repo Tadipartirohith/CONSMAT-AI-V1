@@ -44,8 +44,8 @@ export default function Project({ me }) {
         <ol className="space-y-2">
           {phases.map((p) => {
             const d = dispatchByPhase[p.phase_seq];
-            const delivered = d?.lines.filter((l) => l.status !== "short").map((l) => l.material_id) || [];
-            const awaiting = d?.lines.filter((l) => l.status === "short").map((l) => l.material_id) || [];
+            const delivered = d?.lines.filter((l) => l.status !== "short").map((l) => l.product_name || l.material_id) || [];
+            const awaiting = d?.lines.filter((l) => l.status === "short").map((l) => l.product_name || l.material_id) || [];
             const dot = p.status === "done" ? "bg-accent" : p.status === "in_progress" ? "bg-[#f59e0b] animate-pulse" : "bg-border";
             return (
               <li key={p.phase_seq} className="flex gap-3">

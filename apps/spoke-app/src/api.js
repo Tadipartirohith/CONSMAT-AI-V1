@@ -3,6 +3,12 @@ import { authHeader, logout } from "./auth.js";
 
 const BASES = { site: "/site", inv: "/inv" };
 
+export const PHASE_NAMES = {
+  1: "Excavation & footing", 2: "Foundation & plinth beam", 3: "RCC superstructure",
+  4: "Masonry / brickwork", 5: "Roofing / terrace slab", 6: "Internal plastering",
+  7: "External plastering", 8: "Flooring & tiling", 9: "MEP & finishing",
+};
+
 async function req(base, path, opts = {}) {
   const res = await fetch(BASES[base] + path, {
     headers: { "Content-Type": "application/json", ...authHeader() },
@@ -37,6 +43,11 @@ export const site = {
   siteDetail: (id) => req("site", `/sites/${id}`),
   createSite: (b) => req("site", "/sites", body(b)),
   plan: (id) => req("site", `/sites/${id}/plan`, { method: "POST" }),
+  setBom: (id, lines) => req("site", `/sites/${id}/bom`, body({ lines })),
+  setPhaseDates: (id, seq, b) => req("site", `/sites/${id}/phases/${seq}/dates`, body(b)),
+  phaseChanges: (siteId) => req("site", `/phase-changes?site_id=${siteId}`),
+  decideChange: (id, approve) => req("site", `/phase-changes/${id}/decide`, body({ approve })),
+  notifications: (spokeId) => req("site", `/notifications${spokeId ? `?spoke_id=${spokeId}` : ""}`),
   start: (id) => req("site", `/sites/${id}/start`, { method: "POST" }),
   completePhase: (id, seq) => req("site", `/sites/${id}/phases/${seq}/complete`, { method: "POST" }),
   backfill: (id) => req("site", `/sites/${id}/backfill`, { method: "POST" }),
@@ -44,6 +55,8 @@ export const site = {
 
 export const inv = {
   stock: () => req("inv", "/inventory"),
+  products: (m) => req("inv", `/products${m ? `?material_id=${m}` : ""}`),
+  searchProducts: (q) => req("inv", `/products/search?q=${encodeURIComponent(q)}`),
 };
 
 export const TIERS = ["individual", "contractor", "commercial", "government"];

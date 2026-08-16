@@ -1,24 +1,21 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { site } from "../api.js";
-import { Card, Table, Td, Badge, Button, useAsync } from "../components/ui.jsx";
-
-const PHASE_NAMES = {
-  1: "Excavation & footing", 2: "Foundation & plinth", 3: "RCC superstructure",
-  4: "Masonry / brickwork", 5: "Roofing / slab", 6: "Internal plastering",
-  7: "External plastering", 8: "Flooring & tiling", 9: "MEP & finishing",
-};
+import { site, inv, PHASE_NAMES } from "../api.js";
+import { Card, Table, Td, Badge, Button, Input, Select, useAsync } from "../components/ui.jsx";
 
 export default function SiteDetail() {
   const { id } = useParams();
   const detail = useAsync(() => site.siteDetail(id), [id]);
+  const changes = useAsync(() => site.phaseChanges(id), [id]);
+  const notifs = useAsync(() => site.notifications(), [id]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
 
   const s = detail.data;
+  const reloadAll = () => { detail.reload(); changes.reload(); notifs.reload(); };
   const act = async (fn, label) => {
     setBusy(true); setMsg(null);
-    try { await fn(); setMsg({ ok: true, text: `${label} done.` }); detail.reload(); }
+    try { await fn(); setMsg({ ok: true, text: `${label} done.` }); reloadAll(); }
     catch (e) { setMsg({ ok: false, text: e.message }); } finally { setBusy(false); }
   };
 
@@ -26,10 +23,11 @@ export default function SiteDetail() {
   if (!s) return <p className="text-sm text-muted">Loading…</p>;
 
   const planned = s.bom_lines.length > 0;
+  const editable = s.status === "planning" || s.status === "planned";
   const phase1 = s.phases.find((p) => p.phase_seq === 1);
-  const inProgress = s.phases.find((p) => p.status === "in_progress");
   const notStarted = planned && phase1 && phase1.status === "pending";
   const hasShorts = s.dispatches.some((d) => d.lines.some((l) => l.status === "short"));
+  const pending = (changes.data || []).filter((c) => c.status === "pending");
 
   return (
     <div className="space-y-5">
@@ -37,6 +35,9 @@ export default function SiteDetail() {
         <Link to="/sites" className="text-sm text-muted hover:text-white">← Sites</Link>
         <h1 className="font-head text-2xl font-extrabold text-white">{s.code}</h1>
         <Badge tone={s.status === "completed" ? "ok" : s.status === "active" ? "accent" : "muted"}>{s.status}</Badge>
+        <div className="ml-auto">
+          {notStarted && <Button onClick={() => act(() => site.start(id), "Started")} disabled={busy}>Start construction</Button>}
+        </div>
       </div>
       {msg && <p className={`text-xs ${msg.ok ? "text-emerald-400" : "text-red-400"}`}>{msg.text}</p>}
 
@@ -45,55 +46,43 @@ export default function SiteDetail() {
         <Info label="Location" value={s.location || "-"} />
         <Info label="Area" value={`${s.area_sqft} sqft × ${s.floors} floor(s)`} />
         <Info label="Type" value={s.construction_type} />
-        <Info label="Built-up" value={`${s.total_area} sqft`} />
-        <div className="ml-auto flex items-center gap-2">
-          {!planned && <Button onClick={() => act(() => site.plan(id), "Plan generated")} disabled={busy}>Generate plan (architect)</Button>}
-          {notStarted && <Button onClick={() => act(() => site.start(id), "Started")} disabled={busy}>Start construction</Button>}
-        </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="Bill of materials">
-          {!planned ? <p className="text-sm text-muted">No plan yet, the architect must generate the BOM.</p> : (
-            <Table head={["Material", "Total qty"]}>
-              {s.bom_lines.map((b) => (
-                <tr key={b.material_id} className="border-b border-border/50">
-                  <Td>{b.material_id}</Td>
-                  <Td mono>{b.total_qty}</Td>
-                </tr>
-              ))}
-            </Table>
-          )}
+      {pending.length > 0 && (
+        <Card title="Phase date changes awaiting your approval">
+          {pending.map((c) => (
+            <div key={c.id} className="flex flex-wrap items-center gap-3 border-b border-border/50 py-2 text-sm">
+              <span className="text-white/80">Phase {c.phase_seq} ({PHASE_NAMES[c.phase_seq]}): end {c.old_end || "?"} → <b>{c.new_end}</b></span>
+              <span className="text-muted">by {c.requested_by || c.requested_by_role}</span>
+              <div className="ml-auto flex gap-2">
+                <Button size="sm" onClick={() => act(() => site.decideChange(c.id, true), "Approved")} disabled={busy}>Approve</Button>
+                <Button size="sm" variant="ghost" onClick={() => act(() => site.decideChange(c.id, false), "Rejected")} disabled={busy}>Reject</Button>
+              </div>
+            </div>
+          ))}
         </Card>
+      )}
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <BomCard siteId={id} lines={s.bom_lines} editable={editable} onSaved={(t) => { setMsg({ ok: true, text: t }); reloadAll(); }} />
 
         <Card title="Construction phases">
           <div className="space-y-1.5">
-            {s.phases.sort((a, b) => a.phase_seq - b.phase_seq).map((p) => (
-              <div key={p.phase_seq} className="flex items-center gap-3 border border-border/60 bg-panel2 px-3 py-2">
-                <span className="w-5 font-mono text-xs text-muted">{p.phase_seq}</span>
-                <span className="flex-1 text-sm text-white/80">{PHASE_NAMES[p.phase_seq]}</span>
-                <Badge tone={p.status === "done" ? "ok" : p.status === "in_progress" ? "accent" : "muted"}>{p.status}</Badge>
-                {p.status === "in_progress" && (
-                  <Button size="sm" onClick={() => act(() => site.completePhase(id, p.phase_seq), `Phase ${p.phase_seq} completed`)} disabled={busy}>
-                    Complete (civil eng.)
-                  </Button>
-                )}
-              </div>
+            {s.phases.slice().sort((a, b) => a.phase_seq - b.phase_seq).map((p) => (
+              <PhaseRow key={p.phase_seq} siteId={id} phase={p} busy={busy}
+                onComplete={() => act(() => site.completePhase(id, p.phase_seq), `Phase ${p.phase_seq} completed`)}
+                onDates={(b) => act(() => site.setPhaseDates(id, p.phase_seq, b), `Phase ${p.phase_seq} dates`)} />
             ))}
           </div>
-          {inProgress && <p className="mt-2 text-[11px] text-muted">Completing a phase triggers hub dispatch of the next phase's materials.</p>}
+          <p className="mt-2 text-[11px] text-muted">A civil engineer's change to a phase end date needs spoke or manager approval. The hub auto-dispatches the next phase ~1 day before the current one ends.</p>
         </Card>
       </div>
 
       <Card title="Dispatches (hub → site)"
-        right={hasShorts && (
-          <Button size="sm" onClick={() => act(() => site.backfill(id), "Backfill")} disabled={busy}>
-            Backfill shortfalls
-          </Button>
-        )}>
+        right={hasShorts && <Button size="sm" onClick={() => act(() => site.backfill(id), "Backfill")} disabled={busy}>Backfill shortfalls</Button>}>
         {s.dispatches.length === 0 ? <p className="text-sm text-muted">No dispatches yet.</p> : (
           <div className="space-y-2">
-            {s.dispatches.sort((a, b) => a.phase_seq - b.phase_seq).map((d) => (
+            {s.dispatches.slice().sort((a, b) => a.phase_seq - b.phase_seq).map((d) => (
               <div key={d.id} className="border border-border/60 bg-panel2 p-3">
                 <div className="mb-1.5 flex items-center gap-2 text-sm">
                   <span className="font-mono text-white">{d.code}</span>
@@ -103,7 +92,7 @@ export default function SiteDetail() {
                 <div className="flex flex-wrap gap-2">
                   {d.lines.map((l, i) => (
                     <span key={i} className={`font-mono text-xs ${l.status === "short" ? "text-red-400" : "text-white/70"}`}>
-                      {l.material_id} ×{l.qty}{l.status === "short" && " (short)"}
+                      {l.product_name || l.material_id} ×{l.qty}{l.status === "short" && " (short)"}
                     </span>
                   ))}
                 </div>
@@ -112,6 +101,108 @@ export default function SiteDetail() {
           </div>
         )}
       </Card>
+
+      <Card title="Notifications" right={<Button size="sm" variant="ghost" onClick={notifs.reload}>Refresh</Button>}>
+        {(notifs.data || []).filter((n) => n.site_id === Number(id)).slice(0, 8).map((n) => (
+          <div key={n.id} className="border-b border-border/50 py-1.5 text-sm">
+            <Badge tone={n.kind === "dispatched" ? "ok" : "warn"}>{n.kind}</Badge>
+            <span className="ml-2 text-white/80">{n.message}</span>
+          </div>
+        ))}
+        {(notifs.data || []).filter((n) => n.site_id === Number(id)).length === 0 && <p className="text-sm text-muted">No notifications for this site yet.</p>}
+      </Card>
+    </div>
+  );
+}
+
+function BomCard({ siteId, lines, editable, onSaved }) {
+  const products = useAsync(() => inv.products());
+  const [rows, setRows] = useState(() => lines.map((b) => ({ product_id: b.product_id, material_id: b.material_id, product_name: b.product_name || b.material_id, total_qty: b.total_qty })));
+  const [pid, setPid] = useState("");
+  const [qty, setQty] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  const add = () => {
+    const p = (products.data || []).find((x) => x.id === pid);
+    if (!p || !qty) return;
+    setRows([...rows, { product_id: p.id, material_id: p.material_id, product_name: p.name, total_qty: Number(qty) }]);
+    setPid(""); setQty("");
+  };
+  const del = (i) => setRows(rows.filter((_, j) => j !== i));
+  const save = async () => {
+    setBusy(true); setErr(null);
+    try { await site.setBom(siteId, rows.map((r) => ({ material_id: r.material_id, product_id: r.product_id, product_name: r.product_name, total_qty: Number(r.total_qty) }))); onSaved("Bill of materials saved."); }
+    catch (e) { setErr(e.message); } finally { setBusy(false); }
+  };
+
+  if (!editable) {
+    return (
+      <Card title="Bill of materials">
+        {rows.length === 0 ? <p className="text-sm text-muted">No BOM entered.</p> : (
+          <Table head={["Product", "Total qty"]}>
+            {rows.map((r, i) => (
+              <tr key={i} className="border-b border-border/50"><Td>{r.product_name}</Td><Td mono>{r.total_qty}</Td></tr>
+            ))}
+          </Table>
+        )}
+      </Card>
+    );
+  }
+
+  return (
+    <Card title="Bill of materials (enter / edit)">
+      <div className="space-y-2">
+        {rows.map((r, i) => (
+          <div key={i} className="flex items-center gap-2 text-sm">
+            <span className="flex-1 truncate text-white/80" title={r.product_name}>{r.product_name}</span>
+            <span className="font-mono text-white/70">×{r.total_qty}</span>
+            <Button size="sm" variant="ghost" onClick={() => del(i)}>✕</Button>
+          </div>
+        ))}
+        {rows.length === 0 && <p className="text-xs text-muted">Add the products and quantities this project needs.</p>}
+        <div className="flex items-center gap-2 pt-1">
+          <Select value={pid} onChange={(e) => setPid(e.target.value)}>
+            <option value="">select product…</option>
+            {(products.data || []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </Select>
+          <div className="w-24"><Input type="number" step="any" placeholder="qty" value={qty} onChange={(e) => setQty(e.target.value)} /></div>
+          <Button size="sm" onClick={add}>Add</Button>
+        </div>
+        <div className="flex items-center gap-2 pt-1">
+          <Button onClick={save} disabled={busy || rows.length === 0}>Save BOM</Button>
+          {err && <span className="text-xs text-red-400">{err}</span>}
+        </div>
+        <p className="text-[11px] text-muted">The hub reserves this demand and slices it across the 9 phases automatically. Editable until construction starts.</p>
+      </div>
+    </Card>
+  );
+}
+
+function PhaseRow({ phase: p, busy, onComplete, onDates }) {
+  const [start, setStart] = useState(p.planned_start || "");
+  const [end, setEnd] = useState(p.planned_end || "");
+  const [editing, setEditing] = useState(false);
+
+  return (
+    <div className="border border-border/60 bg-panel2 px-3 py-2">
+      <div className="flex items-center gap-3">
+        <span className="w-5 font-mono text-xs text-muted">{p.phase_seq}</span>
+        <span className="flex-1 text-sm text-white/80">{PHASE_NAMES[p.phase_seq]}</span>
+        <Badge tone={p.status === "done" ? "ok" : p.status === "in_progress" ? "accent" : "muted"}>{p.status}</Badge>
+        <Button size="sm" variant="ghost" onClick={() => setEditing(!editing)}>{editing ? "Cancel" : "Dates"}</Button>
+        {p.status === "in_progress" && <Button size="sm" onClick={onComplete} disabled={busy}>Complete</Button>}
+      </div>
+      <div className="mt-1 pl-8 text-[11px] text-muted">
+        {p.planned_start || "no start"} → {p.planned_end || "no end"}
+      </div>
+      {editing && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 pl-8">
+          <label className="text-[11px] text-muted">Start <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} /></label>
+          <label className="text-[11px] text-muted">End <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} /></label>
+          <Button size="sm" onClick={() => { onDates({ start: start || null, end: end || null }); setEditing(false); }} disabled={busy}>Save</Button>
+        </div>
+      )}
     </div>
   );
 }
