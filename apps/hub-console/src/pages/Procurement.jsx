@@ -134,54 +134,80 @@ function Advice({ advice }) {
 
 function AddDemandRow({ products, onAdd, onReload }) {
   const [q, setQ] = useState("");
-  const [pid, setPid] = useState("");
+  const [selected, setSelected] = useState(null);
   const [qty, setQty] = useState(100);
   const [showNew, setShowNew] = useState(false);
-  const ql = q.toLowerCase();
-  const filtered = products.filter((p) => !q || p.name.toLowerCase().includes(ql) || (p.brand || "").toLowerCase().includes(ql));
-  const add = () => {
-    const prod = products.find((p) => p.id === pid);
-    if (prod) { onAdd(prod, Number(qty)); setPid(""); setQ(""); }
-  };
+
+  const ql = q.trim().toLowerCase();
+  const matches = ql
+    ? products.filter((p) =>
+        p.name.toLowerCase().includes(ql) ||
+        (p.brand || "").toLowerCase().includes(ql) ||
+        (p.grade || "").toLowerCase().includes(ql)).slice(0, 8)
+    : [];
+
+  const pick = (p) => { setSelected(p); setQ(p.name); };
+  const add = () => { if (selected) { onAdd(selected, Number(qty)); setSelected(null); setQ(""); } };
+
   return (
     <div className="border-t border-border/50 pt-2">
-      <Input value={q} placeholder="search product by name… (e.g. ultratech, ppc, aac)" onChange={(e) => { setQ(e.target.value); setPid(""); }} />
-      <div className="mt-2 flex items-center gap-2">
-        <Select value={pid} onChange={(e) => setPid(e.target.value)}>
-          <option value="">{filtered.length ? "select product…" : "no match"}</option>
-          {filtered.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </Select>
-        <div className="w-24"><Input type="number" step="any" value={qty} onChange={(e) => setQty(e.target.value)} /></div>
-        <Button size="sm" onClick={add} disabled={!pid}>Add</Button>
-      </div>
-      <button type="button" onClick={() => setShowNew(!showNew)} className="mt-2 text-[11px] text-accent hover:underline">
-        {showNew ? "− cancel" : "+ New product not in the catalog?"}
-      </button>
-      {showNew && <NewProduct onDone={() => { onReload(); setShowNew(false); }} />}
+      <Input value={q} placeholder="search product by name or company… (e.g. ultratech, ppc, zuari)"
+        onChange={(e) => { setQ(e.target.value); setSelected(null); setShowNew(false); }} />
+
+      {/* live suggestions */}
+      {ql && !selected && (
+        <div className="mt-1 max-h-52 overflow-y-auto border border-border bg-panel2">
+          {matches.length ? matches.map((p) => (
+            <button key={p.id} type="button" onClick={() => pick(p)}
+              className="block w-full px-2.5 py-1.5 text-left text-sm text-white/80 hover:bg-white/5">
+              {p.name}{p.brand && <span className="text-muted"> · {p.brand}</span>}
+            </button>
+          )) : (
+            <div className="px-2.5 py-2 text-sm">
+              <span className="text-muted">No product found for “{q}”. </span>
+              <button type="button" onClick={() => setShowNew(true)} className="text-accent hover:underline">Add a new product?</button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {selected && (
+        <div className="mt-2 flex items-center gap-2">
+          <span className="flex-1 truncate text-sm text-accent" title={selected.name}>{selected.name}</span>
+          <div className="w-24"><Input type="number" step="any" value={qty} onChange={(e) => setQty(e.target.value)} /></div>
+          <Button size="sm" onClick={add}>Add</Button>
+        </div>
+      )}
+
+      {showNew && (
+        <NewProduct initialName={q}
+          onDone={(p) => { onReload(); setShowNew(false); if (p) pick(p); }} />
+      )}
     </div>
   );
 }
 
-function NewProduct({ onDone }) {
-  const [f, setF] = useState({ material_id: "cement", name: "", brand: "", grade: "" });
+function NewProduct({ initialName = "", onDone }) {
+  const [f, setF] = useState({ material_id: "cement", name: initialName, brand: "", grade: "" });
   const [msg, setMsg] = useState(null);
   const create = async (e) => {
     e.preventDefault(); setMsg(null);
-    try { const p = await inv.createProduct(f); setMsg(`Added: ${p.name}`); onDone(); }
+    try { const p = await inv.createProduct(f); onDone(p); }
     catch (e) { setMsg(e.message); }
   };
   return (
-    <form onSubmit={create} className="mt-2 space-y-2 border border-border/60 bg-panel2 p-2.5">
+    <form onSubmit={create} className="mt-2 space-y-2 border border-accent/30 bg-panel2 p-2.5">
+      <p className="text-[11px] uppercase tracking-wider text-accent">New product</p>
       <div className="flex gap-2">
         <Select value={f.material_id} onChange={(e) => setF({ ...f, material_id: e.target.value })}>{MATERIALS.map((m) => <option key={m} value={m}>{m}</option>)}</Select>
-        <Input value={f.brand} placeholder="brand" onChange={(e) => setF({ ...f, brand: e.target.value })} />
+        <Input value={f.brand} placeholder="brand / company" onChange={(e) => setF({ ...f, brand: e.target.value })} />
       </div>
       <Input value={f.name} placeholder="full product name" required onChange={(e) => setF({ ...f, name: e.target.value })} />
       <div className="flex gap-2">
         <Input value={f.grade} placeholder="grade (optional)" onChange={(e) => setF({ ...f, grade: e.target.value })} />
-        <Button size="sm" type="submit">Create</Button>
+        <Button size="sm" type="submit">Create & select</Button>
       </div>
-      {msg && <p className="text-[11px] text-muted">{msg}</p>}
+      {msg && <p className="text-[11px] text-red-400">{msg}</p>}
     </form>
   );
 }
