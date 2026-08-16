@@ -21,6 +21,7 @@ class MarginRule(Base):
     __tablename__ = "margin_rules"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    product_id: Mapped[str | None] = mapped_column(String(64), nullable=True)   # NULL = any product (brand)
     material_id: Mapped[str | None] = mapped_column(String(40), nullable=True)  # NULL = any material
     tier: Mapped[str | None] = mapped_column(String(20), nullable=True)         # NULL = any tier
     margin_pct: Mapped[Decimal] = mapped_column(Numeric(6, 3), nullable=False)

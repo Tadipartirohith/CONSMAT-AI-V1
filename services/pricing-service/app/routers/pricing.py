@@ -31,8 +31,8 @@ def list_rules(db: Session = Depends(get_db)):
 
 @router.put("/margins", response_model=schemas.RuleOut, dependencies=[Depends(MANAGER)])
 def set_rule(body: schemas.RuleIn, db: Session = Depends(get_db)):
-    return _run(service.set_rule, db=db, material_id=body.material_id, tier=body.tier,
-                margin_pct=body.margin_pct)
+    return _run(service.set_rule, db=db, product_id=body.product_id, material_id=body.material_id,
+                tier=body.tier, margin_pct=body.margin_pct)
 
 
 @router.delete("/margins/{rule_id}", status_code=204, dependencies=[Depends(MANAGER)])
@@ -45,6 +45,12 @@ def delete_rule(rule_id: int, db: Session = Depends(get_db)):
 def price(material_id: str, tier: str | None = None, db: Session = Depends(get_db)):
     """Selling price per unit for a material at a consumer tier."""
     return _run(service.price_material, db=db, material_id=material_id, tier=tier)
+
+
+@router.get("/price-product/{product_id}", response_model=schemas.ProductPriceOut)
+def price_product(product_id: str, tier: str | None = None, db: Session = Depends(get_db)):
+    """Selling price per unit for a branded product at a consumer tier (product margin if set)."""
+    return _run(service.price_product, db=db, product_id=product_id, tier=tier)
 
 
 @router.post("/quote")

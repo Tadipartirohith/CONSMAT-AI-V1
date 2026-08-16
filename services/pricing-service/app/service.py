@@ -25,8 +25,11 @@ def _norm(v: str | None) -> str | None:
 
 # ---- margin rule CRUD ----
 
-def _find_rule(db: Session, material_id: str | None, tier: str | None) -> models.MarginRule | None:
+def _find_rule(db: Session, product_id: str | None, material_id: str | None,
+               tier: str | None) -> models.MarginRule | None:
     stmt = select(models.MarginRule)
+    stmt = stmt.where(models.MarginRule.product_id.is_(None) if product_id is None
+                      else models.MarginRule.product_id == product_id)
     stmt = stmt.where(models.MarginRule.material_id.is_(None) if material_id is None
                       else models.MarginRule.material_id == material_id)
     stmt = stmt.where(models.MarginRule.tier.is_(None) if tier is None
@@ -34,17 +37,20 @@ def _find_rule(db: Session, material_id: str | None, tier: str | None) -> models
     return db.execute(stmt).scalar_one_or_none()
 
 
-def set_rule(db: Session, material_id: str | None, tier: str | None, margin_pct) -> models.MarginRule:
-    """Upsert a margin rule for a (material?, tier?) combination."""
-    material_id, tier = _norm(material_id), _norm(tier)
+def set_rule(db: Session, material_id: str | None, tier: str | None, margin_pct,
+             product_id: str | None = None) -> models.MarginRule:
+    """Upsert a margin rule for a (product?, material?, tier?) combination.
+
+    A product rule (brand level) overrides its material's rule; see resolve_margin for precedence."""
+    product_id, material_id, tier = _norm(product_id), _norm(material_id), _norm(tier)
     if tier is not None and tier not in models.CONSUMER_TIERS:
         raise PricingError(f"tier must be one of {models.CONSUMER_TIERS}")
     margin = _dec(margin_pct)
     if margin < 0:
         raise PricingError("margin_pct cannot be negative")
-    rule = _find_rule(db, material_id, tier)
+    rule = _find_rule(db, product_id, material_id, tier)
     if rule is None:
-        rule = models.MarginRule(material_id=material_id, tier=tier, margin_pct=margin)
+        rule = models.MarginRule(product_id=product_id, material_id=material_id, tier=tier, margin_pct=margin)
         db.add(rule)
     else:
         rule.margin_pct = margin
@@ -67,17 +73,23 @@ def delete_rule(db: Session, rule_id: int) -> None:
 
 # ---- resolution + pricing ----
 
-def resolve_margin(db: Session, material_id: str, tier: str | None) -> tuple[float, str]:
-    """Return (margin_pct, rule_source) using precedence:
-    (material, tier) > (material, *) > (*, tier) > (*, *) > service default."""
+def resolve_margin(db: Session, material_id: str, tier: str | None,
+                   product_id: str | None = None) -> tuple[float, str]:
+    """Return (margin_pct, rule_source). A product (brand) rule wins over its material rule. Precedence:
+    (product, tier) > (product, *) > (material, tier) > (material, *) > (*, tier) > (*, *) > default."""
     tier = _norm(tier)
-    for mat, ti, label in [
-        (material_id, tier, "material+tier"),
-        (material_id, None, "material"),
-        (None, tier, "tier"),
-        (None, None, "global"),
-    ]:
-        rule = _find_rule(db, mat, ti)
+    product_id = _norm(product_id)
+    candidates = []
+    if product_id:
+        candidates += [(product_id, None, tier, "product+tier"), (product_id, None, None, "product")]
+    candidates += [
+        (None, material_id, tier, "material+tier"),
+        (None, material_id, None, "material"),
+        (None, None, tier, "tier"),
+        (None, None, None, "global"),
+    ]
+    for prod, mat, ti, label in candidates:
+        rule = _find_rule(db, prod, mat, ti)
         if rule is not None:
             return float(rule.margin_pct), label
     return settings.default_margin_pct, "service-default"
@@ -91,6 +103,22 @@ def price_material(db: Session, material_id: str, tier: str | None) -> dict:
     return {
         "material_id": material_id, "tier": tier, "landed_cost": round(landed, 4),
         "margin_pct": margin, "rule": source, "unit_price": unit_price,
+    }
+
+
+def price_product(db: Session, product_id: str, tier: str | None) -> dict:
+    """Selling price for one unit of a branded product = its landed cost * (1 + resolved margin%).
+
+    Uses the product's own landed cost (brand avg cost) and a product-level margin when set, else the
+    material/tier/global rule."""
+    info = inventory_client.product_landed(product_id)  # {material_id, avg_cost}
+    material_id = info["material_id"]
+    landed = info["avg_cost"]
+    margin, source = resolve_margin(db, material_id, tier, product_id=product_id)
+    unit_price = round(landed * (1 + margin / 100), 2)
+    return {
+        "product_id": product_id, "material_id": material_id, "tier": tier,
+        "landed_cost": round(landed, 4), "margin_pct": margin, "rule": source, "unit_price": unit_price,
     }
 
 

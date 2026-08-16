@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class RuleIn(BaseModel):
+    product_id: str | None = None
     material_id: str | None = None
     tier: str | None = None
     margin_pct: float = Field(ge=0)
@@ -15,6 +16,7 @@ class RuleIn(BaseModel):
 class RuleOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    product_id: str | None = None
     material_id: str | None
     tier: str | None
     margin_pct: float
@@ -22,6 +24,16 @@ class RuleOut(BaseModel):
 
 
 class PriceOut(BaseModel):
+    material_id: str
+    tier: str | None
+    landed_cost: float
+    margin_pct: float
+    rule: str
+    unit_price: float
+
+
+class ProductPriceOut(BaseModel):
+    product_id: str
     material_id: str
     tier: str | None
     landed_cost: float

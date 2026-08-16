@@ -39,3 +39,15 @@ def landed_cost(material_id: str) -> float:
 def material_ids() -> list[str]:
     data = _get(f"{_base()}/materials") or []
     return [m["id"] for m in data]
+
+
+def product_landed(product_id: str) -> dict:
+    """Return {material_id, avg_cost} for a product. avg_cost is the brand's landed cost (0 if no stock);
+    material_id comes from the catalog even when the product has never been stocked."""
+    stock = _get(f"{_base()}/product-stock/{product_id}")
+    if stock:
+        return {"material_id": stock["material_id"], "avg_cost": float(stock["avg_cost"])}
+    prod = _get(f"{_base()}/products/{product_id}")
+    if prod is None:
+        raise InventoryUnavailable(f"unknown product: {product_id}")
+    return {"material_id": prod["material_id"], "avg_cost": 0.0}

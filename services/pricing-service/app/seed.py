@@ -28,7 +28,7 @@ def seed() -> None:
     try:
         for mid, tier, pct in RULES:
             # use service upsert semantics without importing heavy deps
-            existing = service._find_rule(db, mid, tier)
+            existing = service._find_rule(db, None, mid, tier)
             if existing is None:
                 db.add(MarginRule(material_id=mid, tier=tier, margin_pct=Decimal(str(pct))))
         db.commit()

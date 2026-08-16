@@ -62,6 +62,7 @@ export const price = {
   margins: () => req("price", "/margins"),
   setMargin: (b) => req("price", "/margins", { method: "PUT", body: JSON.stringify(b) }),
   price: (m, tier) => req("price", `/price/${m}${tier ? `?tier=${tier}` : ""}`),
+  priceProduct: (id, tier) => req("price", `/price-product/${id}${tier ? `?tier=${tier}` : ""}`),
   sellingPrices: (tier) => req("price", `/selling-prices${tier ? `?tier=${tier}` : ""}`),
 };
 
