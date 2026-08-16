@@ -5,17 +5,20 @@ consumer follows their construction project(s): overall progress, the 9-phase ti
 materials have been delivered vs are awaiting stock.
 
 ## Pages
-- **Home** — pick who you are (stands in for login until identity-service lands), then see your
-  projects as cards with a progress bar and current phase.
-- **Project** — a friendly timeline of the 9 phases with status, plus per-phase delivery status
-  ("Materials delivered: …" / "Awaiting stock: …") derived from hub→site dispatches.
+- **Home** — the logged-in consumer's projects as cards with a progress bar and current phase.
+- **Project** — a friendly timeline of the 9 phases with per-phase delivery status ("Materials
+  delivered: …" / "Awaiting stock: …"), plus a **Project payment** panel: it prices the project's BOM
+  at the consumer's tier (pricing-service) and lets them **Pay** (payment-service).
 
 ## Services
-nginx path-proxies to site-service (same-origin, read-only):
+nginx path-proxies (same-origin):
 
 | Path | Service |
 |------|---------|
-| `/site/*` | site-service `/api/v1` |
+| `/id/*` | identity-service (login) |
+| `/site/*` | site-service (projects) |
+| `/price/*` | pricing-service (project estimate) |
+| `/pay/*` | payment-service (pay flow) |
 
 ## Run
 ```bash

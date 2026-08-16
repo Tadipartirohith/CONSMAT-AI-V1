@@ -114,4 +114,6 @@ Verify with `GET /api/v1/procurement/llm-status` (→ `live: true`). Without a k
 
 **Payments:** the gateway is config-driven — set the provider in
 [`services/payment-service/config.yaml`](./services/payment-service/config.yaml). The default `mock`
-gateway settles instantly; real providers read their keys from the env vars named in that file.
+gateway settles instantly; real providers read their keys from the env vars named in that file. The
+consumer portal has a **Pay for my project** flow (prices the BOM at the consumer's tier, then pays),
+and the hub console has a **Payments** page.

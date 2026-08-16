@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { site, progressOf, PHASE_NAMES } from "../api.js";
+import { site, price, pay, progressOf, PHASE_NAMES, inr } from "../api.js";
 import { Card, Badge, Progress, useAsync } from "../components/ui.jsx";
 
 export default function Project({ me }) {
@@ -37,6 +38,8 @@ export default function Project({ me }) {
         </div>
       </div>
 
+      {s.bom_lines.length > 0 && <PayPanel site={s} me={me} />}
+
       <Card title="Construction timeline">
         <ol className="space-y-2">
           {phases.map((p) => {
@@ -66,5 +69,57 @@ export default function Project({ me }) {
         </ol>
       </Card>
     </div>
+  );
+}
+
+function PayPanel({ site: s, me }) {
+  const consumers = useAsync(() => site.consumers());
+  const tier = consumers.data?.find((c) => c.id === me)?.tier;
+  const items = s.bom_lines.map((b) => ({ material_id: b.material_id, qty: b.total_qty }));
+  const quote = useAsync(() => (tier ? price.quote({ tier, items }) : Promise.resolve(null)), [tier]);
+  const payments = useAsync(() => pay.forRef(s.code, me), [s.code]);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  const total = quote.data?.total;
+  const paid = (payments.data || []).find((p) => p.status === "paid");
+
+  const doPay = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      await pay.create({ ref: s.code, consumer_id: me, amount: total });
+      payments.reload();
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card title="Project payment">
+      <div className="flex flex-wrap items-center gap-4">
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-muted">Estimate ({tier || "…"} pricing)</p>
+          <p className="font-mono text-xl font-bold text-white">{total != null ? inr(total) : "…"}</p>
+        </div>
+        <div className="ml-auto">
+          {paid ? (
+            <span className="inline-flex items-center gap-2 text-sm text-emerald-400">
+              ✓ Paid <Badge tone="ok">{paid.code}</Badge>
+            </span>
+          ) : (
+            <button onClick={doPay} disabled={busy || total == null}
+              className="bg-accent px-4 py-2 text-sm font-semibold text-black hover:bg-accentHover disabled:opacity-40">
+              {busy ? "Processing…" : `Pay ${total != null ? inr(total) : ""}`}
+            </button>
+          )}
+        </div>
+      </div>
+      {quote.error && <p className="mt-2 text-xs text-red-400">Could not price project: {quote.error}</p>}
+      {err && <p className="mt-2 text-xs text-red-400">{err}</p>}
+      {paid && <p className="mt-2 text-xs text-muted">Thank you — your project payment is confirmed.</p>}
+    </Card>
   );
 }

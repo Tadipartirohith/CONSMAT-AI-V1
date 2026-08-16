@@ -159,7 +159,10 @@ services:
     ports:
       - "${CONSUMER_PORTAL_PORT:-8097}:80"
     depends_on:
+      - identity-service
       - site-service
+      - pricing-service
+      - payment-service
     restart: unless-stopped
 
 volumes:

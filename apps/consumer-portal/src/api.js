@@ -1,9 +1,11 @@
-// Consumer portal is read-only over site-service.
+// Consumer portal: reads site-service (/site), prices via pricing-service (/price), pays via
+// payment-service (/pay). All same-origin through the app's nginx path-proxy.
 import { authHeader, logout } from "./auth.js";
 
-async function req(path) {
-  const res = await fetch("/site" + path, {
+async function req(base, path, opts = {}) {
+  const res = await fetch(base + path, {
     headers: { "Content-Type": "application/json", ...authHeader() },
+    ...opts,
   });
   if (res.status === 401) {
     logout();
@@ -14,13 +16,25 @@ async function req(path) {
     try { detail = (await res.json()).detail || detail; } catch {}
     throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
   }
-  return res.json();
+  return res.status === 204 ? null : res.json();
 }
 
+const body = (b) => ({ method: "POST", body: JSON.stringify(b) });
+
 export const site = {
-  consumers: () => req("/consumers"),
-  sites: () => req("/sites"),
-  siteDetail: (id) => req(`/sites/${id}`),
+  consumers: () => req("/site", "/consumers"),
+  sites: () => req("/site", "/sites"),
+  siteDetail: (id) => req("/site", `/sites/${id}`),
+};
+
+export const price = {
+  quote: (b) => req("/price", "/quote", body(b)),
+};
+
+export const pay = {
+  forRef: (ref, consumerId) =>
+    req("/pay", `/payments?ref=${encodeURIComponent(ref)}&consumer_id=${encodeURIComponent(consumerId)}`),
+  create: (b) => req("/pay", "/payments", body(b)),
 };
 
 export const PHASE_NAMES = {
@@ -28,6 +42,8 @@ export const PHASE_NAMES = {
   4: "Masonry / brickwork", 5: "Roofing / slab", 6: "Internal plastering",
   7: "External plastering", 8: "Flooring & tiling", 9: "MEP & finishing",
 };
+
+export const inr = (n) => "₹" + Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 });
 
 export function progressOf(siteLike) {
   const phases = siteLike.phases || [];
@@ -40,9 +56,3 @@ export function progressOf(siteLike) {
     currentSeq: current?.phase_seq ?? null,
   };
 }
-
-// Selected consumer persists locally (stands in for login until identity-service lands).
-export const store = {
-  get: () => localStorage.getItem("consmat_consumer") || "",
-  set: (id) => localStorage.setItem("consmat_consumer", id),
-};
