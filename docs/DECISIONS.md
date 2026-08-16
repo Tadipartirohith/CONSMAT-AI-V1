@@ -43,7 +43,7 @@ design each roadmap step. Date format: YYYY-MM-DD.
 | ~~Q4~~ | ~~Backend shape~~ → **Resolved: microservices (D8)** | Architecture | ✅ |
 | ~~Q5~~ | ~~DB & migrations~~ → **Resolved: SQLAlchemy 2.0 + Alembic + Postgres (D9)** | Persistence | ✅ |
 | ~~Q11~~ | ~~Material/catalog ownership~~ → **Resolved: inventory-service owns the catalog and exposes `GET /materials`; other services reference `material_id` as an opaque string (no cross-service FK). Extract a catalog-service later if it grows.** | Architecture | ✅ |
-| Q12 | Inter-service auth: shared-secret JWT validated per service vs a dedicated identity-service issuing tokens | Security | Step 3 |
+| ~~Q12~~ | ~~Inter-service auth~~ → **Resolved: BOTH — identity-service issues JWTs; every service validates locally with the shared JWT_SECRET (HS256); internal service-to-service calls use a minted `service` token.** Frontends log in and attach the token; role guards per endpoint. | Security | ✅ |
 | Q6 | Is the consumer portal in V1 scope, or spoke-mediated only at first? | Frontends | Step 8 |
 | ~~Q7~~ | ~~Site geolocation & spoke geofencing~~ → **Resolved: area-keyword matching (spoke covers keywords; location served by the spoke whose keyword appears, most-specific wins). Lat/lng deferred.** | Spoke ops | ✅ |
 | Q8 | Procurement approval workflow (auto vs manual, and who) | Procurement | Step 4 |

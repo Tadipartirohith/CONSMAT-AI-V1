@@ -1,17 +1,15 @@
 import { useState } from "react";
-import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import Home from "./pages/Home.jsx";
 import Project from "./pages/Project.jsx";
-import { site, store } from "./api.js";
-import { useAsync } from "./components/ui.jsx";
+import Login from "./pages/Login.jsx";
+import { getUser, logout } from "./auth.js";
 
 export default function App() {
-  const consumers = useAsync(() => site.consumers());
-  const [me, setMe] = useState(store.get());
-  const navigate = useNavigate();
+  const [user, setUser] = useState(getUser());
+  if (!user) return <Login onDone={() => setUser(getUser())} />;
 
-  const pick = (id) => { setMe(id); store.set(id); navigate("/"); };
-  const meName = consumers.data?.find((c) => c.id === me)?.name;
+  const me = user.org_ref; // consumer id
 
   return (
     <div className="min-h-screen">
@@ -21,17 +19,15 @@ export default function App() {
           <p className="text-sm font-bold leading-tight text-white">Consmat</p>
           <p className="text-[10px] leading-tight text-muted">My Project</p>
         </div>
-        <span className="text-[11px] uppercase tracking-wider text-muted">Signed in as</span>
-        <select value={me} onChange={(e) => pick(e.target.value)}
-          className="border border-border bg-panel2 px-2.5 py-1.5 text-sm text-white outline-none focus:border-accent">
-          <option value="">select…</option>
-          {(consumers.data || []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+        <div className="text-right">
+          <p className="text-xs font-medium text-white">{user.name}</p>
+          <button onClick={logout} className="text-[11px] text-accent hover:underline">Sign out</button>
+        </div>
       </header>
 
       <main className="mx-auto max-w-4xl px-6 py-6">
         <Routes>
-          <Route path="/" element={<Home me={me} meName={meName} />} />
+          <Route path="/" element={<Home me={me} meName={user.name} />} />
           <Route path="/projects/:id" element={<Project me={me} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

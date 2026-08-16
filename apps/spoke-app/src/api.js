@@ -1,11 +1,17 @@
 // Spoke app talks mainly to site-service (/site); reads hub stock (/inv) for context.
+import { authHeader, logout } from "./auth.js";
+
 const BASES = { site: "/site", inv: "/inv" };
 
 async function req(base, path, opts = {}) {
   const res = await fetch(BASES[base] + path, {
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeader() },
     ...opts,
   });
+  if (res.status === 401) {
+    logout();
+    throw new Error("Session expired");
+  }
   if (!res.ok) {
     let detail = res.statusText;
     try { detail = (await res.json()).detail || detail; } catch {}

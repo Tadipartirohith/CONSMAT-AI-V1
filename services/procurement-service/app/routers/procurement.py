@@ -5,10 +5,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import llm, orders, pricing_client, procurement_engine, schemas, service
+from ..auth import current_user, require_role
 from ..config import settings
 from ..db import get_db
 
-router = APIRouter(tags=["procurement"])
+# Reads/analysis: any authenticated user. Order create/receive: hub staff.
+HUB_WRITE = require_role("hub_supervisor", "hub_manager")
+router = APIRouter(tags=["procurement"], dependencies=[Depends(current_user)])
 
 
 def _run(fn, **kwargs):
@@ -63,7 +66,7 @@ def analyze(body: schemas.AnalyzeIn, db: Session = Depends(get_db)):
     }
 
 
-@router.post("/procurement/orders", response_model=schemas.OrderOut, status_code=201)
+@router.post("/procurement/orders", response_model=schemas.OrderOut, status_code=201, dependencies=[Depends(HUB_WRITE)])
 def create_order(body: schemas.OrderIn, db: Session = Depends(get_db)):
     return _run(orders.create_order, db=db, lines=[l.model_dump() for l in body.lines], note=body.note)
 
@@ -81,7 +84,7 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
     return o
 
 
-@router.post("/procurement/orders/{order_id}/receive", response_model=schemas.OrderOut)
+@router.post("/procurement/orders/{order_id}/receive", response_model=schemas.OrderOut, dependencies=[Depends(HUB_WRITE)])
 def receive_order(order_id: int, db: Session = Depends(get_db)):
     """Post each line to inventory-service as an inbound receipt, then mark received."""
     return _run(orders.receive_order, db=db, order_id=order_id)

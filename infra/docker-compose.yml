@@ -19,6 +19,21 @@ services:
       retries: 20
     restart: unless-stopped
 
+  identity-service:
+    build: ../services/identity-service
+    container_name: consmat-v1-identity
+    environment:
+      DATABASE_URL: postgresql+psycopg://consmat:consmat@db:5432/identity
+      API_PREFIX: /api/v1
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-consmat123}
+    ports:
+      - "${IDENTITY_PORT:-8005}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
   inventory-service:
     build: ../services/inventory-service
     container_name: consmat-v1-inventory

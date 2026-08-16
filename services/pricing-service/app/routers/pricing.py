@@ -5,9 +5,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import inventory_client, schemas, service
+from ..auth import current_user, require_role
 from ..db import get_db
 
-router = APIRouter(tags=["pricing"])
+# Reads (price/quote/selling-prices): any authenticated user or internal service.
+# Margin-rule changes: hub manager only (the hub sets the price).
+MANAGER = require_role("hub_manager")
+router = APIRouter(tags=["pricing"], dependencies=[Depends(current_user)])
 
 
 def _run(fn, **kwargs):
@@ -25,13 +29,13 @@ def list_rules(db: Session = Depends(get_db)):
     return service.list_rules(db)
 
 
-@router.put("/margins", response_model=schemas.RuleOut)
+@router.put("/margins", response_model=schemas.RuleOut, dependencies=[Depends(MANAGER)])
 def set_rule(body: schemas.RuleIn, db: Session = Depends(get_db)):
     return _run(service.set_rule, db=db, material_id=body.material_id, tier=body.tier,
                 margin_pct=body.margin_pct)
 
 
-@router.delete("/margins/{rule_id}", status_code=204)
+@router.delete("/margins/{rule_id}", status_code=204, dependencies=[Depends(MANAGER)])
 def delete_rule(rule_id: int, db: Session = Depends(get_db)):
     _run(service.delete_rule, db=db, rule_id=rule_id)
 

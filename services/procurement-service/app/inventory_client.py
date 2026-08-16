@@ -5,6 +5,7 @@ import json
 import urllib.error
 import urllib.request
 
+from .auth import service_token
 from .config import settings
 
 
@@ -20,7 +21,8 @@ def post_inbound(material_id: str, qty: float, unit_cost: float, ref_id: str) ->
         "ref_type": "procurement", "ref_id": ref_id,
     }).encode("utf-8")
     req = urllib.request.Request(url, data=payload, method="POST",
-                                 headers={"Content-Type": "application/json"})
+                                 headers={"Content-Type": "application/json",
+                                          "Authorization": f"Bearer {service_token()}"})
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
             return json.loads(resp.read().decode("utf-8"))

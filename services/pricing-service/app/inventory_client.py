@@ -5,6 +5,7 @@ import json
 import urllib.error
 import urllib.request
 
+from .auth import service_token
 from .config import settings
 
 
@@ -18,7 +19,8 @@ def _base() -> str:
 
 def _get(url: str):
     try:
-        with urllib.request.urlopen(url, timeout=15) as resp:
+        req = urllib.request.Request(url, headers={"Authorization": f"Bearer {service_token()}"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         if e.code == 404:

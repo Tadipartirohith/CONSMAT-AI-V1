@@ -6,9 +6,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import bom, inventory_client, models, schemas, service
+from ..auth import current_user, require_role
 from ..db import get_db
 
-router = APIRouter(tags=["sites"])
+# Reads: any authenticated user. Field actions: the spoke team (spokesperson/architect/civil engineer).
+# Kept as one field role-set since the spoke-app blends the three personas; admin bypasses.
+FIELD = require_role("spokesperson", "architect", "civil_engineer")
+router = APIRouter(tags=["sites"], dependencies=[Depends(current_user)])
 
 
 def _run(fn, **kwargs):
@@ -27,7 +31,7 @@ def list_phases(db: Session = Depends(get_db)):
 
 
 # ---- spokes / consumers ----
-@router.post("/spokes", response_model=schemas.SpokeOut, status_code=201)
+@router.post("/spokes", response_model=schemas.SpokeOut, status_code=201, dependencies=[Depends(FIELD)])
 def create_spoke(body: schemas.SpokeIn, db: Session = Depends(get_db)):
     return _run(service.create_spoke, db=db, name=body.name, geofence=body.geofence)
 
@@ -45,7 +49,7 @@ def get_spoke(spoke_id: str, db: Session = Depends(get_db)):
     return schemas.SpokeDetailOut.from_spoke(spoke)
 
 
-@router.post("/spokes/{spoke_id}/areas", response_model=schemas.SpokeDetailOut)
+@router.post("/spokes/{spoke_id}/areas", response_model=schemas.SpokeDetailOut, dependencies=[Depends(FIELD)])
 def add_area(spoke_id: str, body: schemas.AreaIn, db: Session = Depends(get_db)):
     """Add a geofence coverage keyword to a spoke."""
     spoke = _run(service.add_area, db=db, spoke_id=spoke_id, area=body.area)
@@ -62,7 +66,7 @@ def spoke_dashboard(spoke_id: str, db: Session = Depends(get_db)):
     return _run(service.spoke_dashboard, db=db, spoke_id=spoke_id)
 
 
-@router.post("/consumers", response_model=schemas.ConsumerOut, status_code=201)
+@router.post("/consumers", response_model=schemas.ConsumerOut, status_code=201, dependencies=[Depends(FIELD)])
 def create_consumer(body: schemas.ConsumerIn, db: Session = Depends(get_db)):
     return _run(service.create_consumer, db=db, name=body.name, tier=body.tier,
                 spoke_id=body.spoke_id, phone=body.phone)
@@ -73,13 +77,13 @@ def list_consumers(db: Session = Depends(get_db)):
     return db.execute(select(models.Consumer).order_by(models.Consumer.name)).scalars().all()
 
 
-@router.patch("/consumers/{consumer_id}", response_model=schemas.ConsumerOut)
+@router.patch("/consumers/{consumer_id}", response_model=schemas.ConsumerOut, dependencies=[Depends(FIELD)])
 def update_consumer(consumer_id: str, body: schemas.ConsumerUpdate, db: Session = Depends(get_db)):
     return _run(service.update_consumer, db=db, consumer_id=consumer_id,
                 tier=body.tier, phone=body.phone)
 
 
-@router.post("/intake", status_code=201)
+@router.post("/intake", status_code=201, dependencies=[Depends(FIELD)])
 def intake(body: schemas.IntakeIn, db: Session = Depends(get_db)):
     """Consumer intake: classify (tier) and auto-assign the serving spoke by geofence (location)."""
     result = _run(service.intake, db=db, name=body.name, tier=body.tier,
@@ -92,7 +96,7 @@ def intake(body: schemas.IntakeIn, db: Session = Depends(get_db)):
 
 
 # ---- sites ----
-@router.post("/sites", response_model=schemas.SiteOut, status_code=201)
+@router.post("/sites", response_model=schemas.SiteOut, status_code=201, dependencies=[Depends(FIELD)])
 def create_site(body: schemas.SiteIn, db: Session = Depends(get_db)):
     return _run(service.create_site, db=db, consumer_id=body.consumer_id, label=body.label,
                 location=body.location, area_sqft=body.area_sqft, floors=body.floors,
@@ -112,19 +116,19 @@ def get_site(site_id: int, db: Session = Depends(get_db)):
     return site
 
 
-@router.post("/sites/{site_id}/plan", response_model=schemas.SiteOut)
+@router.post("/sites/{site_id}/plan", response_model=schemas.SiteOut, dependencies=[Depends(FIELD)])
 def generate_plan(site_id: int, db: Session = Depends(get_db)):
     """Architect: compute the BOM and lay out the 9 phases."""
     return _run(service.generate_plan, db=db, site_id=site_id)
 
 
-@router.post("/sites/{site_id}/start", response_model=schemas.DispatchOut)
+@router.post("/sites/{site_id}/start", response_model=schemas.DispatchOut, dependencies=[Depends(FIELD)])
 def start_site(site_id: int, db: Session = Depends(get_db)):
     """Begin construction: phase 1 in-progress + dispatch its materials."""
     return _run(service.start_site, db=db, site_id=site_id)
 
 
-@router.post("/sites/{site_id}/phases/{seq}/complete")
+@router.post("/sites/{site_id}/phases/{seq}/complete", dependencies=[Depends(FIELD)])
 def complete_phase(site_id: int, seq: int, db: Session = Depends(get_db)):
     """Civil engineer: mark a phase complete → triggers JIT dispatch of the next phase."""
     return _run(service.complete_phase, db=db, site_id=site_id, seq=seq)

@@ -5,9 +5,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import schemas, service
+from ..auth import current_user, require_role
 from ..db import get_db
 
-router = APIRouter(tags=["inventory"])
+# Any authenticated user (or service) may read; only hub staff / internal services may mutate stock.
+HUB_WRITE = require_role("service", "hub_supervisor", "hub_manager")
+router = APIRouter(tags=["inventory"], dependencies=[Depends(current_user)])
 
 
 def _stock(item) -> schemas.StockOut:
@@ -53,32 +56,32 @@ def _run(fn, **kwargs):
         raise HTTPException(409, str(e))
 
 
-@router.post("/inventory/inbound", response_model=schemas.LedgerOut)
+@router.post("/inventory/inbound", response_model=schemas.LedgerOut, dependencies=[Depends(HUB_WRITE)])
 def inbound(body: schemas.InboundIn, db: Session = Depends(get_db)):
     return _run(service.receive, db=db, material_id=body.material_id, qty=body.qty,
                 unit_cost=body.unit_cost, ref_type=body.ref_type, ref_id=body.ref_id, note=body.note)
 
 
-@router.post("/inventory/outbound", response_model=schemas.LedgerOut)
+@router.post("/inventory/outbound", response_model=schemas.LedgerOut, dependencies=[Depends(HUB_WRITE)])
 def outbound(body: schemas.OutboundIn, db: Session = Depends(get_db)):
     return _run(service.dispatch, db=db, material_id=body.material_id, qty=body.qty,
                 ref_type=body.ref_type, ref_id=body.ref_id, note=body.note,
                 from_reservation=body.from_reservation)
 
 
-@router.post("/inventory/adjust", response_model=schemas.LedgerOut)
+@router.post("/inventory/adjust", response_model=schemas.LedgerOut, dependencies=[Depends(HUB_WRITE)])
 def adjust(body: schemas.AdjustIn, db: Session = Depends(get_db)):
     return _run(service.adjust, db=db, material_id=body.material_id, qty_delta=body.qty_delta,
                 note=body.note)
 
 
-@router.post("/inventory/reserve", response_model=schemas.StockOut)
+@router.post("/inventory/reserve", response_model=schemas.StockOut, dependencies=[Depends(HUB_WRITE)])
 def reserve(body: schemas.ReserveIn, db: Session = Depends(get_db)):
     item = _run(service.reserve, db=db, material_id=body.material_id, qty=body.qty)
     return _stock(item)
 
 
-@router.post("/inventory/release", response_model=schemas.StockOut)
+@router.post("/inventory/release", response_model=schemas.StockOut, dependencies=[Depends(HUB_WRITE)])
 def release(body: schemas.ReserveIn, db: Session = Depends(get_db)):
     item = _run(service.release, db=db, material_id=body.material_id, qty=body.qty)
     return _stock(item)

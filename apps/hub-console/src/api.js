@@ -1,11 +1,17 @@
 // API layer — each service is reached through its own nginx path-proxy (mapped to /api/v1).
+import { authHeader, logout } from "./auth.js";
+
 const BASES = { inv: "/inv", proc: "/proc", site: "/site", price: "/price" };
 
 async function req(base, path, opts = {}) {
   const res = await fetch(BASES[base] + path, {
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeader() },
     ...opts,
   });
+  if (res.status === 401) {
+    logout(); // token missing/expired → back to login
+    throw new Error("Session expired");
+  }
   if (!res.ok) {
     let detail = res.statusText;
     try {

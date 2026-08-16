@@ -1,6 +1,14 @@
 // Consumer portal is read-only over site-service.
+import { authHeader, logout } from "./auth.js";
+
 async function req(path) {
-  const res = await fetch("/site" + path, { headers: { "Content-Type": "application/json" } });
+  const res = await fetch("/site" + path, {
+    headers: { "Content-Type": "application/json", ...authHeader() },
+  });
+  if (res.status === 401) {
+    logout();
+    throw new Error("Session expired");
+  }
   if (!res.ok) {
     let detail = res.statusText;
     try { detail = (await res.json()).detail || detail; } catch {}

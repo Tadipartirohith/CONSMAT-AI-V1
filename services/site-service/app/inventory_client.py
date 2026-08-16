@@ -5,6 +5,7 @@ import json
 import urllib.error
 import urllib.request
 
+from .auth import service_token
 from .config import settings
 
 
@@ -20,11 +21,16 @@ def _base() -> str:
     return f"{settings.inventory_url.rstrip('/')}{settings.api_prefix}"
 
 
+def _auth() -> dict:
+    return {"Authorization": f"Bearer {service_token()}"}
+
+
 def get_materials() -> dict[str, float]:
     """Return {material_id: per_sqft} from the inventory-service catalog (Q11)."""
     url = f"{_base()}/materials"
     try:
-        with urllib.request.urlopen(url, timeout=15) as resp:
+        req = urllib.request.Request(url, headers=_auth())
+        with urllib.request.urlopen(req, timeout=15) as resp:
             data = json.loads(resp.read().decode("utf-8"))
     except Exception as e:  # noqa: BLE001
         raise InventoryUnavailable(f"catalog fetch failed: {e}") from e
@@ -38,7 +44,7 @@ def post_outbound(material_id: str, qty: float, ref_id: str) -> dict:
         "material_id": material_id, "qty": qty, "ref_type": "dispatch", "ref_id": ref_id,
     }).encode("utf-8")
     req = urllib.request.Request(url, data=payload, method="POST",
-                                 headers={"Content-Type": "application/json"})
+                                 headers={"Content-Type": "application/json", **_auth()})
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
             return json.loads(resp.read().decode("utf-8"))

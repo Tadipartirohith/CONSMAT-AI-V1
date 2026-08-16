@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import Dashboard from "./pages/Dashboard.jsx";
 import Intake from "./pages/Intake.jsx";
 import Sites from "./pages/Sites.jsx";
 import SiteDetail from "./pages/SiteDetail.jsx";
+import Login from "./pages/Login.jsx";
+import { getUser, logout } from "./auth.js";
 
 const NAV = [
   { to: "/dashboard", label: "Territory" },
@@ -11,6 +14,8 @@ const NAV = [
 ];
 
 export default function App() {
+  const [user, setUser] = useState(getUser());
+  if (!user) return <Login onDone={() => setUser(getUser())} />;
   return (
     <div className="flex min-h-screen">
       <aside className="w-56 shrink-0 border-r border-border bg-panel">
@@ -32,9 +37,11 @@ export default function App() {
             </NavLink>
           ))}
         </nav>
-        <p className="px-4 pt-4 text-[10px] leading-relaxed text-muted">
-          Spokesperson · architect · civil engineer
-        </p>
+        <div className="mt-4 border-t border-border px-4 pt-3">
+          <p className="text-xs font-medium text-white">{user.name}</p>
+          <p className="text-[10px] text-muted">{user.role}</p>
+          <button onClick={logout} className="mt-2 text-[11px] text-accent hover:underline">Sign out</button>
+        </div>
       </aside>
 
       <main className="flex-1 overflow-x-hidden px-6 py-6">

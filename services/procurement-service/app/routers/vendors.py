@@ -5,9 +5,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import schemas, service
+from ..auth import current_user, require_role
 from ..db import get_db
 
-router = APIRouter(tags=["procurement"])
+# Reads: any authenticated user. Vendor/price changes: hub staff only.
+HUB_WRITE = require_role("hub_supervisor", "hub_manager")
+router = APIRouter(tags=["procurement"], dependencies=[Depends(current_user)])
 
 
 def _run(fn, **kwargs):
@@ -17,7 +20,7 @@ def _run(fn, **kwargs):
         raise HTTPException(409, str(e))
 
 
-@router.post("/vendors", response_model=schemas.VendorDetailOut, status_code=201)
+@router.post("/vendors", response_model=schemas.VendorDetailOut, status_code=201, dependencies=[Depends(HUB_WRITE)])
 def create_vendor(body: schemas.VendorIn, db: Session = Depends(get_db)):
     return _run(service.create_vendor, db=db, name=body.name, city=body.city, phone=body.phone,
                 gstin=body.gstin, is_hub_self=body.is_hub_self)
@@ -36,24 +39,24 @@ def get_vendor(vendor_id: str, db: Session = Depends(get_db)):
     return v
 
 
-@router.patch("/vendors/{vendor_id}", response_model=schemas.VendorDetailOut)
+@router.patch("/vendors/{vendor_id}", response_model=schemas.VendorDetailOut, dependencies=[Depends(HUB_WRITE)])
 def update_vendor(vendor_id: str, body: schemas.VendorUpdate, db: Session = Depends(get_db)):
     return _run(service.update_vendor, db=db, vendor_id=vendor_id, **body.model_dump(exclude_unset=True))
 
 
-@router.delete("/vendors/{vendor_id}", response_model=schemas.VendorDetailOut)
+@router.delete("/vendors/{vendor_id}", response_model=schemas.VendorDetailOut, dependencies=[Depends(HUB_WRITE)])
 def deactivate_vendor(vendor_id: str, db: Session = Depends(get_db)):
     """Soft-deactivate (keeps history); reactivate via PATCH active=true."""
     return _run(service.deactivate_vendor, db=db, vendor_id=vendor_id)
 
 
-@router.put("/vendors/{vendor_id}/prices", response_model=schemas.PriceOut)
+@router.put("/vendors/{vendor_id}/prices", response_model=schemas.PriceOut, dependencies=[Depends(HUB_WRITE)])
 def set_price(vendor_id: str, body: schemas.PriceIn, db: Session = Depends(get_db)):
     return _run(service.set_price, db=db, vendor_id=vendor_id, material_id=body.material_id,
                 price=body.price, min_qty=body.min_qty)
 
 
-@router.delete("/vendors/{vendor_id}/prices/{material_id}", status_code=204)
+@router.delete("/vendors/{vendor_id}/prices/{material_id}", status_code=204, dependencies=[Depends(HUB_WRITE)])
 def delete_price(vendor_id: str, material_id: str, db: Session = Depends(get_db)):
     _run(service.delete_price, db=db, vendor_id=vendor_id, material_id=material_id)
 
