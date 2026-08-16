@@ -1,0 +1,38 @@
+# Payment gateway configuration.
+#
+# The ACTIVE provider is chosen with `provider`. Each provider block holds its non-secret settings
+# (API base URL, currency) and the NAMES of the environment variables that carry its secrets — the
+# secret VALUES themselves live only in the environment (.env), never in this file.
+#
+# Supported: mock (default, no external calls) | razorpay | stripe | payu | cashfree.
+
+payments:
+  provider: mock
+  currency: INR
+  enabled: true
+
+  providers:
+    mock:
+      # Simulated gateway for local/dev — no network calls.
+      auto_confirm: true          # payments settle immediately
+
+    razorpay:
+      api_base: https://api.razorpay.com/v1
+      key_id_env: RAZORPAY_KEY_ID
+      key_secret_env: RAZORPAY_KEY_SECRET
+      webhook_secret_env: RAZORPAY_WEBHOOK_SECRET
+
+    stripe:
+      api_base: https://api.stripe.com/v1
+      secret_key_env: STRIPE_SECRET_KEY
+      webhook_secret_env: STRIPE_WEBHOOK_SECRET
+
+    payu:
+      api_base: https://secure.payu.in
+      key_env: PAYU_KEY
+      salt_env: PAYU_SALT
+
+    cashfree:
+      api_base: https://api.cashfree.com/pg
+      app_id_env: CASHFREE_APP_ID
+      secret_env: CASHFREE_SECRET

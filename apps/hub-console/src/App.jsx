@@ -5,6 +5,7 @@ import Inventory from "./pages/Inventory.jsx";
 import Vendors from "./pages/Vendors.jsx";
 import Procurement from "./pages/Procurement.jsx";
 import Pricing from "./pages/Pricing.jsx";
+import Payments from "./pages/Payments.jsx";
 import Login from "./pages/Login.jsx";
 import { getUser, logout } from "./auth.js";
 
@@ -14,6 +15,7 @@ const NAV = [
   { to: "/vendors", label: "Vendors" },
   { to: "/procurement", label: "Procurement" },
   { to: "/pricing", label: "Pricing" },
+  { to: "/payments", label: "Payments" },
 ];
 
 export default function App() {
@@ -56,6 +58,7 @@ export default function App() {
           <Route path="/vendors" element={<Vendors />} />
           <Route path="/procurement" element={<Procurement />} />
           <Route path="/pricing" element={<Pricing />} />
+          <Route path="/payments" element={<Payments />} />
           <Route path="*" element={<Navigate to="/overview" replace />} />
         </Routes>
       </main>

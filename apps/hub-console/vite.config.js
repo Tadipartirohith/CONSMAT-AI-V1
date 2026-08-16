@@ -12,6 +12,7 @@ export default defineConfig({
       "/proc": { target: "http://localhost:8002", rewrite: (p) => p.replace(/^\/proc/, "/api/v1") },
       "/site": { target: "http://localhost:8003", rewrite: (p) => p.replace(/^\/site/, "/api/v1") },
       "/price": { target: "http://localhost:8004", rewrite: (p) => p.replace(/^\/price/, "/api/v1") },
+      "/pay": { target: "http://localhost:8006", rewrite: (p) => p.replace(/^\/pay/, "/api/v1") },
     },
   },
 });

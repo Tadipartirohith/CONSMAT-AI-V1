@@ -51,7 +51,7 @@ suppliers / vendors  ──►  HUB  ──►  SPOKE  ──►  retail consume
 | Path | Purpose |
 |------|---------|
 | [`docs/`](./docs) | Design documentation (HLD, LLD, SLD, decisions) |
-| [`services/`](./services) | Backend microservices — ✅ identity · inventory · procurement · site · pricing (FastAPI) |
+| [`services/`](./services) | Backend microservices — ✅ identity · inventory · procurement · site · pricing · payment (FastAPI) |
 | [`apps/hub-console/`](./apps/hub-console) | Hub operations console (supervisor + manager) — ✅ built (React/Vite, `:8095`) |
 | [`apps/spoke-app/`](./apps/spoke-app) | Spoke app (spokesperson + architect + civil engineer) — ✅ built (React/Vite, `:8096`) |
 | [`apps/consumer-portal/`](./apps/consumer-portal) | Retail consumer portal — ✅ built (React/Vite, `:8097`) |
@@ -75,8 +75,9 @@ suppliers / vendors  ──►  HUB  ──►  SPOKE  ──►  retail consume
 7. ✅ **Pricing & margin** — hub sets selling price via margin-rule precedence (per-material/per-tier/global); feeds procurement profitability ([services/pricing-service](./services/pricing-service)).
 8. ✅ **Frontends** — hub-console (`:8095`) · spoke-app (`:8096`) · consumer-portal (`:8097`), all React/Vite/Tailwind served via nginx path-proxy.
 
-**Steps 1–8 complete + auth.** ✅ **identity-service + JWT auth** across all services and frontends
-(login, role guards, service-to-service tokens — Q12 resolved). Remaining (deferred): payments, API gateway.
+**Steps 1–8 complete + auth + payments + Hub LLM wired.** ✅ **identity-service + JWT auth** (Q12) ·
+✅ **payment-service** (config-driven gateway, mock default — D11) · ✅ **Hub LLM set to Gemini**
+(`infra/.env`, add a key to go live — D12). Remaining (deferred): API gateway.
 
 ## Running the stack
 
@@ -90,6 +91,7 @@ docker compose -f infra/docker-compose.yml up -d --build
 | Spoke app | http://localhost:8096 |
 | Consumer portal | http://localhost:8097 |
 | identity-service | http://localhost:8005/docs |
+| payment-service | http://localhost:8006/docs |
 | inventory-service | http://localhost:8001/docs |
 | procurement-service | http://localhost:8002/docs |
 | site-service | http://localhost:8003/docs |
@@ -102,3 +104,14 @@ needed. Tear down with `docker compose -f infra/docker-compose.yml down` (add `-
 **Demo logins** (password `consmat123`): `manager@consmat.com` / `supervisor@consmat.com` (hub console) ·
 `spoke@consmat.com` / `architect@consmat.com` / `civil@consmat.com` (spoke app) · `demo@consmat.com`
 (consumer portal) · plus `admin@consmat.com` and `vendor@consmat.com`.
+
+**Enable the Hub LLM (procurement intelligence):** `infra/.env` already selects Gemini. Paste a
+[Google AI Studio](https://aistudio.google.com/apikey) key into the `AI_API_KEY=` line, then:
+```bash
+docker compose -f infra/docker-compose.yml up -d procurement-service
+```
+Verify with `GET /api/v1/procurement/llm-status` (→ `live: true`). Without a key it runs deterministic-only.
+
+**Payments:** the gateway is config-driven — set the provider in
+[`services/payment-service/config.yaml`](./services/payment-service/config.yaml). The default `mock`
+gateway settles instantly; real providers read their keys from the env vars named in that file.

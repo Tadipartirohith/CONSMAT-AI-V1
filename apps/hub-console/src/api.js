@@ -1,7 +1,7 @@
 // API layer — each service is reached through its own nginx path-proxy (mapped to /api/v1).
 import { authHeader, logout } from "./auth.js";
 
-const BASES = { inv: "/inv", proc: "/proc", site: "/site", price: "/price" };
+const BASES = { inv: "/inv", proc: "/proc", site: "/site", price: "/price", pay: "/pay" };
 
 async function req(base, path, opts = {}) {
   const res = await fetch(BASES[base] + path, {
@@ -51,6 +51,12 @@ export const price = {
   setMargin: (b) => req("price", "/margins", { method: "PUT", body: JSON.stringify(b) }),
   price: (m, tier) => req("price", `/price/${m}${tier ? `?tier=${tier}` : ""}`),
   sellingPrices: (tier) => req("price", `/selling-prices${tier ? `?tier=${tier}` : ""}`),
+};
+
+export const pay = {
+  config: () => req("pay", "/payments/config"),
+  list: () => req("pay", "/payments"),
+  create: (b) => req("pay", "/payments", body(b)),
 };
 
 export const TIERS = ["individual", "contractor", "commercial", "government"];

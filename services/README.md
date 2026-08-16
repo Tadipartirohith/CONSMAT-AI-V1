@@ -13,6 +13,7 @@ to each other synchronously over REST to start; event-driven flows (e.g. phase t
 | **site-service** | Spokes, consumers, sites, plans, BOM, phases, dispatch, spoke ops | 🟢 built | Steps 5–6 |
 | **pricing-service** | Selling price + margin (rule precedence); feeds procurement profitability | 🟢 built | Step 7 |
 | **identity-service** | Users, roles, JWT issuance; every service validates locally with the shared secret | 🟢 built | (cross-cutting) |
+| **payment-service** | Config-driven payment gateway (mock default; providers + key env-names in config.yaml) | 🟢 built | (cross-cutting) |
 | gateway | API gateway / routing | ⚪ deferred | later |
 
 ## Conventions

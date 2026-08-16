@@ -19,6 +19,8 @@ design each roadmap step. Date format: YYYY-MM-DD.
 | **D8** | 2026-08-16 | **Microservices architecture** (one service per domain) | Resolves Q4; chosen over modular monolith for independent scaling/deploy |
 | **D9** | 2026-08-16 | **Persistence stack: SQLAlchemy 2.0 + Alembic on PostgreSQL** | Resolves Q5; battle-tested ORM + migrations, transactional ledger |
 | **D10** | 2026-08-16 | **Microservices conventions**: database-per-service, synchronous REST to start (events later), per-service FastAPI + Dockerfile + Alembic, API gateway deferred | Standard microservice defaults; keeps services independent |
+| **D11** | 2026-08-16 | **Payments are config-driven**: provider (mock default) + each provider's API base URL and secret **env-var names** live in `payment-service/config.yaml`; secret values only in env. Real providers are extension points. | Swap gateways without code changes; keep keys out of the repo |
+| **D12** | 2026-08-16 | **Hub LLM provider set to Gemini** via `infra/.env` (`AI_PROVIDER=gemini`, `AI_MODEL=gemini-flash-lite-latest`); goes live once an API key is added to `AI_API_KEY` | Enable procurement intelligence; key supplied by the operator, never committed |
 
 ### The 9 phases (per D4)
 1. Excavation & footing
