@@ -20,6 +20,14 @@ def _stock(item) -> schemas.StockOut:
     )
 
 
+def _pstock(ps) -> schemas.ProductStockOut:
+    return schemas.ProductStockOut(
+        product_id=ps.product_id, material_id=ps.material_id, on_hand=float(ps.on_hand),
+        reserved=float(ps.reserved), available=float(ps.available), avg_cost=float(ps.avg_cost),
+        updated_at=ps.updated_at,
+    )
+
+
 @router.get("/materials", response_model=list[schemas.MaterialOut])
 def list_materials(db: Session = Depends(get_db)):
     """Canonical materials catalog (owned by inventory-service; see Q11)."""
@@ -68,6 +76,28 @@ def get_stock(material_id: str, db: Session = Depends(get_db)):
     return _stock(item)
 
 
+# ---- Product-level (brand SKU) stock ----
+
+@router.get("/product-stock", response_model=list[schemas.ProductStockOut])
+def list_product_stock(material_id: str | None = None, db: Session = Depends(get_db)):
+    """Per-brand stock positions, optionally filtered by material."""
+    return [_pstock(ps) for ps in service.list_product_stock(db, material_id)]
+
+
+@router.get("/product-stock/low", response_model=list[schemas.LowStockOut])
+def low_stock(db: Session = Depends(get_db)):
+    """Products under the hub's 3x-reserved buffer (early low/no-stock signal)."""
+    return service.low_stock_products(db)
+
+
+@router.get("/product-stock/{product_id}", response_model=schemas.ProductStockOut)
+def get_product_stock(product_id: str, db: Session = Depends(get_db)):
+    ps = service.get_product_stock(db, product_id)
+    if ps is None:
+        raise HTTPException(404, f"No stock for product {product_id}")
+    return _pstock(ps)
+
+
 @router.get("/inventory/{material_id}/ledger", response_model=list[schemas.LedgerOut])
 def item_ledger(material_id: str, limit: int = 100, db: Session = Depends(get_db)):
     return service.ledger(db, material_id, limit)
@@ -96,6 +126,39 @@ def outbound(body: schemas.OutboundIn, db: Session = Depends(get_db)):
     return _run(service.dispatch, db=db, material_id=body.material_id, qty=body.qty,
                 ref_type=body.ref_type, ref_id=body.ref_id, note=body.note,
                 from_reservation=body.from_reservation)
+
+
+@router.post("/inventory/product-inbound", response_model=schemas.ProductStockOut, dependencies=[Depends(HUB_WRITE)])
+def product_inbound(body: schemas.InboundIn, db: Session = Depends(get_db)):
+    """Brand-level receipt (procurement receives a specific product). Rolls up to the material."""
+    if not body.product_id:
+        raise HTTPException(422, "product_id is required")
+    return _pstock(_run(service.receive_product, db=db, product_id=body.product_id, qty=body.qty,
+                        unit_cost=body.unit_cost, ref_type=body.ref_type, ref_id=body.ref_id, note=body.note))
+
+
+@router.post("/inventory/product-outbound", response_model=schemas.ProductStockOut, dependencies=[Depends(HUB_WRITE)])
+def product_outbound(body: schemas.OutboundIn, db: Session = Depends(get_db)):
+    """Brand-level dispatch to a site. Rolls up to the material."""
+    if not body.product_id:
+        raise HTTPException(422, "product_id is required")
+    return _pstock(_run(service.dispatch_product, db=db, product_id=body.product_id, qty=body.qty,
+                        ref_type=body.ref_type, ref_id=body.ref_id, note=body.note,
+                        from_reservation=body.from_reservation))
+
+
+@router.post("/inventory/product-reserve", response_model=schemas.ProductStockOut, dependencies=[Depends(HUB_WRITE)])
+def product_reserve(body: schemas.ReserveIn, db: Session = Depends(get_db)):
+    if not body.product_id:
+        raise HTTPException(422, "product_id is required")
+    return _pstock(_run(service.reserve_product, db=db, product_id=body.product_id, qty=body.qty))
+
+
+@router.post("/inventory/product-release", response_model=schemas.ProductStockOut, dependencies=[Depends(HUB_WRITE)])
+def product_release(body: schemas.ReserveIn, db: Session = Depends(get_db)):
+    if not body.product_id:
+        raise HTTPException(422, "product_id is required")
+    return _pstock(_run(service.release_product, db=db, product_id=body.product_id, qty=body.qty))
 
 
 @router.post("/inventory/adjust", response_model=schemas.LedgerOut, dependencies=[Depends(HUB_WRITE)])

@@ -40,10 +40,11 @@ def _get_item_locked(db: Session, material_id: str) -> models.InventoryItem:
 
 
 def _post(db: Session, item: models.InventoryItem, direction: str, qty: Decimal,
-          unit_cost: Decimal, ref_type: str, ref_id: str, note: str) -> models.LedgerEntry:
+          unit_cost: Decimal, ref_type: str, ref_id: str, note: str,
+          product_id: str = "") -> models.LedgerEntry:
     entry = models.LedgerEntry(
-        material_id=item.material_id, direction=direction, qty=qty, unit_cost=unit_cost,
-        balance_after=item.on_hand, ref_type=ref_type, ref_id=ref_id, note=note,
+        material_id=item.material_id, product_id=product_id, direction=direction, qty=qty,
+        unit_cost=unit_cost, balance_after=item.on_hand, ref_type=ref_type, ref_id=ref_id, note=note,
     )
     db.add(entry)
     return entry
@@ -131,6 +132,129 @@ def release(db: Session, material_id: str, qty) -> models.InventoryItem:
     db.commit()
     db.refresh(item)
     return item
+
+
+# ---- Product-level stock (brand SKUs). Source of truth per brand; rolls up into the material item. ----
+
+def _get_pstock_locked(db: Session, product_id: str) -> models.ProductStock:
+    """Lock the product-stock row, creating it if the product exists."""
+    product = db.get(models.Product, product_id)
+    if product is None:
+        raise InventoryError(f"Unknown product: {product_id}")
+    ps = db.execute(
+        select(models.ProductStock)
+        .where(models.ProductStock.product_id == product_id)
+        .with_for_update()
+    ).scalar_one_or_none()
+    if ps is None:
+        ps = models.ProductStock(product_id=product_id, material_id=product.material_id)
+        db.add(ps)
+        db.flush()
+    return ps
+
+
+def receive_product(db: Session, product_id: str, qty, unit_cost, *, ref_type=models.REF_PROCUREMENT,
+                    ref_id: str = "", note: str = "") -> models.ProductStock:
+    """Inbound at the brand level. Updates the product's weighted-avg cost and rolls up to the material."""
+    qty, unit_cost = _dec(qty), _dec(unit_cost)
+    if qty <= 0:
+        raise InventoryError("Inbound quantity must be positive")
+    ps = _get_pstock_locked(db, product_id)
+    item = _get_item_locked(db, ps.material_id)
+    for holder in (ps, item):
+        new_on_hand = holder.on_hand + qty
+        if new_on_hand > 0:
+            holder.avg_cost = (holder.on_hand * holder.avg_cost + qty * unit_cost) / new_on_hand
+        holder.on_hand = new_on_hand
+    _post(db, item, models.INBOUND, qty, unit_cost, ref_type, ref_id, note, product_id=product_id)
+    db.commit()
+    db.refresh(ps)
+    return ps
+
+
+def dispatch_product(db: Session, product_id: str, qty, *, ref_type=models.REF_DISPATCH,
+                     ref_id: str = "", note: str = "", from_reservation: bool = False) -> models.ProductStock:
+    """Outbound at the brand level, guarding oversell on the product. Rolls the movement up to material."""
+    qty = _dec(qty)
+    if qty <= 0:
+        raise InventoryError("Outbound quantity must be positive")
+    ps = _get_pstock_locked(db, product_id)
+    item = _get_item_locked(db, ps.material_id)
+    if from_reservation:
+        if ps.reserved < qty:
+            raise InventoryError(f"Reserved {ps.reserved} < requested {qty} for {product_id}")
+        ps.reserved -= qty
+        item.reserved = max(Decimal("0"), item.reserved - qty)
+    available = ps.on_hand if from_reservation else ps.available
+    if available < qty:
+        raise InventoryError(
+            f"Insufficient stock for {product_id}: available {available}, requested {qty}")
+    ps.on_hand -= qty
+    item.on_hand -= qty
+    _post(db, item, models.OUTBOUND, -qty, ps.avg_cost, ref_type, ref_id, note, product_id=product_id)
+    db.commit()
+    db.refresh(ps)
+    return ps
+
+
+def reserve_product(db: Session, product_id: str, qty) -> models.ProductStock:
+    """Reserve available brand stock for an upcoming dispatch (no ledger movement)."""
+    qty = _dec(qty)
+    if qty <= 0:
+        raise InventoryError("Reserve quantity must be positive")
+    ps = _get_pstock_locked(db, product_id)
+    if ps.available < qty:
+        raise InventoryError(f"Cannot reserve {qty} of {product_id}: available {ps.available}")
+    item = _get_item_locked(db, ps.material_id)
+    ps.reserved += qty
+    item.reserved += qty
+    db.commit()
+    db.refresh(ps)
+    return ps
+
+
+def release_product(db: Session, product_id: str, qty) -> models.ProductStock:
+    """Release a previously held brand reservation."""
+    qty = _dec(qty)
+    if qty <= 0:
+        raise InventoryError("Release quantity must be positive")
+    ps = _get_pstock_locked(db, product_id)
+    item = _get_item_locked(db, ps.material_id)
+    ps.reserved = max(Decimal("0"), ps.reserved - qty)
+    item.reserved = max(Decimal("0"), item.reserved - qty)
+    db.commit()
+    db.refresh(ps)
+    return ps
+
+
+def list_product_stock(db: Session, material_id: str | None = None) -> list[models.ProductStock]:
+    stmt = select(models.ProductStock)
+    if material_id:
+        stmt = stmt.where(models.ProductStock.material_id == material_id)
+    return list(db.execute(stmt).scalars())
+
+
+def get_product_stock(db: Session, product_id: str) -> models.ProductStock | None:
+    return db.get(models.ProductStock, product_id)
+
+
+def low_stock_products(db: Session, buffer_multiple: Decimal = Decimal("3")) -> list[dict]:
+    """Products whose on_hand falls below `buffer_multiple` x reserved (the hub's committed demand).
+
+    reserved is the committed/requested quantity; the hub wants to hold 3x that as a buffer. A product
+    with reserved > 0 and on_hand < 3x reserved is flagged early (before it actually stocks out).
+    """
+    out = []
+    for ps in db.execute(select(models.ProductStock).where(models.ProductStock.reserved > 0)).scalars():
+        target = _dec(ps.reserved) * buffer_multiple
+        if _dec(ps.on_hand) < target:
+            out.append({
+                "product_id": ps.product_id, "material_id": ps.material_id,
+                "on_hand": float(ps.on_hand), "reserved": float(ps.reserved),
+                "buffer_target": float(target), "shortfall": float(target - _dec(ps.on_hand)),
+                "status": "no_stock" if _dec(ps.on_hand) < _dec(ps.reserved) else "low_stock",
+            })
+    return out
 
 
 def list_materials(db: Session) -> list[models.Material]:

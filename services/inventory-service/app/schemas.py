@@ -45,10 +45,32 @@ class StockOut(BaseModel):
     updated_at: datetime | None = None
 
 
+class ProductStockOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    product_id: str
+    material_id: str
+    on_hand: float
+    reserved: float
+    available: float
+    avg_cost: float
+    updated_at: datetime | None = None
+
+
+class LowStockOut(BaseModel):
+    product_id: str
+    material_id: str
+    on_hand: float
+    reserved: float
+    buffer_target: float
+    shortfall: float
+    status: str
+
+
 class LedgerOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     material_id: str
+    product_id: str = ""
     direction: str
     qty: float
     unit_cost: float
@@ -60,7 +82,8 @@ class LedgerOut(BaseModel):
 
 
 class InboundIn(BaseModel):
-    material_id: str
+    material_id: str = ""            # optional when product_id is given (derived from the product)
+    product_id: str = ""            # when set, stock moves at the brand level (rolls up to material)
     qty: float = Field(gt=0)
     unit_cost: float = Field(ge=0)
     ref_type: str = "procurement"
@@ -69,7 +92,8 @@ class InboundIn(BaseModel):
 
 
 class OutboundIn(BaseModel):
-    material_id: str
+    material_id: str = ""
+    product_id: str = ""
     qty: float = Field(gt=0)
     ref_type: str = "dispatch"
     ref_id: str = ""
@@ -84,5 +108,6 @@ class AdjustIn(BaseModel):
 
 
 class ReserveIn(BaseModel):
-    material_id: str
+    material_id: str = ""
+    product_id: str = ""
     qty: float = Field(gt=0)

@@ -79,12 +79,36 @@ class InventoryItem(Base):
         return self.on_hand - self.reserved
 
 
+class ProductStock(Base):
+    """Current stock position for a branded product (SKU) at the hub.
+
+    The product is the source of truth for brand-level stock; the material `InventoryItem` is kept as
+    a rollup (sum across the material's products) so material-level views stay correct. `available`
+    and the 3x-reserved buffer (see service.low_stock_products) are evaluated per product.
+    """
+    __tablename__ = "product_stock"
+
+    product_id: Mapped[str] = mapped_column(ForeignKey("products.id"), primary_key=True)
+    material_id: Mapped[str] = mapped_column(ForeignKey("materials.id"), index=True, nullable=False)
+    on_hand: Mapped[Decimal] = mapped_column(Numeric(16, 3), default=Decimal("0"), nullable=False)
+    reserved: Mapped[Decimal] = mapped_column(Numeric(16, 3), default=Decimal("0"), nullable=False)
+    avg_cost: Mapped[Decimal] = mapped_column(Numeric(14, 4), default=Decimal("0"), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    @property
+    def available(self) -> Decimal:
+        return self.on_hand - self.reserved
+
+
 class LedgerEntry(Base):
     """Immutable record of a single stock movement (append-only)."""
     __tablename__ = "ledger_entries"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     material_id: Mapped[str] = mapped_column(ForeignKey("materials.id"), index=True, nullable=False)
+    product_id: Mapped[str] = mapped_column(String(64), default="", index=True)  # brand SKU when known
     direction: Mapped[str] = mapped_column(String(12), nullable=False)  # inbound|outbound|adjustment
     qty: Mapped[Decimal] = mapped_column(Numeric(16, 3), nullable=False)  # signed (+in / -out)
     unit_cost: Mapped[Decimal] = mapped_column(Numeric(14, 4), default=Decimal("0"))
