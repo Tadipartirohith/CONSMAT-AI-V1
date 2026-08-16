@@ -29,6 +29,7 @@ export default function SiteDetail() {
   const phase1 = s.phases.find((p) => p.phase_seq === 1);
   const inProgress = s.phases.find((p) => p.status === "in_progress");
   const notStarted = planned && phase1 && phase1.status === "pending";
+  const hasShorts = s.dispatches.some((d) => d.lines.some((l) => l.status === "short"));
 
   return (
     <div className="space-y-5">
@@ -84,7 +85,12 @@ export default function SiteDetail() {
         </Card>
       </div>
 
-      <Card title="Dispatches (hub → site)">
+      <Card title="Dispatches (hub → site)"
+        right={hasShorts && (
+          <Button size="sm" onClick={() => act(() => site.backfill(id), "Backfill")} disabled={busy}>
+            Backfill shortfalls
+          </Button>
+        )}>
         {s.dispatches.length === 0 ? <p className="text-sm text-muted">No dispatches yet.</p> : (
           <div className="space-y-2">
             {s.dispatches.sort((a, b) => a.phase_seq - b.phase_seq).map((d) => (

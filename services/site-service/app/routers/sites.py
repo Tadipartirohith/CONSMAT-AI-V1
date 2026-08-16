@@ -12,6 +12,8 @@ from ..db import get_db
 # Reads: any authenticated user. Field actions: the spoke team (spokesperson/architect/civil engineer).
 # Kept as one field role-set since the spoke-app blends the three personas; admin bypasses.
 FIELD = require_role("spokesperson", "architect", "civil_engineer")
+# Backfill is a dispatch action either side can trigger after a replenishment.
+BACKFILL = require_role("spokesperson", "architect", "civil_engineer", "hub_supervisor", "hub_manager")
 router = APIRouter(tags=["sites"], dependencies=[Depends(current_user)])
 
 
@@ -132,3 +134,15 @@ def start_site(site_id: int, db: Session = Depends(get_db)):
 def complete_phase(site_id: int, seq: int, db: Session = Depends(get_db)):
     """Civil engineer: mark a phase complete → triggers JIT dispatch of the next phase."""
     return _run(service.complete_phase, db=db, site_id=site_id, seq=seq)
+
+
+@router.post("/sites/{site_id}/backfill", dependencies=[Depends(BACKFILL)])
+def backfill_site(site_id: int, db: Session = Depends(get_db)):
+    """Retry this site's still-short dispatch lines against current hub stock."""
+    return _run(service.backfill_site, db=db, site_id=site_id)
+
+
+@router.post("/backfill", dependencies=[Depends(BACKFILL)])
+def backfill_all(db: Session = Depends(get_db)):
+    """Network-wide backfill across all sites (hub action after a replenishment)."""
+    return service.backfill_all(db)

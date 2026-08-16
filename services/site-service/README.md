@@ -34,6 +34,8 @@ FastAPI · SQLAlchemy 2.0 · Alembic · PostgreSQL (own database, per D10).
 | POST | `/sites/{id}/plan` | Architect: generate BOM + phases |
 | POST | `/sites/{id}/start` | Begin: dispatch phase 1 |
 | POST | `/sites/{id}/phases/{seq}/complete` | Civil engineer: complete phase → JIT dispatch next |
+| POST | `/sites/{id}/backfill` | Retry this site's still-short dispatch lines against current stock |
+| POST | `/backfill` | Network-wide backfill across all sites (hub action after a replenishment) |
 | GET | `/spokes/{id}` | Spoke detail + coverage areas |
 | POST | `/spokes/{id}/areas` | Add a geofence coverage keyword |
 | GET | `/spokes/{id}/sites` | Territory sites (via the spoke's consumers) |

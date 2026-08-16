@@ -229,6 +229,57 @@ def _dispatch_phase(db: Session, site: models.Site, seq: int) -> models.Dispatch
     return dispatch
 
 
+def _recompute_dispatch(d: models.Dispatch) -> None:
+    statuses = [l.status for l in d.lines]
+    if statuses and all(s == models.DSP_DISPATCHED for s in statuses):
+        d.status = models.DSP_DISPATCHED
+    elif any(s == models.DSP_DISPATCHED for s in statuses):
+        d.status = models.DSP_PARTIAL
+    else:
+        d.status = models.DSP_PENDING
+
+
+def backfill_site(db: Session, site_id: int) -> dict:
+    """Retry every still-short dispatch line for a site against current hub stock.
+
+    When the hub replenishes after a shortfall, this pushes the outstanding materials out and heals the
+    affected dispatches (partial/pending → dispatched). Idempotent: already-dispatched lines are skipped.
+    """
+    site = db.get(models.Site, site_id)
+    if site is None:
+        raise SiteError(f"Unknown site: SITE-{site_id}")
+    backfilled, still_short = [], []
+    for d in site.dispatches:
+        changed = False
+        for line in d.lines:
+            if line.status != "short":
+                continue
+            entry = {"dispatch": d.code, "phase_seq": d.phase_seq,
+                     "material_id": line.material_id, "qty": float(line.qty)}
+            try:
+                inventory_client.post_outbound(line.material_id, float(line.qty),
+                                               f"{site.code}-P{d.phase_seq}-backfill")
+                line.status = models.DSP_DISPATCHED
+                backfilled.append(entry)
+                changed = True
+            except inventory_client.InsufficientStock:
+                still_short.append(entry)
+        if changed:
+            _recompute_dispatch(d)
+    db.commit()
+    return {"site": site.code, "backfilled": backfilled, "still_short": still_short}
+
+
+def backfill_all(db: Session) -> dict:
+    """Network-wide backfill across every site (hub action after a replenishment)."""
+    results = []
+    for s in list_sites(db):
+        r = backfill_site(db, s.id)
+        if r["backfilled"] or r["still_short"]:
+            results.append(r)
+    return {"sites": results}
+
+
 def start_site(db: Session, site_id: int) -> models.Dispatch:
     """Kick off construction: phase 1 in-progress + dispatch its materials."""
     site = db.get(models.Site, site_id)

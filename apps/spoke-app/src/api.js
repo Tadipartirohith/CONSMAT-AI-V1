@@ -39,6 +39,7 @@ export const site = {
   plan: (id) => req("site", `/sites/${id}/plan`, { method: "POST" }),
   start: (id) => req("site", `/sites/${id}/start`, { method: "POST" }),
   completePhase: (id, seq) => req("site", `/sites/${id}/phases/${seq}/complete`, { method: "POST" }),
+  backfill: (id) => req("site", `/sites/${id}/backfill`, { method: "POST" }),
 };
 
 export const inv = {
