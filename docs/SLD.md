@@ -1,6 +1,6 @@
 # Consmat AI V1 — System-Level Design (SLD)
 
-> **Status:** 🟢 As-built · **Version:** 1.0 · **Orchestration:** Docker Compose (`infra/docker-compose.yml`)
+> **Status:** 🟢 As-built · **Version:** 1.1 · **Orchestration:** Docker Compose (`infra/docker-compose.yml`)
 
 The deployment landscape as it actually runs: containers, ports, networking, persistence, configuration,
 integrations, and operations. See [HLD.md](./HLD.md) for architecture and [LLD.md](./LLD.md) for internals.
@@ -10,7 +10,8 @@ integrations, and operations. See [HLD.md](./HLD.md) for architecture and [LLD.m
 ## 1. Deployment Topology
 
 **11 containers** on the Compose default bridge network, from one compose file. One PostgreSQL, six
-FastAPI services, one nginx gateway, three nginx-served SPAs.
+FastAPI services, one nginx gateway, three nginx-served SPAs. The **JIT dispatch scheduler** (D20) runs
+as a background thread **inside** the site-service container — not a separate container.
 
 ```mermaid
 flowchart TB
@@ -86,9 +87,8 @@ browser → app nginx (static + /xxx proxy) → gateway (/api/<service>/) → se
 
 - **One PostgreSQL 16** container; **database per service** (identity, inventory, procurement, pricing, site, payment) on the same server (D10).
 - Each service **self-provisions** on start: `ensure_db` creates its database if absent → `alembic upgrade head` → seed (`entrypoint.sh`). No shared-volume init ordering needed.
-- Volume `pgdata`; wipe with `docker compose … down -v`.
-- Seeded data: materials + `per_sqft` (inventory), vendors + prices (procurement), margin rules
-  (pricing), 9 phases + demo spoke/consumer/coverage (site), demo users (identity).
+- Volume `pgdata`; wipe with `docker compose … down -v` (each service re-provisions + re-seeds on next start → clean seed state).
+- Seeded data: materials + `per_sqft` + **15 branded products** (inventory), vendors + **product prices** (procurement), margin rules (pricing), 9 phases + demo spoke/consumer/coverage (site), demo users incl. **`ops@`** (identity). **Stock and orders are not seeded** — inventory starts empty; receiving a PO populates brand stock.
 
 ---
 
@@ -101,11 +101,13 @@ Compose substitution reads **`infra/.env`** (gitignored). A committed **`infra/.
 | `JWT_SECRET` | Shared HS256 secret — every service must agree |
 | `DEMO_PASSWORD` | Seeded demo-user password (`consmat123`) |
 | `AI_PROVIDER` / `AI_API_KEY` / `AI_MODEL` / `AI_BASE_URL` | Hub LLM (procurement); **gemini + gemini-flash-lite-latest** |
+| `SCOUT_PROVIDER` / `SCOUT_API_KEY` | External price-scout (procurement): `auto`/`tavily`/`web`/`llm`/`stub` + the search-provider key (e.g. Tavily) |
+| `SCHEDULER_ENABLED` / `SCHEDULER_INTERVAL_SECONDS` | site-service JIT scheduler thread (default on, 60s) |
 | `RAZORPAY_* / STRIPE_* / PAYU_* / CASHFREE_*` | Payment secrets (only if config.yaml selects that provider) |
 | `*_PORT` | Host port overrides |
 
 Per-service env (in compose): `DATABASE_URL`, `API_PREFIX`, `JWT_SECRET`, plus `INVENTORY_URL`/`PRICING_URL`
-for internal calls, and `AI_*` for procurement.
+for internal calls, `AI_*` + `SCOUT_*` for procurement, and `SCHEDULER_*` for site.
 
 ---
 
@@ -114,8 +116,10 @@ for internal calls, and `AI_*` for procurement.
 | Integration | Status | Notes |
 |-------------|--------|-------|
 | **Gemini LLM** | **Live** | Procurement advice; `gemini-flash-lite-latest`; free-tier quota; deterministic fallback |
+| **Tavily web search** | **Optional (live)** | External price-scout when `SCOUT_API_KEY` set (`SCOUT_PROVIDER=auto/tavily`); Gemini Google-Search grounding (`web`) and model estimates (`llm`) are the fallbacks; all offers advisory |
 | **Payment gateway** | **Mock (active)** | `payment-service/config.yaml` `provider: mock` (settles instantly); razorpay/stripe/payu/cashfree are extension points reading env secrets |
-| **OSRM / notifications** | Not present in v1 | (were V0 concepts; not carried over) |
+| **Notifications** | **In-app (active)** | JIT scheduler writes `notifications` rows surfaced in hub-console Projects + spoke SiteDetail; email/push is a future extension |
+| **OSRM / maps** | Not present in v1 | (was a V0 concept; not carried over) |
 
 ---
 
@@ -146,8 +150,9 @@ docker compose -f infra/docker-compose.yml up -d --build
 | API gateway | http://localhost:8088 (`/`, `/health`, `/api/...`) |
 | identity / inventory / procurement / site / pricing / payment | :8005 / :8001 / :8002 / :8003 / :8004 / :8006 (`/docs` each) |
 
-Demo logins (password `consmat123`): `manager@` `supervisor@` (hub) · `spoke@` `architect@` `civil@`
-(spoke) · `demo@` (consumer) · `admin@` `vendor@`. Tear down: `down` (add `-v` to wipe data).
+Demo logins (password `consmat123`): `manager@` `supervisor@` `ops@` (hub) · `spoke@` `architect@`
+`civil@` (spoke) · `demo@` (consumer) · `admin@` `vendor@`. Tear down: `down` (add `-v` to wipe data →
+clean seed state on next `up`).
 
 **Enable/verify the Hub LLM:** put a Gemini key on `AI_API_KEY=` in `infra/.env`, then
 `docker compose -f infra/docker-compose.yml up -d procurement-service`; check
@@ -159,7 +164,8 @@ Demo logins (password `consmat123`): `manager@` `supervisor@` (hub) · `spoke@` 
 
 - Each service: `GET /health` (drives the Docker healthcheck) and Swagger at `/docs`.
 - Gateway: `GET /health` and `/` route index.
-- Hub LLM: `/procurement/llm-status`; LLM errors logged as `[hub-llm] ERROR …`.
+- Hub LLM: `/procurement/llm-status`; LLM errors logged as `[hub-llm] ERROR …`; web scout failures as `[price-scout] …`.
+- JIT scheduler: logs `[scheduler] …` on startup and whenever a tick takes action; `POST /site/scheduler/tick` runs one pass on demand.
 - Logs: `docker compose -f infra/docker-compose.yml logs -f <service>`.
 
 ---
@@ -171,6 +177,7 @@ Demo logins (password `consmat123`): `manager@` `supervisor@` (hub) · `spoke@` 
 - Services are individually replicable behind the gateway once their Postgres is externalized.
 - The gateway is a single ingress (and a single point of failure) — run it replicated behind a load balancer for HA.
 - Internal calls are synchronous REST; event-driven flows (e.g. phase triggers) are a future option.
+- The JIT scheduler is an in-process thread in site-service; running >1 site-service replica would double-fire ticks — extract it to a singleton worker (or add leader election) before scaling that service horizontally.
 
 ---
 

@@ -1,9 +1,13 @@
 # Consmat AI V1 — High-Level Design (HLD)
 
-> **Status:** 🟢 As-built · **Version:** 1.0 · **Model:** Hub-and-Spoke distribution
+> **Status:** 🟢 As-built · **Version:** 1.1 · **Model:** Hub-and-Spoke distribution
 >
 > This reflects the system as actually built and running. Decisions are logged in
-> [DECISIONS.md](./DECISIONS.md) (D1–D13); detail is in [LLD.md](./LLD.md) and [SLD.md](./SLD.md).
+> [DECISIONS.md](./DECISIONS.md) (D1–D22); detail is in [LLD.md](./LLD.md) and [SLD.md](./SLD.md).
+>
+> **v1.1 adds the full JIT site-dispatch system:** product/brand-level stock with a 3x buffer,
+> CE/spoke-entered product BOMs, per-phase dates with an approval workflow, a background scheduler that
+> pre-dispatches the next phase, in-app notifications, vendor add/remove approvals, and per-product margins.
 
 ---
 
@@ -35,12 +39,19 @@ sets a figure.
 
 ## 3. Confirmed Decisions (summary)
 
-Full log in [DECISIONS.md](./DECISIONS.md). Highlights: **D1** hub owns inventory & prices, is also a
+Full log in [DECISIONS.md](./DECISIONS.md). Foundations: **D1** hub owns inventory & prices, is also a
 supplier and procures from vendors · **D2** single hub → many spokes · **D3** spokes hold no stock
 (coordination role; goods ship hub → site) · **D4** 9-phase construction model drives JIT demand ·
 **D5** 4-tier consumer classification · **D6** Hub LLM for procurement intelligence · **D7** persistent
 DB · **D8/D9/D10** microservices, SQLAlchemy 2.0 + Alembic, database-per-service · **D11** config-driven
 payments · **D12** Hub LLM on Gemini · **D13** API gateway.
+
+v1 build-out: **D14** product/brand catalog + full-name search · **D15** procurement is tier-agnostic ·
+**D16/D17** external price-scout (live web search via Tavily / Gemini grounding, advisory) · **D18**
+product/brand-level stock with a **3× committed-demand buffer** · **D19** CE/spoke-entered product BOM +
+per-phase start/end dates + end-date **approval workflow** · **D20** background **JIT scheduler** that
+pre-dispatches the next phase + in-app **notifications** · **D21** vendor add/remove **request→approval**
+(new `hub_ops` role) · **D22** **per-product margins**.
 
 ---
 
@@ -83,15 +94,19 @@ flowchart TB
     GW-->ID & INV & PROC & PRICE & SITE & PAY
     ID & INV & PROC & PRICE & SITE & PAY --> DB
 
-    PROC -. "inbound / selling-prices" .-> INV
-    PROC -. "selling-prices" .-> PRICE
-    SITE -. "catalog / outbound dispatch" .-> INV
-    PRICE -. "avg cost" .-> INV
-    PROC -. "advice" .-> LLM
+    SCHED["JIT scheduler<br/>(thread in site)"]
+
+    PROC -. "product inbound / selling-prices" .-> INV
+    PROC -. "list price" .-> PRICE
+    SITE -. "catalog / product reserve + outbound" .-> INV
+    PRICE -. "product avg cost" .-> INV
+    PROC -. "advice / web scout" .-> LLM
+    SCHED -. "warn + pre-dispatch next phase" .-> SITE
 ```
 
 > Frontend + external API traffic goes **through the gateway**. Internal service-to-service calls
-> (dashed) go **directly** by service name, authenticated with a minted `service` token.
+> (dashed) go **directly** by service name, authenticated with a minted `service` token. The **JIT
+> scheduler** is a background thread inside site-service (not a separate container).
 
 ---
 
@@ -99,18 +114,20 @@ flowchart TB
 
 | Role | App | Responsibilities |
 |------|-----|------------------|
-| **hub_manager** | hub-console | Pricing/margins, approvals, vendor registry, procurement, staff |
-| **hub_supervisor** | hub-console | Inventory movements, procurement runs, dispatch/receive |
-| **spokesperson** | spoke-app | Geofence, consumer intake & 4-tier classification |
-| **architect** | spoke-app | Site plans → BOM |
-| **civil_engineer** | spoke-app | Phase progress updates (the JIT trigger) |
-| **consumer** | consumer-portal | View own project, pay |
+| **hub_manager** | hub-console | Pricing/margins, all approvals (vendor + phase dates), project oversight, procurement, staff — sits above the spoke |
+| **hub_supervisor** | hub-console | Inventory movements, procurement runs, dispatch/receive, vendor & date approvals |
+| **hub_ops** | hub-console | Operator: **requests** vendor add/remove (approved by supervisor/manager) |
+| **spokesperson** | spoke-app | Geofence, consumer intake & 4-tier classification, enter/edit BOM, phase dates, approve CE date changes |
+| **architect** | spoke-app | Site plans (legacy auto-BOM) |
+| **civil_engineer** | spoke-app | Enter BOM, phase progress + dates (end-date changes need approval) |
+| **consumer** | consumer-portal | Track own project, pay |
 | **vendor** | (upstream) | Sells material to the hub |
 | **admin** | any | Full override |
 | *service* | — | Internal service-to-service token |
 
-The **spoke-app** blends the three field roles into one guard set (any field role may perform field
-actions); the **hub-console** distinguishes supervisor (ops) from manager (pricing/approvals).
+The **spoke-app** blends the three field roles into one guard set for field actions (with the
+**civil-engineer end-date change** singled out for approval); the **hub-console** distinguishes operator
+(request), supervisor (ops + approve), and manager (pricing + approve + oversight).
 
 ---
 
@@ -119,10 +136,10 @@ actions); the **hub-console** distinguishes supervisor (ops) from manager (prici
 | Service | Owns | Key API |
 |---------|------|---------|
 | **identity** | Users, roles, JWT issuance | `/auth/login`, `/auth/me`, `/users` |
-| **inventory** | Materials catalog, stock + append-only ledger | `/materials`, `/inventory*`, `/ledger` |
-| **procurement** | Vendors + price lists, planning, Hub LLM, orders | `/vendors*`, `/prices/{m}`, `/procurement/*` |
-| **pricing** | Margin rules, selling price | `/margins`, `/price/{m}`, `/quote`, `/selling-prices` |
-| **site** | Spokes, consumers, sites, plans, phases, dispatch, backfill | `/spokes*`, `/consumers*`, `/intake`, `/sites*`, `/backfill` |
+| **inventory** | Materials + **products** catalog, material + **product-level stock**, ledger | `/materials`, `/products*`, `/inventory*`, `/product-stock*`, `/ledger` |
+| **procurement** | Vendors + product price lists, **vendor requests**, planning, Hub LLM + web scout, orders | `/vendors*`, `/vendor-requests*`, `/prices/{m}`, `/procurement/*`, `/external-offers*` |
+| **pricing** | Margin rules (**per product** / material / tier), selling price | `/margins`, `/price/{m}`, `/price-product/{id}`, `/quote`, `/selling-prices` |
+| **site** | Spokes, consumers, sites, **product BOM**, phases + **dates/approvals**, dispatch, **scheduler**, **notifications** | `/spokes*`, `/consumers*`, `/intake`, `/sites*`, `/phase-changes*`, `/notifications*`, `/scheduler/tick`, `/backfill` |
 | **payment** | Config-driven gateway, payments | `/payments*`, `/payments/config` |
 
 Full endpoint reference in [LLD §4](./LLD.md#4-api-reference).
@@ -133,9 +150,9 @@ Full endpoint reference in [LLD §4](./LLD.md#4-api-reference).
 
 | App | For | Pages |
 |-----|-----|-------|
-| **hub-console** | supervisor/manager | Overview (+ network re-dispatch), Inventory, Vendors, Procurement (+ LLM advice), Pricing, Payments |
-| **spoke-app** | spokesperson/architect/civil engineer | Territory, Intake, Sites, Site detail (plan/start/complete/backfill) |
-| **consumer-portal** | consumer | Projects, phase timeline + delivery status, Pay for project |
+| **hub-console** | operator/supervisor/manager | Overview, **Projects** (all sites + date-change approvals + notifications + run-scheduler), Inventory (**per-brand stock, 3× low-stock panel, product inbound**), Vendors (**request/approve add-remove**), Procurement (+ LLM advice + web scout), Pricing (**per-product margins**), Payments |
+| **spoke-app** | spokesperson/architect/civil engineer | Territory, Intake, Sites, Site detail (**enter/edit product BOM, phase start/end dates, approve CE date changes, notifications**, start/complete/backfill) |
+| **consumer-portal** | consumer | Projects, phase timeline + delivery status (product names), Pay for project |
 
 All three: JWT login, token attached to every request, 401 → logout, role shown; API reaches services
 through their own nginx → the gateway.
@@ -144,7 +161,7 @@ through their own nginx → the gateway.
 
 ## 8. Core Flows
 
-### 8.1 Supply (procurement) — LLM-advised
+### 8.1 Supply (procurement) — LLM-advised, product-level
 
 ```mermaid
 sequenceDiagram
@@ -152,37 +169,45 @@ sequenceDiagram
     participant H as Hub (console)
     participant PR as procurement
     participant PC as pricing
-    participant LLM as Gemini
+    participant LLM as Gemini / web scout
     participant INV as inventory
-    H->>PR: Analyze demand (tier)
-    PR->>PR: cheapest-source plan (deterministic)
-    PR->>PC: selling-prices(tier)
-    PR->>LLM: advise on plan + profitability
-    LLM-->>PR: summary · alternatives · flags (advice only)
+    H->>PR: Analyze demand
+    PR->>PR: cheapest-source plan (deterministic, per product)
+    PR->>PC: list selling-prices
+    PR->>LLM: auto-scout web + advise on plan/profitability
+    LLM-->>PR: summary · cheaper alternatives · flags (advice only)
     PR-->>H: plan + margin + advice
     H->>PR: Create order → Receive
-    PR->>INV: inbound (per line) → stock + weighted-avg cost
+    PR->>INV: product inbound (per line) → brand stock + material rollup
 ```
 
-### 8.2 Demand (phased JIT) & self-healing backfill
+### 8.2 Demand — product BOM, phase dates, JIT scheduler & self-healing backfill
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant CE as Civil engineer (spoke-app)
-    participant SITE as site
+    participant CE as CE / spoke (spoke-app)
+    participant SITE as site (+ scheduler)
     participant INV as inventory
+    participant AP as Spoke / manager
     participant HUB as Hub (console)
-    CE->>SITE: Complete phase N
-    SITE->>INV: outbound phase N+1 slice
-    alt stock ok
-        INV-->>SITE: dispatched
-    else short
-        INV-->>SITE: 409 → line marked short (demand signal)
+    CE->>SITE: Enter product BOM + phase start/end dates
+    SITE->>INV: reserve committed demand per product (3x buffer watch)
+    CE->>SITE: Change a phase end date
+    alt changed by civil engineer
+        SITE->>AP: pending approval → approve/reject
+    else changed by spoke/manager
+        SITE-->>SITE: applied directly
     end
-    HUB->>HUB: replenish (procurement → receive)
-    HUB->>SITE: Re-dispatch shortfalls (/backfill)
-    SITE->>INV: retry short lines → dispatched, dispatch healed
+    Note over SITE: ~3 days before phase end, the scheduler warns the field team…
+    SITE->>SITE: notify CE + spoke (dispatch_pending)
+    SITE->>INV: pre-dispatch next phase (product outbound from reservation)
+    alt stock ok
+        INV-->>SITE: dispatched → notify (dispatched)
+    else short
+        INV-->>SITE: 409 → line short (demand signal)
+        HUB->>SITE: replenish then /backfill → heals to dispatched
+    end
 ```
 
 ### 8.3 Money — pricing & consumer payment
@@ -221,7 +246,10 @@ Detail in [LLD §5](./LLD.md#5-authentication--roles).
 - **Config-driven** — catalog/BOM coefficients seeded; payment providers in `config.yaml`; LLM + secrets in `.env`.
 - **Single ingress** — the gateway centralizes API routing + CORS; a home for future rate limiting/edge auth.
 - **Self-healing supply** — shortfalls are first-class signals; backfill reconciles them after replenishment.
-- **Graceful AI degradation** — LLM error/quota → deterministic fallback, no failure.
+- **Just-in-time by date** — a background scheduler pre-dispatches the next phase before the current one ends, so sites never stall waiting for material.
+- **Buffer-based early warning** — the hub watches a **3× committed-demand** buffer per brand and flags low/no-stock before an actual stockout.
+- **Approval workflows** — irreversible/authority-sensitive actions (vendor add-remove, civil-engineer phase-date changes) are requested by one role and approved by another.
+- **Graceful AI degradation** — LLM/web-scout error/quota → deterministic fallback, no failure.
 
 ---
 
@@ -240,12 +268,14 @@ Detail in [LLD §5](./LLD.md#5-authentication--roles).
 
 ## 12. Status & Remaining
 
-**Complete:** all 8 build steps + auth + payments + API gateway + backfill; Hub LLM live.
+**Complete:** all services + auth + payments + API gateway; product/brand catalog, pricing, and stock;
+web-scouted procurement; the full JIT site-dispatch system (product BOM entry, phase dates + approval,
+3× buffer, background scheduler, notifications); vendor request→approval; per-product margins. Hub LLM live.
 
-**Deferred / optional:** real payment-provider API calls (extension points in `payment-service`), and
-finer product questions in [DECISIONS.md](./DECISIONS.md) (approval thresholds, procurement approval
-workflow, catalog expansion, credit terms). Production hardening (TLS, secrets manager, rate limiting)
-is out of scope for v1.
+**Deferred / optional:** real payment-provider API calls (extension points in `payment-service`),
+email/push delivery of notifications (in-app only in v1), and finer product questions in
+[DECISIONS.md](./DECISIONS.md) (purchase-order approval thresholds, credit terms, catalog expansion).
+Production hardening (TLS, secrets manager, rate limiting) is out of scope for v1.
 
 ---
 
