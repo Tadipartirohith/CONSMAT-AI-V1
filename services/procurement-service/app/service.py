@@ -76,6 +76,67 @@ def deactivate_vendor(db: Session, vendor_id: str) -> models.Vendor:
     return v
 
 
+# ---- Vendor add/remove requests (ops requests -> supervisor/manager approves) ----
+
+VENDOR_APPROVERS = ("hub_supervisor", "hub_manager", "admin")
+
+
+def create_vendor_request(db: Session, action: str, *, requested_by_role: str, requested_by: str,
+                          name: str = "", city: str = "", phone: str = "", gstin: str = "",
+                          is_hub_self: bool = False, vendor_id: str = "",
+                          reason: str = "") -> models.VendorRequest:
+    if action not in (models.VR_ADD, models.VR_REMOVE):
+        raise ProcurementError("action must be 'add' or 'remove'")
+    if action == models.VR_ADD and not name.strip():
+        raise ProcurementError("Vendor name is required to request an add")
+    if action == models.VR_REMOVE:
+        _require(db, vendor_id)  # target must exist
+    req = models.VendorRequest(
+        action=action, vendor_id=vendor_id, name=name.strip(), city=city, phone=phone, gstin=gstin,
+        is_hub_self=is_hub_self, reason=reason, requested_by_role=requested_by_role,
+        requested_by=requested_by)
+    db.add(req)
+    db.commit()
+    db.refresh(req)
+    return req
+
+
+def list_vendor_requests(db: Session, status: str | None = None) -> list[models.VendorRequest]:
+    stmt = select(models.VendorRequest).order_by(models.VendorRequest.id.desc())
+    if status:
+        stmt = stmt.where(models.VendorRequest.status == status)
+    return list(db.execute(stmt).scalars())
+
+
+def decide_vendor_request(db: Session, req_id: int, approve: bool, *, decided_by_role: str,
+                          decided_by: str) -> models.VendorRequest:
+    """Supervisor/manager approves or rejects. Approving an add creates the vendor; a remove deactivates it."""
+    if decided_by_role not in VENDOR_APPROVERS:
+        raise ProcurementError("Only a hub supervisor or manager can decide vendor requests")
+    req = db.get(models.VendorRequest, req_id)
+    if req is None:
+        raise ProcurementError(f"Unknown vendor request: {req_id}")
+    if req.status != models.VR_PENDING:
+        raise ProcurementError("This request has already been decided")
+    if approve:
+        if req.action == models.VR_ADD:
+            v = create_vendor(db, req.name, city=req.city, phone=req.phone, gstin=req.gstin,
+                              is_hub_self=req.is_hub_self)
+            req.vendor_id = v.id
+        else:  # remove
+            deactivate_vendor(db, req.vendor_id)
+        req.status = models.VR_APPROVED
+    else:
+        req.status = models.VR_REJECTED
+    from sqlalchemy import func as _func
+    req.decided_by_role = decided_by_role
+    req.decided_by = decided_by
+    req.decided_at = db.execute(select(_func.now())).scalar()
+    db.commit()
+    db.refresh(req)
+    return req
+
+
 def set_price(db: Session, vendor_id: str, product_id: str, price, min_qty=0) -> models.VendorPrice:
     """Upsert a vendor's price for a branded product. Denormalizes material/brand/name from the catalog."""
     _require(db, vendor_id)

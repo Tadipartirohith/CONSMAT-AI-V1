@@ -8,8 +8,10 @@ from .. import schemas, service
 from ..auth import current_user, require_role
 from ..db import get_db
 
-# Reads: any authenticated user. Vendor/price changes: hub staff only.
+# Reads: any authenticated user. Vendor/price changes + approvals: hub supervisor/manager.
 HUB_WRITE = require_role("hub_supervisor", "hub_manager")
+# Requesting a vendor add/remove: operators too (approval still gated to supervisor/manager).
+HUB_REQUEST = require_role("hub_ops", "hub_supervisor", "hub_manager")
 router = APIRouter(tags=["procurement"], dependencies=[Depends(current_user)])
 
 
@@ -48,6 +50,26 @@ def update_vendor(vendor_id: str, body: schemas.VendorUpdate, db: Session = Depe
 def deactivate_vendor(vendor_id: str, db: Session = Depends(get_db)):
     """Soft-deactivate (keeps history); reactivate via PATCH active=true."""
     return _run(service.deactivate_vendor, db=db, vendor_id=vendor_id)
+
+
+@router.post("/vendor-requests", response_model=schemas.VendorRequestOut, status_code=201, dependencies=[Depends(HUB_REQUEST)])
+def create_vendor_request(body: schemas.VendorRequestIn, user: dict = Depends(current_user), db: Session = Depends(get_db)):
+    """Operator requests a vendor add/remove; a supervisor or manager approves it."""
+    return _run(service.create_vendor_request, db=db, action=body.action, name=body.name, city=body.city,
+                phone=body.phone, gstin=body.gstin, is_hub_self=body.is_hub_self, vendor_id=body.vendor_id,
+                reason=body.reason, requested_by_role=user.get("role", ""), requested_by=user.get("name", ""))
+
+
+@router.get("/vendor-requests", response_model=list[schemas.VendorRequestOut])
+def list_vendor_requests(status: str | None = None, db: Session = Depends(get_db)):
+    return service.list_vendor_requests(db, status)
+
+
+@router.post("/vendor-requests/{req_id}/decide", response_model=schemas.VendorRequestOut)
+def decide_vendor_request(req_id: int, body: schemas.DecideVendorIn, user: dict = Depends(current_user), db: Session = Depends(get_db)):
+    """Supervisor/manager approves or rejects. Approving executes the add/remove."""
+    return _run(service.decide_vendor_request, db=db, req_id=req_id, approve=body.approve,
+                decided_by_role=user.get("role", ""), decided_by=user.get("name", ""))
 
 
 @router.put("/vendors/{vendor_id}/prices", response_model=schemas.PriceOut, dependencies=[Depends(HUB_WRITE)])

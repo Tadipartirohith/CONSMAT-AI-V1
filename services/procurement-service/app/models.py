@@ -21,6 +21,36 @@ PO_APPROVED = "approved"
 PO_RECEIVED = "received"
 PO_CANCELLED = "cancelled"
 
+# Vendor add/remove requests (ops requests, supervisor/manager approves)
+VR_PENDING = "pending"
+VR_APPROVED = "approved"
+VR_REJECTED = "rejected"
+VR_ADD = "add"
+VR_REMOVE = "remove"
+
+
+class VendorRequest(Base):
+    """A request to add or remove a vendor. An operator (hub_ops) submits it; a hub supervisor or
+    manager approves/rejects. Approving an 'add' creates the vendor; approving a 'remove' deactivates it."""
+    __tablename__ = "vendor_requests"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    action: Mapped[str] = mapped_column(String(10), nullable=False)   # add | remove
+    vendor_id: Mapped[str] = mapped_column(String(48), default="")    # target (remove) / created id (add)
+    name: Mapped[str] = mapped_column(String(160), default="")
+    city: Mapped[str] = mapped_column(String(80), default="")
+    phone: Mapped[str] = mapped_column(String(32), default="")
+    gstin: Mapped[str] = mapped_column(String(24), default="")
+    is_hub_self: Mapped[bool] = mapped_column(Boolean, default=False)
+    reason: Mapped[str] = mapped_column(String(255), default="")
+    status: Mapped[str] = mapped_column(String(16), default=VR_PENDING)
+    requested_by_role: Mapped[str] = mapped_column(String(32), default="")
+    requested_by: Mapped[str] = mapped_column(String(120), default="")
+    decided_by_role: Mapped[str] = mapped_column(String(32), default="")
+    decided_by: Mapped[str] = mapped_column(String(120), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
 
 class Vendor(Base):
     __tablename__ = "vendors"

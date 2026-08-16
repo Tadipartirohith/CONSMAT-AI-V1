@@ -1,9 +1,13 @@
 import { useState } from "react";
 import { inv, proc, MATERIALS, inr } from "../api.js";
+import { getUser } from "../auth.js";
 import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync } from "../components/ui.jsx";
 
 export default function Vendors() {
+  const role = getUser()?.role;
+  const isApprover = ["hub_supervisor", "hub_manager", "admin"].includes(role);
   const vendors = useAsync(() => proc.vendors());
+  const requests = useAsync(() => proc.vendorRequests("pending"));
   const products = useAsync(() => inv.products());
   const [material, setMaterial] = useState("cement");
   const market = useAsync(() => proc.market(material), [material]);
@@ -12,7 +16,23 @@ export default function Vendors() {
   const [nv, setNv] = useState({ name: "", city: "" });
   const addVendor = async (e) => {
     e.preventDefault(); setMsg(null);
-    try { await proc.addVendor({ name: nv.name, city: nv.city }); setNv({ name: "", city: "" }); vendors.reload(); }
+    try {
+      if (isApprover) { await proc.addVendor({ name: nv.name, city: nv.city }); setMsg("Vendor added."); }
+      else { await proc.requestVendor({ action: "add", name: nv.name, city: nv.city }); setMsg("Add request submitted for approval."); }
+      setNv({ name: "", city: "" }); vendors.reload(); requests.reload();
+    } catch (e) { setMsg(e.message); }
+  };
+  const removeVendor = async (v) => {
+    setMsg(null);
+    try {
+      if (isApprover) { await proc.deactivateVendor(v.id); setMsg(`${v.name} deactivated.`); }
+      else { await proc.requestVendor({ action: "remove", vendor_id: v.id }); setMsg("Remove request submitted for approval."); }
+      vendors.reload(); requests.reload();
+    } catch (e) { setMsg(e.message); }
+  };
+  const decide = async (id, approve) => {
+    setMsg(null);
+    try { await proc.decideVendor(id, approve); setMsg(approve ? "Approved." : "Rejected."); requests.reload(); vendors.reload(); }
     catch (e) { setMsg(e.message); }
   };
 
@@ -30,26 +50,53 @@ export default function Vendors() {
 
       <ProductSearch />
 
+      {requests.data?.length > 0 && (
+        <Card title={isApprover ? "Vendor requests awaiting approval" : "Your pending vendor requests"}>
+          <Table head={["Action", "Vendor", "City", "Requested by", isApprover ? "Decide" : "Status"]}>
+            {requests.data.map((r) => (
+              <tr key={r.id} className="border-b border-border/50">
+                <Td><Badge tone={r.action === "remove" ? "bad" : "ok"}>{r.action}</Badge></Td>
+                <Td>{r.name || r.vendor_id}</Td>
+                <Td className="text-muted">{r.city || "-"}</Td>
+                <Td className="text-muted">{r.requested_by || r.requested_by_role}</Td>
+                <Td>
+                  {isApprover ? (
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={() => decide(r.id, true)}>Approve</Button>
+                      <Button size="sm" variant="ghost" onClick={() => decide(r.id, false)}>Reject</Button>
+                    </div>
+                  ) : <Badge tone="warn">pending</Badge>}
+                </Td>
+              </tr>
+            ))}
+          </Table>
+        </Card>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-3">
         <Card title="Vendor registry" className="lg:col-span-2" right={<Button size="sm" variant="ghost" onClick={vendors.reload}>Refresh</Button>}>
-          <Table head={["ID", "Name", "City", "Type"]}>
+          <Table head={["ID", "Name", "City", "Type", ""]}>
             {(vendors.data || []).map((v) => (
               <tr key={v.id} className="border-b border-border/50">
                 <Td mono className="text-muted">{v.id}</Td>
                 <Td>{v.name}</Td>
                 <Td>{v.city || "-"}</Td>
                 <Td>{v.is_hub_self ? <Badge tone="accent">hub</Badge> : <Badge>{v.active ? "active" : "inactive"}</Badge>}</Td>
+                <Td>{!v.is_hub_self && v.active && (
+                  <Button size="sm" variant="ghost" onClick={() => removeVendor(v)}>{isApprover ? "Remove" : "Request remove"}</Button>
+                )}</Td>
               </tr>
             ))}
           </Table>
         </Card>
 
         <div className="space-y-4">
-          <Card title="Add vendor">
+          <Card title={isApprover ? "Add vendor" : "Request to add vendor"}>
             <form onSubmit={addVendor} className="space-y-3">
               <Field label="Name"><Input value={nv.name} required onChange={(e) => setNv({ ...nv, name: e.target.value })} /></Field>
               <Field label="City"><Input value={nv.city} onChange={(e) => setNv({ ...nv, city: e.target.value })} /></Field>
-              <Button type="submit">Add vendor</Button>
+              <Button type="submit">{isApprover ? "Add vendor" : "Submit request"}</Button>
+              {!isApprover && <p className="text-[11px] text-muted">A supervisor or manager will approve this.</p>}
             </form>
           </Card>
           <Card title="Set product price">

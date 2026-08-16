@@ -14,6 +14,7 @@ USERS = [
     ("admin@consmat.com", "Platform Admin", "admin", ""),
     ("manager@consmat.com", "Hub Manager", "hub_manager", ""),
     ("supervisor@consmat.com", "Hub Supervisor", "hub_supervisor", ""),
+    ("ops@consmat.com", "Hub Operator", "hub_ops", ""),
     ("spoke@consmat.com", "Medchal Spokesperson", "spokesperson", "s_medchal"),
     ("architect@consmat.com", "Site Architect", "architect", "s_medchal"),
     ("civil@consmat.com", "Civil Engineer", "civil_engineer", "s_medchal"),

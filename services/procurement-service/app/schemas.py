@@ -49,6 +49,40 @@ class VendorUpdate(BaseModel):
     active: bool | None = None
 
 
+class VendorRequestIn(BaseModel):
+    action: str = Field(pattern="^(add|remove)$")
+    vendor_id: str = ""          # required for remove
+    name: str = ""               # required for add
+    city: str = ""
+    phone: str = ""
+    gstin: str = ""
+    is_hub_self: bool = False
+    reason: str = ""
+
+
+class VendorRequestOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    action: str
+    vendor_id: str
+    name: str
+    city: str
+    phone: str
+    gstin: str
+    is_hub_self: bool
+    reason: str
+    status: str
+    requested_by_role: str
+    requested_by: str
+    decided_by: str
+    created_at: datetime | None = None
+    decided_at: datetime | None = None
+
+
+class DecideVendorIn(BaseModel):
+    approve: bool
+
+
 class PriceIn(BaseModel):
     product_id: str = Field(min_length=1)
     price: float = Field(ge=0)
