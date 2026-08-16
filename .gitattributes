@@ -1,0 +1,2 @@
+# Keep shell scripts LF so Docker/Linux entrypoints run regardless of host OS.
+*.sh text eol=lf

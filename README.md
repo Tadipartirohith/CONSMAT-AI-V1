@@ -66,9 +66,9 @@ suppliers / vendors  ──►  HUB  ──►  SPOKE  ──►  retail consume
 
 ## Build roadmap (one step at a time)
 
-1. **Domain & role model** ← current — entities, roles, phases, relationships.
-2. **Hub inventory** — inbound/outbound ledger, stock levels, valuation.
-3. **Vendor registry + price lists** — vendor list, add-vendor, pricing.
+1. ✅ **Domain & role model** — entities, roles, phases, relationships ([docs/LLD.md](./docs/LLD.md)).
+2. ✅ **Hub inventory** — append-only ledger, stock levels, weighted-avg valuation, reservations ([services/inventory-service](./services/inventory-service)).
+3. **Vendor registry + price lists** ← next — vendor list, add-vendor, pricing.
 4. **Procurement + Hub LLM** — BOM → profitability, alternatives, market price-scouting.
 5. **Site & phase management** — plans, per-phase BOM, phase updates, JIT dispatch.
 6. **Spoke ops** — geofence, consumer intake & classification.

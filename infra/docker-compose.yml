@@ -1,0 +1,37 @@
+# Consmat AI V1 — local dev stack.
+# Starts with the inventory-service (Step 2). Further services are added as they are built.
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: consmat-v1-db
+    environment:
+      POSTGRES_USER: consmat
+      POSTGRES_PASSWORD: consmat
+      POSTGRES_DB: inventory
+    ports:
+      - "${DB_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U consmat -d inventory"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  inventory-service:
+    build: ../services/inventory-service
+    container_name: consmat-v1-inventory
+    environment:
+      DATABASE_URL: postgresql+psycopg://consmat:consmat@db:5432/inventory
+      API_PREFIX: /api/v1
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
+    ports:
+      - "${INVENTORY_PORT:-8001}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:

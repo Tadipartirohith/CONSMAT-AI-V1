@@ -1,0 +1,78 @@
+"""Inventory REST API."""
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from .. import schemas, service
+from ..db import get_db
+
+router = APIRouter(tags=["inventory"])
+
+
+def _stock(item) -> schemas.StockOut:
+    return schemas.StockOut(
+        material_id=item.material_id, on_hand=float(item.on_hand), reserved=float(item.reserved),
+        available=float(item.available), avg_cost=float(item.avg_cost), updated_at=item.updated_at,
+    )
+
+
+@router.get("/inventory", response_model=list[schemas.StockOut])
+def list_stock(db: Session = Depends(get_db)):
+    return [_stock(i) for i in service.list_stock(db)]
+
+
+@router.get("/inventory/{material_id}", response_model=schemas.StockOut)
+def get_stock(material_id: str, db: Session = Depends(get_db)):
+    item = service.get_item(db, material_id)
+    if item is None:
+        raise HTTPException(404, f"No inventory for material {material_id}")
+    return _stock(item)
+
+
+@router.get("/inventory/{material_id}/ledger", response_model=list[schemas.LedgerOut])
+def item_ledger(material_id: str, limit: int = 100, db: Session = Depends(get_db)):
+    return service.ledger(db, material_id, limit)
+
+
+@router.get("/ledger", response_model=list[schemas.LedgerOut])
+def all_ledger(limit: int = 100, db: Session = Depends(get_db)):
+    return service.ledger(db, None, limit)
+
+
+def _run(fn, **kwargs):
+    try:
+        return fn(**kwargs)
+    except service.InventoryError as e:
+        raise HTTPException(409, str(e))
+
+
+@router.post("/inventory/inbound", response_model=schemas.LedgerOut)
+def inbound(body: schemas.InboundIn, db: Session = Depends(get_db)):
+    return _run(service.receive, db=db, material_id=body.material_id, qty=body.qty,
+                unit_cost=body.unit_cost, ref_type=body.ref_type, ref_id=body.ref_id, note=body.note)
+
+
+@router.post("/inventory/outbound", response_model=schemas.LedgerOut)
+def outbound(body: schemas.OutboundIn, db: Session = Depends(get_db)):
+    return _run(service.dispatch, db=db, material_id=body.material_id, qty=body.qty,
+                ref_type=body.ref_type, ref_id=body.ref_id, note=body.note,
+                from_reservation=body.from_reservation)
+
+
+@router.post("/inventory/adjust", response_model=schemas.LedgerOut)
+def adjust(body: schemas.AdjustIn, db: Session = Depends(get_db)):
+    return _run(service.adjust, db=db, material_id=body.material_id, qty_delta=body.qty_delta,
+                note=body.note)
+
+
+@router.post("/inventory/reserve", response_model=schemas.StockOut)
+def reserve(body: schemas.ReserveIn, db: Session = Depends(get_db)):
+    item = _run(service.reserve, db=db, material_id=body.material_id, qty=body.qty)
+    return _stock(item)
+
+
+@router.post("/inventory/release", response_model=schemas.StockOut)
+def release(body: schemas.ReserveIn, db: Session = Depends(get_db)):
+    item = _run(service.release, db=db, material_id=body.material_id, qty=body.qty)
+    return _stock(item)

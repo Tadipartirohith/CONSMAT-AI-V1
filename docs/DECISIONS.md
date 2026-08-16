@@ -16,6 +16,9 @@ design each roadmap step. Date format: YYYY-MM-DD.
 | **D5** | 2026-08-16 | **4-tier consumer classification: Individual · Contractor · Commercial · Government/Institutional** | Supports differentiated pricing/credit/priority |
 | **D6** | 2026-08-16 | **Hub LLM for procurement intelligence** (profitability, alternatives, price-scouting) | Moves V0's LLM upstream to buying/pricing decisions |
 | **D7** | 2026-08-16 | **Persistent database (PostgreSQL assumed) instead of in-memory** | Inventory ledger requires durability & auditability |
+| **D8** | 2026-08-16 | **Microservices architecture** (one service per domain) | Resolves Q4; chosen over modular monolith for independent scaling/deploy |
+| **D9** | 2026-08-16 | **Persistence stack: SQLAlchemy 2.0 + Alembic on PostgreSQL** | Resolves Q5; battle-tested ORM + migrations, transactional ledger |
+| **D10** | 2026-08-16 | **Microservices conventions**: database-per-service, synchronous REST to start (events later), per-service FastAPI + Dockerfile + Alembic, API gateway deferred | Standard microservice defaults; keeps services independent |
 
 ### The 9 phases (per D4)
 1. Excavation & footing
@@ -37,8 +40,10 @@ design each roadmap step. Date format: YYYY-MM-DD.
 | Q1 | Manager vs supervisor: which actions need manager approval, and value thresholds? | Roles/permissions | Step 1–3 |
 | Q2 | Exact phase→material weight matrix (how each material's total splits across the 9 phases) | BOM/JIT | Step 5 |
 | Q3 | Margin model: flat %, per-consumer-tier %, or per-material? | Pricing | Step 7 |
-| Q4 | Backend shape: modular monolith vs multiple services | Architecture | Step 2 |
-| Q5 | DB & migrations: confirm PostgreSQL + migration tool (Alembic?) | Persistence | Step 2 |
+| ~~Q4~~ | ~~Backend shape~~ → **Resolved: microservices (D8)** | Architecture | ✅ |
+| ~~Q5~~ | ~~DB & migrations~~ → **Resolved: SQLAlchemy 2.0 + Alembic + Postgres (D9)** | Persistence | ✅ |
+| Q11 | Material/catalog ownership: which service owns the materials reference data (inventory-service provisionally; extract a catalog-service later?) | Architecture | Step 3 |
+| Q12 | Inter-service auth: shared-secret JWT validated per service vs a dedicated identity-service issuing tokens | Security | Step 3 |
 | Q6 | Is the consumer portal in V1 scope, or spoke-mediated only at first? | Frontends | Step 8 |
 | Q7 | Site geolocation & spoke geofencing method (how a site maps to a spoke) | Spoke ops | Step 6 |
 | Q8 | Procurement approval workflow (auto vs manual, and who) | Procurement | Step 4 |
