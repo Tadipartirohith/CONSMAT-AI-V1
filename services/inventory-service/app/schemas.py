@@ -6,6 +6,16 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class MaterialOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    name: str
+    category: str
+    unit: str
+    grade: str
+    per_sqft: float
+
+
 class StockOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     material_id: str

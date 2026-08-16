@@ -42,7 +42,7 @@ design each roadmap step. Date format: YYYY-MM-DD.
 | Q3 | Margin model: flat %, per-consumer-tier %, or per-material? | Pricing | Step 7 |
 | ~~Q4~~ | ~~Backend shape~~ → **Resolved: microservices (D8)** | Architecture | ✅ |
 | ~~Q5~~ | ~~DB & migrations~~ → **Resolved: SQLAlchemy 2.0 + Alembic + Postgres (D9)** | Persistence | ✅ |
-| Q11 | Material/catalog ownership: which service owns the materials reference data (inventory-service provisionally; extract a catalog-service later?) | Architecture | Step 3 |
+| ~~Q11~~ | ~~Material/catalog ownership~~ → **Resolved: inventory-service owns the catalog and exposes `GET /materials`; other services reference `material_id` as an opaque string (no cross-service FK). Extract a catalog-service later if it grows.** | Architecture | ✅ |
 | Q12 | Inter-service auth: shared-secret JWT validated per service vs a dedicated identity-service issuing tokens | Security | Step 3 |
 | Q6 | Is the consumer portal in V1 scope, or spoke-mediated only at first? | Frontends | Step 8 |
 | Q7 | Site geolocation & spoke geofencing method (how a site maps to a spoke) | Spoke ops | Step 6 |

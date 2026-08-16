@@ -17,6 +17,12 @@ def _stock(item) -> schemas.StockOut:
     )
 
 
+@router.get("/materials", response_model=list[schemas.MaterialOut])
+def list_materials(db: Session = Depends(get_db)):
+    """Canonical materials catalog (owned by inventory-service; see Q11)."""
+    return service.list_materials(db)
+
+
 @router.get("/inventory", response_model=list[schemas.StockOut])
 def list_stock(db: Session = Depends(get_db)):
     return [_stock(i) for i in service.list_stock(db)]

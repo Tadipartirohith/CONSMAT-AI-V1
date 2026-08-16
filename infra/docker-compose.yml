@@ -33,5 +33,21 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  procurement-service:
+    build: ../services/procurement-service
+    container_name: consmat-v1-procurement
+    environment:
+      # own logical database on the shared server (D10); entrypoint self-creates it
+      DATABASE_URL: postgresql+psycopg://consmat:consmat@db:5432/procurement
+      API_PREFIX: /api/v1
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
+      INVENTORY_URL: http://inventory-service:8000
+    ports:
+      - "${PROCUREMENT_PORT:-8002}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   pgdata:

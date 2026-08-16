@@ -133,6 +133,10 @@ def release(db: Session, material_id: str, qty) -> models.InventoryItem:
     return item
 
 
+def list_materials(db: Session) -> list[models.Material]:
+    return list(db.execute(select(models.Material).order_by(models.Material.id)).scalars())
+
+
 def list_stock(db: Session) -> list[models.InventoryItem]:
     return list(db.execute(select(models.InventoryItem)).scalars())
 
