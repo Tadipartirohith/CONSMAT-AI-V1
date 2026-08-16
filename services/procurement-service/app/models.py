@@ -15,6 +15,12 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
 
+# Procurement order statuses
+PO_DRAFT = "draft"
+PO_APPROVED = "approved"
+PO_RECEIVED = "received"
+PO_CANCELLED = "cancelled"
+
 
 class Vendor(Base):
     __tablename__ = "vendors"
@@ -48,3 +54,38 @@ class VendorPrice(Base):
     )
 
     vendor: Mapped["Vendor"] = relationship(back_populates="prices")
+
+
+class ProcurementOrder(Base):
+    """A hub purchase from vendors. On receive, each line posts an inbound to inventory-service."""
+    __tablename__ = "procurement_orders"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    status: Mapped[str] = mapped_column(String(12), default=PO_APPROVED, nullable=False)
+    total_cost: Mapped[Decimal] = mapped_column(Numeric(16, 2), default=Decimal("0"))
+    note: Mapped[str] = mapped_column(String(255), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    lines: Mapped[list["ProcurementLine"]] = relationship(
+        back_populates="order", cascade="all, delete-orphan"
+    )
+
+    @property
+    def code(self) -> str:
+        return f"PO-{self.id}"
+
+
+class ProcurementLine(Base):
+    __tablename__ = "procurement_lines"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    order_id: Mapped[int] = mapped_column(ForeignKey("procurement_orders.id"), index=True)
+    material_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    vendor_id: Mapped[str] = mapped_column(String(48), nullable=False)
+    vendor_name: Mapped[str] = mapped_column(String(160), default="")
+    qty: Mapped[Decimal] = mapped_column(Numeric(16, 3), nullable=False)
+    unit_cost: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
+    received: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    order: Mapped["ProcurementOrder"] = relationship(back_populates="lines")

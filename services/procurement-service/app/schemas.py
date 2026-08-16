@@ -60,3 +60,53 @@ class MarketPriceOut(BaseModel):
     price: float
     min_qty: float
     city: str
+
+
+# ---- Procurement engine / LLM / orders ----
+
+class DemandLine(BaseModel):
+    material_id: str = Field(min_length=1)
+    qty: float = Field(gt=0)
+
+
+class PlanIn(BaseModel):
+    demand: list[DemandLine] = Field(min_length=1)
+
+
+class AnalyzeIn(BaseModel):
+    demand: list[DemandLine] = Field(min_length=1)
+    selling_prices: dict[str, float] | None = None
+
+
+class OrderLineIn(BaseModel):
+    material_id: str = Field(min_length=1)
+    vendor_id: str = Field(min_length=1)
+    qty: float = Field(gt=0)
+    unit_cost: float = Field(ge=0)
+
+
+class OrderIn(BaseModel):
+    lines: list[OrderLineIn] = Field(min_length=1)
+    note: str = ""
+
+
+class OrderLineOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    material_id: str
+    vendor_id: str
+    vendor_name: str
+    qty: float
+    unit_cost: float
+    received: bool
+
+
+class OrderOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    code: str
+    status: str
+    total_cost: float
+    note: str
+    created_at: datetime | None = None
+    received_at: datetime | None = None
+    lines: list[OrderLineOut] = []

@@ -12,8 +12,14 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://consmat:consmat@localhost:5432/procurement"
     jwt_secret: str = "change-me-in-prod"
     jwt_alg: str = "HS256"
-    # Optional: base URL of inventory-service, for catalog lookups (soft dependency).
+    # inventory-service base URL (procurement receipts post inbound here).
     inventory_url: str = "http://localhost:8001"
+
+    # --- Hub LLM (procurement intelligence). stub = deterministic only, no key. ---
+    ai_provider: str = "stub"          # stub | gemini | openai | groq | openrouter | anthropic | openai-compat
+    ai_api_key: str = ""
+    ai_model: str = ""
+    ai_base_url: str = ""
 
 
 settings = Settings()

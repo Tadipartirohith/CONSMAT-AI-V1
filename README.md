@@ -69,8 +69,8 @@ suppliers / vendors  ──►  HUB  ──►  SPOKE  ──►  retail consume
 1. ✅ **Domain & role model** — entities, roles, phases, relationships ([docs/LLD.md](./docs/LLD.md)).
 2. ✅ **Hub inventory** — append-only ledger, stock levels, weighted-avg valuation, reservations ([services/inventory-service](./services/inventory-service)).
 3. ✅ **Vendor registry + price lists** — vendors, add-vendor, pricing, cheapest-first market view ([services/procurement-service](./services/procurement-service)).
-4. **Procurement + Hub LLM** ← next — BOM → profitability, alternatives, market price-scouting.
-5. **Site & phase management** — plans, per-phase BOM, phase updates, JIT dispatch.
+4. ✅ **Procurement + Hub LLM** — cheapest-source planning, profitability, LLM advice (pluggable, graceful fallback), orders that receive into inventory ([services/procurement-service](./services/procurement-service)).
+5. **Site & phase management** ← next — plans, per-phase BOM, phase updates, JIT dispatch.
 6. **Spoke ops** — geofence, consumer intake & classification.
 7. **Pricing & margin** — hub selling price.
 8. **Frontends** — hub console, spoke app, consumer portal.
