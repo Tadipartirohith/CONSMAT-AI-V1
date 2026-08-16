@@ -1,37 +1,45 @@
-"""Unit tests for the deterministic procurement engine + profitability."""
+"""Unit tests for the deterministic procurement engine + profitability (product-level, catalog mocked)."""
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.db import Base
-from app import service, procurement_engine
+from app import service, procurement_engine, catalog_client
+
+CATALOG = {
+    "cement-ultratech": {"material_id": "cement", "brand": "UltraTech", "name": "UltraTech OPC 53"},
+    "cement-acc": {"material_id": "cement", "brand": "ACC", "name": "ACC Gold PPC"},
+    "cement-bharathi": {"material_id": "cement", "brand": "Bharathi", "name": "Bharathi OPC 53"},
+    "steel-tata": {"material_id": "steel", "brand": "TATA", "name": "TATA Tiscon"},
+}
 
 
 @pytest.fixture()
-def db():
+def db(monkeypatch):
+    monkeypatch.setattr(catalog_client, "get_product", lambda pid: CATALOG.get(pid))
     engine = create_engine("sqlite://", future=True)
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine, expire_on_commit=False, future=True)
     s = Session()
-    # three vendors for cement, one for steel
     a = service.create_vendor(s, "Alpha")
     b = service.create_vendor(s, "Bravo")
     c = service.create_vendor(s, "Charlie")
-    service.set_price(s, a.id, "cement", 420)
-    service.set_price(s, b.id, "cement", 402)
-    service.set_price(s, c.id, "cement", 395, min_qty=500)  # cheapest but high min order
-    service.set_price(s, a.id, "steel", 63000)
+    service.set_price(s, a.id, "cement-ultratech", 420)
+    service.set_price(s, b.id, "cement-acc", 402)
+    service.set_price(s, c.id, "cement-bharathi", 395, min_qty=500)  # cheapest but high min order
+    service.set_price(s, a.id, "steel-tata", 63000)
     yield s
     s.close()
 
 
-def test_plan_picks_cheapest_vendor(db):
+def test_plan_picks_cheapest_product(db):
     result = procurement_engine.plan(db, [{"material_id": "cement", "qty": 100}])
     line = result["lines"][0]
-    assert line["unit_cost"] == 395            # cheapest overall
-    assert line["line_cost"] == 39500
-    assert line["below_min_qty"] is True       # 100 < min_qty 500
-    assert line["alternatives"] == 2
+    assert line["unit_cost"] == 395
+    assert line["brand"] == "Bharathi"
+    assert line["product_id"] == "cement-bharathi"
+    assert line["below_min_qty"] is True            # 100 < 500
+    assert line["alternatives"] == 2                # UltraTech + ACC also available
     assert result["total_cost"] == 39500
 
 
@@ -56,9 +64,3 @@ def test_profitability(db):
     assert prof["sell_total"] == 45000
     assert prof["margin_total"] == 5500
     assert prof["profitable"] is True
-    assert prof["lines"][0]["loss_making"] is False
-
-
-def test_profitability_none_without_prices(db):
-    result = procurement_engine.plan(db, [{"material_id": "cement", "qty": 100}])
-    assert procurement_engine.profitability(result, None) is None

@@ -26,6 +26,8 @@ const body = (b) => ({ method: "POST", body: JSON.stringify(b) });
 
 export const inv = {
   materials: () => req("inv", "/materials"),
+  products: (m) => req("inv", `/products${m ? `?material_id=${m}` : ""}`),
+  searchProducts: (q) => req("inv", `/products/search?q=${encodeURIComponent(q)}`),
   stock: () => req("inv", "/inventory"),
   ledger: (m) => req("inv", `/inventory/${m}/ledger`),
   inbound: (b) => req("inv", "/inventory/inbound", body(b)),

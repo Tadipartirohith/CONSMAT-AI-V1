@@ -40,13 +40,20 @@ class Vendor(Base):
 
 
 class VendorPrice(Base):
-    """A vendor's current quoted price for a material (one row per vendor+material)."""
+    """A vendor's current quoted price for a branded product (one row per vendor+product).
+
+    `product_id` references the catalog (inventory-service). `material_id`, `brand`, and `product_name`
+    are denormalized from the catalog at set-price time so the market view and plans need no runtime
+    catalog call."""
     __tablename__ = "vendor_prices"
-    __table_args__ = (UniqueConstraint("vendor_id", "material_id", name="uq_vendor_material"),)
+    __table_args__ = (UniqueConstraint("vendor_id", "product_id", name="uq_vendor_product"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     vendor_id: Mapped[str] = mapped_column(ForeignKey("vendors.id"), index=True, nullable=False)
-    material_id: Mapped[str] = mapped_column(String(40), index=True, nullable=False)
+    product_id: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    material_id: Mapped[str] = mapped_column(String(40), index=True, nullable=False)  # denormalized
+    brand: Mapped[str] = mapped_column(String(80), default="")
+    product_name: Mapped[str] = mapped_column(String(200), default="")
     price: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
     min_qty: Mapped[Decimal] = mapped_column(Numeric(16, 3), default=Decimal("0"))
     updated_at: Mapped[datetime] = mapped_column(
@@ -82,6 +89,8 @@ class ProcurementLine(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     order_id: Mapped[int] = mapped_column(ForeignKey("procurement_orders.id"), index=True)
     material_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    product_id: Mapped[str] = mapped_column(String(64), default="")
+    product_name: Mapped[str] = mapped_column(String(200), default="")
     vendor_id: Mapped[str] = mapped_column(String(48), nullable=False)
     vendor_name: Mapped[str] = mapped_column(String(160), default="")
     qty: Mapped[Decimal] = mapped_column(Numeric(16, 3), nullable=False)

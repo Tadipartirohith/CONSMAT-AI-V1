@@ -40,6 +40,9 @@ def plan(db: Session, demand: list[dict]) -> dict:
         total += line_cost
         lines.append({
             "material_id": mid,
+            "product_id": best.get("product_id", ""),
+            "product_name": best.get("product_name", ""),
+            "brand": best.get("brand", ""),
             "vendor_id": best["vendor_id"],
             "vendor_name": best["vendor_name"],
             "is_hub_self": best["is_hub_self"],
@@ -47,7 +50,7 @@ def plan(db: Session, demand: list[dict]) -> dict:
             "unit_cost": float(unit_cost),
             "line_cost": float(line_cost),
             "below_min_qty": qty < _dec(best["min_qty"]),
-            "alternatives": len(market) - 1,
+            "alternatives": len(market) - 1,  # other brands/vendors available
         })
     return {"lines": lines, "unavailable": unavailable, "total_cost": float(total)}
 

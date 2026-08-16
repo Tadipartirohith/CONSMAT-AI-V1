@@ -32,8 +32,9 @@ def create_order(db: Session, lines: list[dict], *, status: str = models.PO_APPR
             raise service.ProcurementError("Line qty must be > 0 and unit_cost >= 0")
         total += (qty * unit_cost)
         db.add(models.ProcurementLine(
-            order_id=order.id, material_id=ln["material_id"], vendor_id=vendor.id,
-            vendor_name=vendor.name, qty=qty, unit_cost=unit_cost,
+            order_id=order.id, material_id=ln["material_id"],
+            product_id=ln.get("product_id", ""), product_name=ln.get("product_name", ""),
+            vendor_id=vendor.id, vendor_name=vendor.name, qty=qty, unit_cost=unit_cost,
         ))
     order.total_cost = total.quantize(Decimal("0.01"))
     db.commit()

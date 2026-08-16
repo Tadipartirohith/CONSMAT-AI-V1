@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from . import models
@@ -135,6 +135,32 @@ def release(db: Session, material_id: str, qty) -> models.InventoryItem:
 
 def list_materials(db: Session) -> list[models.Material]:
     return list(db.execute(select(models.Material).order_by(models.Material.id)).scalars())
+
+
+def list_products(db: Session, material_id: str | None = None) -> list[models.Product]:
+    stmt = select(models.Product).where(models.Product.active.is_(True)).order_by(models.Product.name)
+    if material_id:
+        stmt = stmt.where(models.Product.material_id == material_id)
+    return list(db.execute(stmt).scalars())
+
+
+def get_product(db: Session, product_id: str) -> models.Product | None:
+    return db.get(models.Product, product_id)
+
+
+def search_products(db: Session, q: str, limit: int = 25) -> list[models.Product]:
+    """Full product-name search: every whitespace-separated term must appear (case-insensitive) in the
+    product name, brand, or grade. Ordered by name."""
+    from sqlalchemy import or_
+    stmt = select(models.Product).where(models.Product.active.is_(True))
+    for term in (q or "").split():
+        like = f"%{term.lower()}%"
+        stmt = stmt.where(or_(
+            func.lower(models.Product.name).like(like),
+            func.lower(models.Product.brand).like(like),
+            func.lower(models.Product.grade).like(like),
+        ))
+    return list(db.execute(stmt.order_by(models.Product.name).limit(limit)).scalars())
 
 
 def list_stock(db: Session) -> list[models.InventoryItem]:

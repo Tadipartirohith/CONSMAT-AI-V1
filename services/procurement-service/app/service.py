@@ -7,7 +7,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import models
+from . import catalog_client, models
 
 
 class ProcurementError(Exception):
@@ -76,21 +76,25 @@ def deactivate_vendor(db: Session, vendor_id: str) -> models.Vendor:
     return v
 
 
-def set_price(db: Session, vendor_id: str, material_id: str, price, min_qty=0) -> models.VendorPrice:
-    """Upsert a vendor's price for a material."""
+def set_price(db: Session, vendor_id: str, product_id: str, price, min_qty=0) -> models.VendorPrice:
+    """Upsert a vendor's price for a branded product. Denormalizes material/brand/name from the catalog."""
     _require(db, vendor_id)
     price = _dec(price)
     if price < 0:
         raise ProcurementError("Price cannot be negative")
+    product = catalog_client.get_product(product_id)
+    if product is None:
+        raise ProcurementError(f"Unknown product: {product_id}")
     row = db.execute(
         select(models.VendorPrice).where(
             models.VendorPrice.vendor_id == vendor_id,
-            models.VendorPrice.material_id == material_id,
+            models.VendorPrice.product_id == product_id,
         )
     ).scalar_one_or_none()
     if row is None:
-        row = models.VendorPrice(vendor_id=vendor_id, material_id=material_id,
-                                 price=price, min_qty=_dec(min_qty))
+        row = models.VendorPrice(vendor_id=vendor_id, product_id=product_id,
+                                 material_id=product["material_id"], brand=product.get("brand", ""),
+                                 product_name=product["name"], price=price, min_qty=_dec(min_qty))
         db.add(row)
     else:
         row.price = price
@@ -100,23 +104,24 @@ def set_price(db: Session, vendor_id: str, material_id: str, price, min_qty=0) -
     return row
 
 
-def delete_price(db: Session, vendor_id: str, material_id: str) -> None:
+def delete_price(db: Session, vendor_id: str, product_id: str) -> None:
     row = db.execute(
         select(models.VendorPrice).where(
             models.VendorPrice.vendor_id == vendor_id,
-            models.VendorPrice.material_id == material_id,
+            models.VendorPrice.product_id == product_id,
         )
     ).scalar_one_or_none()
     if row is None:
-        raise ProcurementError(f"No price for {material_id} from {vendor_id}")
+        raise ProcurementError(f"No price for {product_id} from {vendor_id}")
     db.delete(row)
     db.commit()
 
 
 def market_prices(db: Session, material_id: str) -> list[dict]:
-    """Cheapest-first view of every active vendor's price for a material.
+    """Cheapest-first view of every active vendor's branded-product price for a material.
 
-    This is the raw signal the procurement engine / Hub LLM will rank in later steps.
+    Several companies compete per material (e.g. UltraTech vs ACC cement) — each row is a product+vendor
+    offer. This is the signal the procurement engine + Hub LLM rank.
     """
     rows = db.execute(
         select(models.VendorPrice, models.Vendor)
@@ -126,7 +131,8 @@ def market_prices(db: Session, material_id: str) -> list[dict]:
     ).all()
     return [
         {"vendor_id": v.id, "vendor_name": v.name, "is_hub_self": v.is_hub_self,
-         "material_id": material_id, "price": float(p.price), "min_qty": float(p.min_qty),
+         "material_id": material_id, "product_id": p.product_id, "brand": p.brand,
+         "product_name": p.product_name, "price": float(p.price), "min_qty": float(p.min_qty),
          "city": v.city}
         for p, v in rows
     ]

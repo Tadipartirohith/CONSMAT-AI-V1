@@ -22,6 +22,7 @@ design each roadmap step. Date format: YYYY-MM-DD.
 | **D11** | 2026-08-16 | **Payments are config-driven**: provider (mock default) + each provider's API base URL and secret **env-var names** live in `payment-service/config.yaml`; secret values only in env. Real providers are extension points. | Swap gateways without code changes; keep keys out of the repo |
 | **D12** | 2026-08-16 | **Hub LLM provider set to Gemini** via `infra/.env` (`AI_PROVIDER=gemini`, `AI_MODEL=gemini-flash-lite-latest`); goes live once an API key is added to `AI_API_KEY` | Enable procurement intelligence; key supplied by the operator, never committed |
 | **D13** | 2026-08-16 | **API gateway built** (top-level `gateway/`, nginx): single ingress fronting all services under `/api/<service>/` with central CORS. All frontends repointed to route API traffic through it. Supersedes the "deferred" note in D10. | One API entry point + a home for cross-cutting concerns |
+| **D14** | 2026-08-16 | **Product/brand layer + full-name search.** Catalog (inventory) gains `products` (branded SKUs under a material); vendor pricing + procurement plans move to the product level (several companies per material); `GET /products/search?q=` does full product-name search. BOM and hub stock stay at material level. Partially resolves Q9. | Real procurement is brand-specific; buyers search by full product name |
 
 ### The 9 phases (per D4)
 1. Excavation & footing

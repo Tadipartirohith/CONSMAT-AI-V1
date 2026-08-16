@@ -25,7 +25,7 @@ export default function Procurement() {
     if (!result?.plan?.lines?.length) return;
     setBusy(true); setMsg(null);
     try {
-      const lines = result.plan.lines.map((l) => ({ material_id: l.material_id, vendor_id: l.vendor_id, qty: l.qty, unit_cost: l.unit_cost }));
+      const lines = result.plan.lines.map((l) => ({ material_id: l.material_id, product_id: l.product_id, product_name: l.product_name, vendor_id: l.vendor_id, qty: l.qty, unit_cost: l.unit_cost }));
       const o = await proc.createOrder({ lines, note: "from hub-console" });
       setMsg({ ok: true, text: `Created ${o.code} (${inr(o.total_cost)}).` });
       orders.reload();
@@ -70,10 +70,11 @@ export default function Procurement() {
         <Card title="Plan & profitability">
           {!result ? <p className="text-sm text-muted">Run an analysis to see the plan.</p> : (
             <>
-              <Table head={["Material", "Vendor", "Qty", "Unit", "Line"]}>
+              <Table head={["Material", "Product", "Vendor", "Qty", "Unit", "Line"]}>
                 {result.plan.lines.map((l) => (
                   <tr key={l.material_id} className="border-b border-border/50">
                     <Td>{l.material_id}</Td>
+                    <Td>{l.brand ? <span>{l.brand}</span> : <span className="text-muted">{l.product_name || "—"}</span>}</Td>
                     <Td>{l.vendor_name}{l.is_hub_self && <Badge tone="accent">hub</Badge>}</Td>
                     <Td mono>{l.qty}</Td>
                     <Td mono>{inr(l.unit_cost)}</Td>

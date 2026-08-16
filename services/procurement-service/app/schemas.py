@@ -8,7 +8,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class PriceOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+    product_id: str
     material_id: str
+    brand: str
+    product_name: str
     price: float
     min_qty: float
     updated_at: datetime | None = None
@@ -47,7 +50,7 @@ class VendorUpdate(BaseModel):
 
 
 class PriceIn(BaseModel):
-    material_id: str = Field(min_length=1)
+    product_id: str = Field(min_length=1)
     price: float = Field(ge=0)
     min_qty: float = Field(default=0, ge=0)
 
@@ -57,6 +60,9 @@ class MarketPriceOut(BaseModel):
     vendor_name: str
     is_hub_self: bool
     material_id: str
+    product_id: str
+    brand: str
+    product_name: str
     price: float
     min_qty: float
     city: str
@@ -82,6 +88,8 @@ class AnalyzeIn(BaseModel):
 
 class OrderLineIn(BaseModel):
     material_id: str = Field(min_length=1)
+    product_id: str = ""
+    product_name: str = ""
     vendor_id: str = Field(min_length=1)
     qty: float = Field(gt=0)
     unit_cost: float = Field(ge=0)
@@ -95,6 +103,7 @@ class OrderIn(BaseModel):
 class OrderLineOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     material_id: str
+    product_name: str
     vendor_id: str
     vendor_name: str
     qty: float

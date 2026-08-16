@@ -1,33 +1,34 @@
 import { useState } from "react";
-import { proc, MATERIALS, inr } from "../api.js";
+import { inv, proc, MATERIALS, inr } from "../api.js";
 import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync } from "../components/ui.jsx";
 
 export default function Vendors() {
   const vendors = useAsync(() => proc.vendors());
+  const products = useAsync(() => inv.products());
   const [material, setMaterial] = useState("cement");
   const market = useAsync(() => proc.market(material), [material]);
   const [msg, setMsg] = useState(null);
 
   const [nv, setNv] = useState({ name: "", city: "" });
   const addVendor = async (e) => {
-    e.preventDefault();
-    setMsg(null);
-    try { await proc.addVendor({ name: nv.name, city: nv.city }); setNv({ name: "", city: "" }); vendors.reload(); market.reload(); }
+    e.preventDefault(); setMsg(null);
+    try { await proc.addVendor({ name: nv.name, city: nv.city }); setNv({ name: "", city: "" }); vendors.reload(); }
     catch (e) { setMsg(e.message); }
   };
 
-  const [pr, setPr] = useState({ vendor_id: "", material_id: "cement", price: "" });
+  const [pr, setPr] = useState({ vendor_id: "", product_id: "", price: "" });
   const setPrice = async (e) => {
-    e.preventDefault();
-    setMsg(null);
-    try { await proc.setPrice(pr.vendor_id, { material_id: pr.material_id, price: Number(pr.price) }); setPr({ ...pr, price: "" }); market.reload(); }
+    e.preventDefault(); setMsg(null);
+    try { await proc.setPrice(pr.vendor_id, { product_id: pr.product_id, price: Number(pr.price) }); setPr({ ...pr, price: "" }); market.reload(); }
     catch (e) { setMsg(e.message); }
   };
 
   return (
     <div className="space-y-5">
-      <h1 className="font-head text-2xl font-extrabold text-white">Vendors & Pricing</h1>
+      <h1 className="font-head text-2xl font-extrabold text-white">Vendors & Products</h1>
       {msg && <p className="text-xs text-red-400">{msg}</p>}
+
+      <ProductSearch />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card title="Vendor registry" className="lg:col-span-2" right={<Button size="sm" variant="ghost" onClick={vendors.reload}>Refresh</Button>}>
@@ -51,7 +52,7 @@ export default function Vendors() {
               <Button type="submit">Add vendor</Button>
             </form>
           </Card>
-          <Card title="Set / update price">
+          <Card title="Set product price">
             <form onSubmit={setPrice} className="space-y-3">
               <Field label="Vendor">
                 <Select value={pr.vendor_id} required onChange={(e) => setPr({ ...pr, vendor_id: e.target.value })}>
@@ -59,9 +60,10 @@ export default function Vendors() {
                   {(vendors.data || []).map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
                 </Select>
               </Field>
-              <Field label="Material">
-                <Select value={pr.material_id} onChange={(e) => setPr({ ...pr, material_id: e.target.value })}>
-                  {MATERIALS.map((m) => <option key={m} value={m}>{m}</option>)}
+              <Field label="Product (brand)">
+                <Select value={pr.product_id} required onChange={(e) => setPr({ ...pr, product_id: e.target.value })}>
+                  <option value="">select…</option>
+                  {(products.data || []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </Select>
               </Field>
               <Field label="Price (₹/unit)"><Input type="number" step="any" value={pr.price} required onChange={(e) => setPr({ ...pr, price: e.target.value })} /></Field>
@@ -71,23 +73,57 @@ export default function Vendors() {
         </div>
       </div>
 
-      <Card title="Market view (cheapest first)"
+      <Card title="Market view — branded products (cheapest first)"
         right={<Select value={material} onChange={(e) => setMaterial(e.target.value)}>{MATERIALS.map((m) => <option key={m} value={m}>{m}</option>)}</Select>}>
         {market.error ? <p className="text-sm text-red-400">{market.error}</p> : (
-          <Table head={["#", "Vendor", "City", "Price", ""]}>
+          <Table head={["#", "Product", "Brand", "Vendor", "Price", ""]}>
             {(market.data || []).map((r, i) => (
-              <tr key={r.vendor_id} className="border-b border-border/50">
+              <tr key={`${r.vendor_id}-${r.product_id}`} className="border-b border-border/50">
                 <Td mono className="text-muted">{i + 1}</Td>
+                <Td>{r.product_name}</Td>
+                <Td>{r.brand || <span className="text-muted">—</span>}</Td>
                 <Td>{r.vendor_name} {r.is_hub_self && <Badge tone="accent">hub</Badge>}</Td>
-                <Td>{r.city || "—"}</Td>
                 <Td mono className={i === 0 ? "text-accent" : ""}>{inr(r.price)}</Td>
                 <Td>{i === 0 && <Badge tone="ok">best</Badge>}</Td>
               </tr>
             ))}
-            {market.data?.length === 0 && <tr><Td className="text-muted">No active vendor prices for {material}.</Td></tr>}
+            {market.data?.length === 0 && <tr><Td className="text-muted">No vendor prices for {material}.</Td></tr>}
           </Table>
         )}
       </Card>
     </div>
+  );
+}
+
+function ProductSearch() {
+  const [q, setQ] = useState("");
+  const [results, setResults] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const search = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    try { setResults(await inv.searchProducts(q)); } catch { setResults([]); } finally { setBusy(false); }
+  };
+  return (
+    <Card title="Search product catalog">
+      <form onSubmit={search} className="mb-3 flex gap-2">
+        <Input value={q} placeholder="e.g. ultratech 53, ppc cement, aac block" onChange={(e) => setQ(e.target.value)} />
+        <Button type="submit" disabled={busy}>Search</Button>
+      </form>
+      {results && (
+        results.length === 0 ? <p className="text-sm text-muted">No products match “{q}”.</p> : (
+          <Table head={["Product", "Brand", "Grade", "Material"]}>
+            {results.map((p) => (
+              <tr key={p.id} className="border-b border-border/50">
+                <Td>{p.name}</Td>
+                <Td>{p.brand || "—"}</Td>
+                <Td className="text-muted">{p.grade || "—"}</Td>
+                <Td mono className="text-muted">{p.material_id}</Td>
+              </tr>
+            ))}
+          </Table>
+        )
+      )}
+    </Card>
   );
 }

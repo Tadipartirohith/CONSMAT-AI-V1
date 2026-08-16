@@ -52,16 +52,16 @@ def deactivate_vendor(vendor_id: str, db: Session = Depends(get_db)):
 
 @router.put("/vendors/{vendor_id}/prices", response_model=schemas.PriceOut, dependencies=[Depends(HUB_WRITE)])
 def set_price(vendor_id: str, body: schemas.PriceIn, db: Session = Depends(get_db)):
-    return _run(service.set_price, db=db, vendor_id=vendor_id, material_id=body.material_id,
+    return _run(service.set_price, db=db, vendor_id=vendor_id, product_id=body.product_id,
                 price=body.price, min_qty=body.min_qty)
 
 
-@router.delete("/vendors/{vendor_id}/prices/{material_id}", status_code=204, dependencies=[Depends(HUB_WRITE)])
-def delete_price(vendor_id: str, material_id: str, db: Session = Depends(get_db)):
-    _run(service.delete_price, db=db, vendor_id=vendor_id, material_id=material_id)
+@router.delete("/vendors/{vendor_id}/prices/{product_id}", status_code=204, dependencies=[Depends(HUB_WRITE)])
+def delete_price(vendor_id: str, product_id: str, db: Session = Depends(get_db)):
+    _run(service.delete_price, db=db, vendor_id=vendor_id, product_id=product_id)
 
 
 @router.get("/prices/{material_id}", response_model=list[schemas.MarketPriceOut])
 def market_prices(material_id: str, db: Session = Depends(get_db)):
-    """Cheapest-first market view for a material across all active vendors."""
+    """Cheapest-first market view of branded products for a material across all active vendors."""
     return service.market_prices(db, material_id)

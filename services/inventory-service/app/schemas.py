@@ -16,6 +16,17 @@ class MaterialOut(BaseModel):
     per_sqft: float
 
 
+class ProductOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    material_id: str
+    brand: str
+    name: str
+    grade: str
+    unit: str
+    active: bool
+
+
 class StockOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     material_id: str

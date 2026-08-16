@@ -38,6 +38,26 @@ class Material(Base):
     per_sqft: Mapped[Decimal] = mapped_column(Numeric(12, 5), default=Decimal("0"))
 
     item: Mapped["InventoryItem"] = relationship(back_populates="material", uselist=False)
+    products: Mapped[list["Product"]] = relationship(back_populates="material")
+
+
+class Product(Base):
+    """A branded SKU under a material (e.g. 'UltraTech OPC 53 Grade Cement' under material 'cement').
+
+    Procurement/vendor pricing happens at the product level (several companies per material); the BOM
+    and hub stock stay at the material level. `name` is the full, searchable product name.
+    """
+    __tablename__ = "products"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    material_id: Mapped[str] = mapped_column(ForeignKey("materials.id"), index=True, nullable=False)
+    brand: Mapped[str] = mapped_column(String(80), default="")
+    name: Mapped[str] = mapped_column(String(200), nullable=False)  # full product name (searchable)
+    grade: Mapped[str] = mapped_column(String(80), default="")
+    unit: Mapped[str] = mapped_column(String(20), default="")
+    active: Mapped[bool] = mapped_column(default=True)
+
+    material: Mapped["Material"] = relationship(back_populates="products")
 
 
 class InventoryItem(Base):

@@ -26,6 +26,26 @@ def list_materials(db: Session = Depends(get_db)):
     return service.list_materials(db)
 
 
+@router.get("/products/search", response_model=list[schemas.ProductOut])
+def search_products(q: str = "", limit: int = 25, db: Session = Depends(get_db)):
+    """Full product-name search across brands (e.g. q='ultratech 53')."""
+    return service.search_products(db, q, limit)
+
+
+@router.get("/products", response_model=list[schemas.ProductOut])
+def list_products(material_id: str | None = None, db: Session = Depends(get_db)):
+    """Branded products, optionally filtered by material."""
+    return service.list_products(db, material_id)
+
+
+@router.get("/products/{product_id}", response_model=schemas.ProductOut)
+def get_product(product_id: str, db: Session = Depends(get_db)):
+    p = service.get_product(db, product_id)
+    if p is None:
+        raise HTTPException(404, f"Unknown product: {product_id}")
+    return p
+
+
 @router.get("/inventory", response_model=list[schemas.StockOut])
 def list_stock(db: Session = Depends(get_db)):
     return [_stock(i) for i in service.list_stock(db)]
