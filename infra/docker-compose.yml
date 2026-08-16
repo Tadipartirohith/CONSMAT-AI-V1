@@ -54,5 +54,22 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  site-service:
+    build: ../services/site-service
+    container_name: consmat-v1-site
+    environment:
+      DATABASE_URL: postgresql+psycopg://consmat:consmat@db:5432/site
+      API_PREFIX: /api/v1
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
+      INVENTORY_URL: http://inventory-service:8000
+    ports:
+      - "${SITE_PORT:-8003}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      inventory-service:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   pgdata:

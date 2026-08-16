@@ -38,7 +38,7 @@ design each roadmap step. Date format: YYYY-MM-DD.
 | ID | Question | Affects | Target step |
 |----|----------|---------|-------------|
 | Q1 | Manager vs supervisor: which actions need manager approval, and value thresholds? | Roles/permissions | Step 1–3 |
-| Q2 | Exact phase→material weight matrix (how each material's total splits across the 9 phases) | BOM/JIT | Step 5 |
+| Q2 | Exact phase→material weight matrix — **default set in site-service `bom.py` (sums to 1.0/material); still tunable.** Per-floor RCC repetition modelled at building level for now. | BOM/JIT | 🟡 default set |
 | Q3 | Margin model: flat %, per-consumer-tier %, or per-material? | Pricing | Step 7 |
 | ~~Q4~~ | ~~Backend shape~~ → **Resolved: microservices (D8)** | Architecture | ✅ |
 | ~~Q5~~ | ~~DB & migrations~~ → **Resolved: SQLAlchemy 2.0 + Alembic + Postgres (D9)** | Persistence | ✅ |
