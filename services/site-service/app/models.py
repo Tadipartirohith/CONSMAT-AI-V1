@@ -7,10 +7,11 @@ the inventory-service catalog (Q11).
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint, func
+from sqlalchemy import (Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String,
+                        UniqueConstraint, func)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -26,6 +27,11 @@ PH_DONE = "done"
 DSP_DISPATCHED = "dispatched"
 DSP_PARTIAL = "partial"
 DSP_PENDING = "pending"      # nothing could be fulfilled (stockout → procurement needed)
+
+# phase-date change-request statuses (CE edits to a phase end date need spoke/manager approval)
+PDC_PENDING = "pending"
+PDC_APPROVED = "approved"
+PDC_REJECTED = "rejected"
 
 
 class Spoke(Base):
@@ -97,6 +103,8 @@ class BOMLine(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     site_id: Mapped[int] = mapped_column(ForeignKey("sites.id"), index=True)
     material_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    product_id: Mapped[str] = mapped_column(String(64), default="")     # brand SKU when CE/spoke enters it
+    product_name: Mapped[str] = mapped_column(String(200), default="")
     total_qty: Mapped[Decimal] = mapped_column(Numeric(16, 3), nullable=False)
     site: Mapped["Site"] = relationship(back_populates="bom_lines")
 
@@ -108,8 +116,32 @@ class PhaseProgress(Base):
     site_id: Mapped[int] = mapped_column(ForeignKey("sites.id"), index=True)
     phase_seq: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(String(16), default=PH_PENDING)
+    planned_start: Mapped[date | None] = mapped_column(Date, nullable=True)
+    planned_end: Mapped[date | None] = mapped_column(Date, nullable=True)
+    dispatched: Mapped[bool] = mapped_column(Boolean, default=False)  # next-phase JIT dispatch already done
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     site: Mapped["Site"] = relationship(back_populates="phases")
+
+
+class PhaseDateChange(Base):
+    """A requested change to a phase's planned end date.
+
+    A civil engineer's edit lands here as `pending` and must be approved by the spoke or the hub
+    manager; a spoke/manager edit is applied directly and recorded here as `approved`.
+    """
+    __tablename__ = "phase_date_changes"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    site_id: Mapped[int] = mapped_column(ForeignKey("sites.id"), index=True)
+    phase_seq: Mapped[int] = mapped_column(Integer, nullable=False)
+    old_end: Mapped[date | None] = mapped_column(Date, nullable=True)
+    new_end: Mapped[date] = mapped_column(Date, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), default=PDC_PENDING)
+    requested_by_role: Mapped[str] = mapped_column(String(32), default="")
+    requested_by: Mapped[str] = mapped_column(String(120), default="")
+    decided_by_role: Mapped[str] = mapped_column(String(32), default="")
+    decided_by: Mapped[str] = mapped_column(String(120), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class Dispatch(Base):
@@ -132,6 +164,8 @@ class DispatchLine(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     dispatch_id: Mapped[int] = mapped_column(ForeignKey("dispatches.id"), index=True)
     material_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    product_id: Mapped[str] = mapped_column(String(64), default="")
+    product_name: Mapped[str] = mapped_column(String(200), default="")
     qty: Mapped[Decimal] = mapped_column(Numeric(16, 3), nullable=False)
     status: Mapped[str] = mapped_column(String(16), default=DSP_DISPATCHED)  # dispatched|short
     dispatch: Mapped["Dispatch"] = relationship(back_populates="lines")

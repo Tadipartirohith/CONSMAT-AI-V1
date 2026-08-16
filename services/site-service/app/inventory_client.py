@@ -37,20 +37,15 @@ def get_materials() -> dict[str, float]:
     return {m["id"]: float(m.get("per_sqft") or 0) for m in data}
 
 
-def post_outbound(material_id: str, qty: float, ref_id: str) -> dict:
-    """Dispatch stock hub → site. Raises InsufficientStock on 409, InventoryUnavailable otherwise."""
-    url = f"{_base()}/inventory/outbound"
-    payload = json.dumps({
-        "material_id": material_id, "qty": qty, "ref_type": "dispatch", "ref_id": ref_id,
-    }).encode("utf-8")
-    req = urllib.request.Request(url, data=payload, method="POST",
-                                 headers={"Content-Type": "application/json", **_auth()})
+def _post(path: str, body: dict, *, insufficient_ref: str = "") -> dict:
+    req = urllib.request.Request(f"{_base()}{path}", data=json.dumps(body).encode("utf-8"),
+                                 method="POST", headers={"Content-Type": "application/json", **_auth()})
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         if e.code == 409:
-            raise InsufficientStock(material_id) from e
+            raise InsufficientStock(insufficient_ref) from e
         detail = ""
         try:
             detail = e.read().decode("utf-8")[:200]
@@ -59,3 +54,28 @@ def post_outbound(material_id: str, qty: float, ref_id: str) -> dict:
         raise InventoryUnavailable(f"inventory-service {e.code}: {detail}") from e
     except Exception as e:  # noqa: BLE001
         raise InventoryUnavailable(f"inventory-service unreachable: {e}") from e
+
+
+def post_outbound(material_id: str, qty: float, ref_id: str) -> dict:
+    """Dispatch material-level stock hub → site (legacy path)."""
+    return _post("/inventory/outbound",
+                 {"material_id": material_id, "qty": qty, "ref_type": "dispatch", "ref_id": ref_id},
+                 insufficient_ref=material_id)
+
+
+def post_product_outbound(product_id: str, qty: float, ref_id: str, *, from_reservation: bool = False) -> dict:
+    """Dispatch brand-level stock hub → site. Raises InsufficientStock on 409."""
+    return _post("/inventory/product-outbound",
+                 {"product_id": product_id, "qty": qty, "ref_type": "dispatch", "ref_id": ref_id,
+                  "from_reservation": from_reservation},
+                 insufficient_ref=product_id)
+
+
+def post_product_reserve(product_id: str, qty: float, *, allow_over: bool = True) -> dict:
+    """Reserve committed brand demand (best-effort; allows over-reservation for the 3x buffer)."""
+    return _post("/inventory/product-reserve",
+                 {"product_id": product_id, "qty": qty, "allow_over": allow_over})
+
+
+def post_product_release(product_id: str, qty: float) -> dict:
+    return _post("/inventory/product-release", {"product_id": product_id, "qty": qty})

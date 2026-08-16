@@ -197,13 +197,18 @@ def dispatch_product(db: Session, product_id: str, qty, *, ref_type=models.REF_D
     return ps
 
 
-def reserve_product(db: Session, product_id: str, qty) -> models.ProductStock:
-    """Reserve available brand stock for an upcoming dispatch (no ledger movement)."""
+def reserve_product(db: Session, product_id: str, qty, *, allow_over: bool = False) -> models.ProductStock:
+    """Reserve brand stock for committed demand (no ledger movement).
+
+    With allow_over=True the reservation represents *requested* demand and may exceed on-hand (so the
+    hub's 3x buffer surfaces low/no-stock early rather than blocking the request); otherwise it guards
+    against reserving more than is available.
+    """
     qty = _dec(qty)
     if qty <= 0:
         raise InventoryError("Reserve quantity must be positive")
     ps = _get_pstock_locked(db, product_id)
-    if ps.available < qty:
+    if not allow_over and ps.available < qty:
         raise InventoryError(f"Cannot reserve {qty} of {product_id}: available {ps.available}")
     item = _get_item_locked(db, ps.material_id)
     ps.reserved += qty

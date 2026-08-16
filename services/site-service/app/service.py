@@ -195,6 +195,70 @@ def generate_plan(db: Session, site_id: int) -> models.Site:
     return site
 
 
+# Who may approve a civil-engineer's phase end-date change, and edit dates directly.
+FIELD_APPROVERS = ("spokesperson", "hub_supervisor", "hub_manager", "admin")
+
+
+def _bom_line_dicts(site: models.Site) -> list[dict]:
+    return [{"product_id": b.product_id, "material_id": b.material_id,
+             "product_name": b.product_name, "total_qty": float(b.total_qty)} for b in site.bom_lines]
+
+
+def _reserve_totals(lines: list[dict]) -> dict[str, float]:
+    """Total quantity that will actually be dispatched per product (sum of the 9 phase slices)."""
+    agg: dict[str, float] = {}
+    for seq, _n, _r in bom.PHASES:
+        for item in bom.product_phase_slice(lines, seq):
+            if item["product_id"]:
+                agg[item["product_id"]] = agg.get(item["product_id"], 0.0) + item["qty"]
+    return agg
+
+
+def set_bom(db: Session, site_id: int, lines: list[dict]) -> models.Site:
+    """CE/spoke enters the Bill of Materials (product/brand level, whole-project totals).
+
+    The system slices it into the 9 phases at dispatch time; the hub reserves the committed demand so
+    the 3x buffer can flag low/no-stock early. Editable until construction starts.
+    """
+    site = db.get(models.Site, site_id)
+    if site is None:
+        raise SiteError(f"Unknown site: SITE-{site_id}")
+    if site.status not in ("planning", "planned"):
+        raise SiteError("The BOM can only be changed before construction starts")
+    if not lines:
+        raise SiteError("The BOM needs at least one line")
+    for ln in lines:
+        if not ln.get("material_id") or _dec(ln.get("total_qty", 0)) <= 0:
+            raise SiteError("Each BOM line needs a material and a positive quantity")
+
+    # Release the previous committed reservation (pre-start, so nothing dispatched yet).
+    for pid, qty in _reserve_totals(_bom_line_dicts(site)).items():
+        try:
+            inventory_client.post_product_release(pid, qty)
+        except inventory_client.InventoryUnavailable:
+            pass
+    site.bom_lines.clear()
+    db.flush()
+    for ln in lines:
+        db.add(models.BOMLine(site_id=site.id, material_id=ln["material_id"],
+                              product_id=ln.get("product_id", ""), product_name=ln.get("product_name", ""),
+                              total_qty=_dec(ln["total_qty"])))
+    existing = {p.phase_seq for p in site.phases}
+    for seq, _n, _r in bom.PHASES:
+        if seq not in existing:
+            db.add(models.PhaseProgress(site_id=site.id, phase_seq=seq, status=models.PH_PENDING))
+    # Reserve the new committed demand (over-reservation allowed -> surfaces the 3x buffer breach).
+    for pid, qty in _reserve_totals([{**l} for l in lines]).items():
+        try:
+            inventory_client.post_product_reserve(pid, qty)
+        except inventory_client.InventoryUnavailable:
+            pass
+    site.status = "planned"
+    db.commit()
+    db.refresh(site)
+    return site
+
+
 def _totals(site: models.Site) -> dict[str, float]:
     return {b.material_id: float(b.total_qty) for b in site.bom_lines}
 
@@ -206,16 +270,22 @@ def _phase(site: models.Site, seq: int) -> models.PhaseProgress | None:
 # ---- Dispatch (hub → site) for a phase ----
 
 def _dispatch_phase(db: Session, site: models.Site, seq: int) -> models.Dispatch:
-    """Compute the phase's material slice and pull it from hub inventory (outbound)."""
-    slice_ = bom.phase_slice(_totals(site), seq)
+    """Compute the phase's product slice and pull it from hub inventory (brand-level outbound)."""
+    slice_ = bom.product_phase_slice(_bom_line_dicts(site), seq)
     dispatch = models.Dispatch(site_id=site.id, phase_seq=seq, status=models.DSP_DISPATCHED)
     db.add(dispatch)
     db.flush()
     dispatched, short = 0, 0
-    for mid, qty in slice_.items():
-        line = models.DispatchLine(dispatch_id=dispatch.id, material_id=mid, qty=_dec(qty))
+    for item in slice_:
+        line = models.DispatchLine(dispatch_id=dispatch.id, material_id=item["material_id"],
+                                   product_id=item.get("product_id", ""),
+                                   product_name=item.get("product_name", ""), qty=_dec(item["qty"]))
         try:
-            inventory_client.post_outbound(mid, qty, f"{site.code}-P{seq}")
+            if item.get("product_id"):
+                inventory_client.post_product_outbound(item["product_id"], item["qty"],
+                                                       f"{site.code}-P{seq}", from_reservation=True)
+            else:  # legacy material-level BOM (architect auto-plan)
+                inventory_client.post_outbound(item["material_id"], item["qty"], f"{site.code}-P{seq}")
             line.status = models.DSP_DISPATCHED
             dispatched += 1
         except inventory_client.InsufficientStock:
@@ -255,10 +325,16 @@ def backfill_site(db: Session, site_id: int) -> dict:
             if line.status != "short":
                 continue
             entry = {"dispatch": d.code, "phase_seq": d.phase_seq,
-                     "material_id": line.material_id, "qty": float(line.qty)}
+                     "material_id": line.material_id, "product_id": line.product_id,
+                     "product_name": line.product_name, "qty": float(line.qty)}
             try:
-                inventory_client.post_outbound(line.material_id, float(line.qty),
-                                               f"{site.code}-P{d.phase_seq}-backfill")
+                if line.product_id:
+                    inventory_client.post_product_outbound(line.product_id, float(line.qty),
+                                                           f"{site.code}-P{d.phase_seq}-backfill",
+                                                           from_reservation=True)
+                else:
+                    inventory_client.post_outbound(line.material_id, float(line.qty),
+                                                   f"{site.code}-P{d.phase_seq}-backfill")
                 line.status = models.DSP_DISPATCHED
                 backfilled.append(entry)
                 changed = True
@@ -328,6 +404,81 @@ def complete_phase(db: Session, site_id: int, seq: int) -> dict:
         db.refresh(dispatch)
         result["dispatch"] = {"code": dispatch.code, "phase_seq": dispatch.phase_seq,
                               "status": dispatch.status,
-                              "lines": [{"material_id": l.material_id, "qty": float(l.qty),
+                              "lines": [{"material_id": l.material_id, "product_id": l.product_id,
+                                         "product_name": l.product_name, "qty": float(l.qty),
                                          "status": l.status} for l in dispatch.lines]}
     return result
+
+
+# ---- Phase schedule dates + change approval ----
+
+def set_phase_dates(db: Session, site_id: int, seq: int, start, end, actor_role: str,
+                    actor_name: str) -> dict:
+    """CE/spoke sets a phase's planned start/end.
+
+    Start applies directly. For the end date: the first entry applies directly; a later change by a
+    civil engineer becomes a pending request needing spoke/manager approval, while a spoke/manager
+    change applies directly.
+    """
+    site = db.get(models.Site, site_id)
+    if site is None:
+        raise SiteError(f"Unknown site: SITE-{site_id}")
+    ph = _phase(site, seq)
+    if ph is None:
+        raise SiteError(f"Site has no phase {seq}")
+    if start is not None:
+        ph.planned_start = start
+    pending_id = None
+    if end is not None:
+        if ph.planned_start and end < ph.planned_start:
+            raise SiteError("End date cannot be before the start date")
+        if ph.planned_end is None or actor_role in FIELD_APPROVERS:
+            ph.planned_end = end
+        else:  # civil engineer changing an existing end date -> needs approval
+            chg = models.PhaseDateChange(
+                site_id=site.id, phase_seq=seq, old_end=ph.planned_end, new_end=end,
+                requested_by_role=actor_role, requested_by=actor_name)
+            db.add(chg)
+            db.flush()
+            pending_id = chg.id
+    db.commit()
+    db.refresh(ph)
+    return {"phase_seq": seq, "planned_start": ph.planned_start, "planned_end": ph.planned_end,
+            "pending_change_id": pending_id, "applied": pending_id is None}
+
+
+def list_phase_changes(db: Session, *, status: str | None = None,
+                       site_id: int | None = None) -> list[models.PhaseDateChange]:
+    stmt = select(models.PhaseDateChange).order_by(models.PhaseDateChange.id.desc())
+    if status:
+        stmt = stmt.where(models.PhaseDateChange.status == status)
+    if site_id is not None:
+        stmt = stmt.where(models.PhaseDateChange.site_id == site_id)
+    return list(db.execute(stmt).scalars())
+
+
+def decide_phase_change(db: Session, change_id: int, approve: bool, actor_role: str,
+                        actor_name: str) -> models.PhaseDateChange:
+    """Spoke or hub manager approves/rejects a civil engineer's phase end-date change."""
+    if actor_role not in FIELD_APPROVERS:
+        raise SiteError("Only a spoke or the hub manager can approve a date change")
+    chg = db.get(models.PhaseDateChange, change_id)
+    if chg is None:
+        raise SiteError(f"Unknown change request: {change_id}")
+    if chg.status != models.PDC_PENDING:
+        raise SiteError("This change has already been decided")
+    from sqlalchemy import func
+    chg.decided_by_role = actor_role
+    chg.decided_by = actor_name
+    chg.decided_at = db.execute(select(func.now())).scalar()
+    if approve:
+        chg.status = models.PDC_APPROVED
+        site = db.get(models.Site, chg.site_id)
+        ph = _phase(site, chg.phase_seq) if site else None
+        if ph is not None:
+            ph.planned_end = chg.new_end
+    else:
+        chg.status = models.PDC_REJECTED
+    db.commit()
+    db.refresh(chg)
+    return chg

@@ -120,8 +120,37 @@ def get_site(site_id: int, db: Session = Depends(get_db)):
 
 @router.post("/sites/{site_id}/plan", response_model=schemas.SiteOut, dependencies=[Depends(FIELD)])
 def generate_plan(site_id: int, db: Session = Depends(get_db)):
-    """Architect: compute the BOM and lay out the 9 phases."""
+    """Architect: compute the BOM and lay out the 9 phases (legacy auto-plan)."""
     return _run(service.generate_plan, db=db, site_id=site_id)
+
+
+@router.post("/sites/{site_id}/bom", response_model=schemas.SiteOut, dependencies=[Depends(FIELD)])
+def set_bom(site_id: int, body: schemas.SetBomIn, db: Session = Depends(get_db)):
+    """CE/spoke enters (or edits) the site's product-level Bill of Materials. Editable before start."""
+    return _run(service.set_bom, db=db, site_id=site_id, lines=[l.model_dump() for l in body.lines])
+
+
+@router.post("/sites/{site_id}/phases/{seq}/dates", dependencies=[Depends(FIELD)])
+def set_phase_dates(site_id: int, seq: int, body: schemas.PhaseDatesIn,
+                    user: dict = Depends(current_user), db: Session = Depends(get_db)):
+    """Set/modify a phase's planned start & end. A civil engineer's end-date change needs approval."""
+    return _run(service.set_phase_dates, db=db, site_id=site_id, seq=seq, start=body.start,
+                end=body.end, actor_role=user.get("role", ""), actor_name=user.get("name", ""))
+
+
+@router.get("/phase-changes", response_model=list[schemas.PhaseDateChangeOut])
+def list_phase_changes(status: str | None = None, site_id: int | None = None,
+                       db: Session = Depends(get_db)):
+    """Phase end-date change requests (spoke/manager review queue). Filter by status/site."""
+    return service.list_phase_changes(db, status=status, site_id=site_id)
+
+
+@router.post("/phase-changes/{change_id}/decide", response_model=schemas.PhaseDateChangeOut)
+def decide_phase_change(change_id: int, body: schemas.DecideChangeIn,
+                        user: dict = Depends(current_user), db: Session = Depends(get_db)):
+    """Spoke or hub manager approves/rejects a civil engineer's phase end-date change."""
+    return _run(service.decide_phase_change, db=db, change_id=change_id, approve=body.approve,
+                actor_role=user.get("role", ""), actor_name=user.get("name", ""))
 
 
 @router.post("/sites/{site_id}/start", response_model=schemas.DispatchOut, dependencies=[Depends(FIELD)])

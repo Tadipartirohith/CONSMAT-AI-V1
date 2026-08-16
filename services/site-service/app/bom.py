@@ -61,3 +61,25 @@ def phase_slice(totals: dict[str, float], phase_seq: int) -> dict[str, float]:
             if q > 0:
                 out[mid] = q
     return out
+
+
+def phase_weight(material_id: str, phase_seq: int) -> float:
+    return PHASE_WEIGHTS.get(material_id, {}).get(phase_seq, 0.0)
+
+
+def product_phase_slice(lines: list[dict], phase_seq: int) -> list[dict]:
+    """Distribute a product-level BOM (whole-project totals) into a phase's requirement.
+
+    Each line is {product_id, material_id, product_name, total_qty}; the material's phase weight drives
+    how much of that product is needed in this phase. Returns lines with a positive `qty`.
+    """
+    out: list[dict] = []
+    for ln in lines:
+        w = phase_weight(ln["material_id"], phase_seq)
+        if w <= 0:
+            continue
+        q = _round(ln["material_id"], float(ln["total_qty"]) * w)
+        if q > 0:
+            out.append({"product_id": ln.get("product_id", ""), "material_id": ln["material_id"],
+                        "product_name": ln.get("product_name", ""), "qty": q})
+    return out

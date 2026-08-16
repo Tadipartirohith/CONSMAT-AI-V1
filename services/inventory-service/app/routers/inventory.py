@@ -151,7 +151,8 @@ def product_outbound(body: schemas.OutboundIn, db: Session = Depends(get_db)):
 def product_reserve(body: schemas.ReserveIn, db: Session = Depends(get_db)):
     if not body.product_id:
         raise HTTPException(422, "product_id is required")
-    return _pstock(_run(service.reserve_product, db=db, product_id=body.product_id, qty=body.qty))
+    return _pstock(_run(service.reserve_product, db=db, product_id=body.product_id, qty=body.qty,
+                        allow_over=body.allow_over))
 
 
 @router.post("/inventory/product-release", response_model=schemas.ProductStockOut, dependencies=[Depends(HUB_WRITE)])

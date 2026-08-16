@@ -111,3 +111,4 @@ class ReserveIn(BaseModel):
     material_id: str = ""
     product_id: str = ""
     qty: float = Field(gt=0)
+    allow_over: bool = False    # reserve committed demand even beyond on-hand (3x-buffer signal)

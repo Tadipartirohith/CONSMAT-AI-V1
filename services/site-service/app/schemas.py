@@ -1,7 +1,7 @@
 """Pydantic request/response models for the site API."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -72,19 +72,60 @@ class SiteIn(BaseModel):
 class BOMLineOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     material_id: str
+    product_id: str = ""
+    product_name: str = ""
     total_qty: float
+
+
+class BOMLineIn(BaseModel):
+    material_id: str = Field(min_length=1)
+    product_id: str = ""
+    product_name: str = ""
+    total_qty: float = Field(gt=0)
+
+
+class SetBomIn(BaseModel):
+    lines: list[BOMLineIn] = Field(min_length=1)
 
 
 class PhaseProgressOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     phase_seq: int
     status: str
+    planned_start: date | None = None
+    planned_end: date | None = None
     completed_at: datetime | None = None
+
+
+class PhaseDatesIn(BaseModel):
+    start: date | None = None
+    end: date | None = None
+
+
+class PhaseDateChangeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    site_id: int
+    phase_seq: int
+    old_end: date | None = None
+    new_end: date
+    status: str
+    requested_by_role: str
+    requested_by: str
+    decided_by: str
+    decided_at: datetime | None = None
+    created_at: datetime | None = None
+
+
+class DecideChangeIn(BaseModel):
+    approve: bool
 
 
 class DispatchLineOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     material_id: str
+    product_id: str = ""
+    product_name: str = ""
     qty: float
     status: str
 
