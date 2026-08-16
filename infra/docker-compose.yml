@@ -90,5 +90,17 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  hub-console:
+    build: ../apps/hub-console
+    container_name: consmat-v1-hub-console
+    ports:
+      - "${HUB_CONSOLE_PORT:-8095}:80"
+    depends_on:
+      - inventory-service
+      - procurement-service
+      - site-service
+      - pricing-service
+    restart: unless-stopped
+
 volumes:
   pgdata:
