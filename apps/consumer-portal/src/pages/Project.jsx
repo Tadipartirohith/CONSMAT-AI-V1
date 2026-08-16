@@ -119,7 +119,7 @@ function PayPanel({ site: s, me }) {
       </div>
       {quote.error && <p className="mt-2 text-xs text-red-400">Could not price project: {quote.error}</p>}
       {err && <p className="mt-2 text-xs text-red-400">{err}</p>}
-      {paid && <p className="mt-2 text-xs text-muted">Thank you — your project payment is confirmed.</p>}
+      {paid && <p className="mt-2 text-xs text-muted">Thank you, your project payment is confirmed.</p>}
     </Card>
   );
 }

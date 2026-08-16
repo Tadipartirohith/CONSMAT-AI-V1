@@ -146,7 +146,7 @@ def list_external_offers(db: Session, material_id: str | None = None) -> list[mo
 
 
 def import_offers(db: Session, offers: list[dict]) -> int:
-    """Ingest a supplier price list (firm external offers) — e.g. from a CSV upload."""
+    """Ingest a supplier price list (firm external offers), e.g. from a CSV upload."""
     n = 0
     for o in offers:
         if not o.get("material_id") or o.get("price") is None:
@@ -164,7 +164,7 @@ def import_offers(db: Session, offers: list[dict]) -> int:
 def market_prices(db: Session, material_id: str) -> list[dict]:
     """Cheapest-first view of every active vendor's branded-product price for a material.
 
-    Several companies compete per material (e.g. UltraTech vs ACC cement) — each row is a product+vendor
+    Several companies compete per material (e.g. UltraTech vs ACC cement), each row is a product+vendor
     offer. This is the signal the procurement engine + Hub LLM rank.
     """
     rows = db.execute(

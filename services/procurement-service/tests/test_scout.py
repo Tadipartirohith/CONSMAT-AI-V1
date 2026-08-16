@@ -30,7 +30,7 @@ def test_scout_stores_indicative_offers(db):
 def test_scout_refreshes_indicative_but_keeps_firm(db):
     service.import_offers(db, [{"material_id": "cement", "seller": "PriceList Co", "price": 350}])
     service.run_scout(db, "cement")   # refreshes indicative
-    service.run_scout(db, "cement")   # again — should not duplicate/lose the firm one
+    service.run_scout(db, "cement")   # again, should not duplicate/lose the firm one
     offers = service.list_external_offers(db, "cement")
     firm = [o for o in offers if o.confidence == "firm"]
     assert len(firm) == 1 and firm[0].source == "csv"

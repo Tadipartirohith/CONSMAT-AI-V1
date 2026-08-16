@@ -6,7 +6,6 @@ export default function Overview() {
   const stock = useAsync(() => inv.stock());
   const vendors = useAsync(() => proc.vendors());
   const orders = useAsync(() => proc.orders());
-  const llm = useAsync(() => proc.llmStatus());
   const margins = useAsync(() => price.margins());
 
   const stockRows = stock.data || [];
@@ -20,11 +19,10 @@ export default function Overview() {
         <p className="text-xs text-muted">Live snapshot across inventory, vendors, procurement and pricing.</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Stat label="Stock value" value={inr(stockValue)} accent sub={`${stockRows.length} materials`} />
-        <Stat label="Vendors" value={vendors.data?.length ?? "—"} sub="registry" />
-        <Stat label="Procurement orders" value={orders.data?.length ?? "—"} sub="all-time" />
-        <Stat label="Hub LLM" value={llm.data?.live ? "Live" : "Stub"} sub={llm.data?.mode || ""} />
+        <Stat label="Vendors" value={vendors.data?.length ?? "n/a"} sub="registry" />
+        <Stat label="Procurement orders" value={orders.data?.length ?? "n/a"} sub="all-time" />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -41,7 +39,7 @@ export default function Overview() {
               ))}
             </Table>
           )}
-          {lowCount > 0 && <p className="mt-3 text-xs text-[#f59e0b]">{lowCount} material(s) out of stock — procurement needed.</p>}
+          {lowCount > 0 && <p className="mt-3 text-xs text-[#f59e0b]">{lowCount} material(s) out of stock, procurement needed.</p>}
         </Card>
 
         <Card title="Margin rules">
@@ -99,7 +97,7 @@ function NetworkShortfalls() {
       right={<Button size="sm" onClick={redispatch} disabled={busy || shorts.length === 0}>Re-dispatch shortfalls</Button>}>
       {msg && <p className={`mb-3 text-xs ${msg.ok ? "text-emerald-400" : "text-red-400"}`}>{msg.text}</p>}
       {shorts.length === 0 ? (
-        <p className="text-sm text-emerald-400">No outstanding shortfalls — every dispatch is fulfilled.</p>
+        <p className="text-sm text-emerald-400">No outstanding shortfalls, every dispatch is fulfilled.</p>
       ) : (
         <>
           <p className="mb-2 text-xs text-[#f59e0b]">{shorts.length} short line(s) across sites. Replenish stock, then re-dispatch.</p>

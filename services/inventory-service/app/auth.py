@@ -1,7 +1,7 @@
 """Shared auth: validate JWTs issued by identity-service (shared secret) + mint service tokens.
 
 Every service carries an identical copy of this module. Tokens are validated locally with the shared
-JWT_SECRET — no call back to identity-service. `service_token()` mints a short-lived token with
+JWT_SECRET, no call back to identity-service. `service_token()` mints a short-lived token with
 role=service for internal service-to-service calls.
 """
 from __future__ import annotations

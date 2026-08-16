@@ -25,7 +25,7 @@ class Settings(BaseSettings):
 
     # Price-scout (external market intelligence): auto | tavily | web | llm | stub
     scout_provider: str = "auto"
-    # Search-provider API key (e.g. Tavily) for live web scouting — supplied via .env, never committed.
+    # Search-provider API key (e.g. Tavily) for live web scouting, supplied via .env, never committed.
     scout_api_key: str = ""
 
 

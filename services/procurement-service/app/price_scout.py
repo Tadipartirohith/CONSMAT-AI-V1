@@ -1,18 +1,18 @@
-"""Price-scout — pull external market prices as advisory offers.
+"""Price-scout, pull external market prices as advisory offers.
 
 Providers (config `SCOUT_PROVIDER`):
   - `auto`  : `tavily` if a Tavily key is set (free-tier live web search), else `web` if a Gemini key
               is configured (Google-Search grounding), else `llm` if any Hub LLM is configured, else `stub`.
   - `tavily`: **live web search** via Tavily's free-tier API. Real dealer/marketplace results are
-              fetched, then the Hub LLM extracts structured prices from them — every offer keeps its
+              fetched, then the Hub LLM extracts structured prices from them, every offer keeps its
               real source URL. Prices are INDICATIVE (public listings, not a firm quote to us).
-  - `web`   : Gemini with **live Google Search grounding** — the model searches the internet and returns
+  - `web`   : Gemini with **live Google Search grounding**, the model searches the internet and returns
               grounded prices with real source URLs. (Needs a Gemini plan with Search-grounding quota;
               the free tier returns 429.)
   - `llm`   : ask the Hub LLM for *indicative* market prices from memory (no live search). Estimates.
   - `stub`  : a small curated offline set (for demo / no-key).
 
-External offers are **advisory only** — the deterministic buy plan still uses the registered vendor
+External offers are **advisory only**, the deterministic buy plan still uses the registered vendor
 registry. The hub can onboard a promising external offer as a real vendor price. There is intentionally
 NO bespoke IndiaMART scraper: no clean price API + ToS/anti-bot make it a fragile foundation; a live
 search API (Tavily) or Google-Search grounding is the sanctioned way to reach the open web.
@@ -72,8 +72,8 @@ _TAVILY_EXTRACT = (
     "[{\"seller\": string, \"product\": string, \"price\": number (INR per the input unit), \"url\": "
     "string, \"note\": string}]}.\n"
     "Rules:\n"
-    "- Use ONLY prices actually present in the results — never invent or estimate a number.\n"
-    "- seller, price and url must come from the SAME result — do not mix a price from one listing with a "
+    "- Use ONLY prices actually present in the results, never invent or estimate a number.\n"
+    "- seller, price and url must come from the SAME result, do not mix a price from one listing with a "
     "seller/URL from another. If a result has no clear seller, use its site name.\n"
     "- The price must be the FULL price for one input unit. REJECT teaser/partial values: 'starting "
     "from', per-kg or per-piece figures presented for a bagged/bulk unit, EMIs, or a number implausibly "
@@ -133,7 +133,7 @@ def _coerce(offers: list) -> list[dict]:
 
 
 def _extract_json(text: str) -> dict | None:
-    """Grounded responses may wrap JSON in prose/markdown — pull the first {...} object out."""
+    """Grounded responses may wrap JSON in prose/markdown, pull the first {...} object out."""
     if not text:
         return None
     text = text.strip()
@@ -187,7 +187,7 @@ def scout(material_id: str, material_name: str = "", brands: list[str] | None = 
             offers = _tavily_offers(name, brands or [], unit)
             if offers:
                 return offers, "tavily"
-        except Exception as e:  # noqa: BLE001 — degrade to grounding/estimate/stub on any failure
+        except Exception as e:  # noqa: BLE001, degrade to grounding/estimate/stub on any failure
             body = ""
             try:
                 body = e.read().decode("utf-8")[:300]  # type: ignore[attr-defined]
@@ -202,7 +202,7 @@ def scout(material_id: str, material_name: str = "", brands: list[str] | None = 
             offers = _gemini_grounded(name, brands or [], unit)
             if offers:
                 return offers, "web"
-        except Exception as e:  # noqa: BLE001 — degrade to estimate/stub on any grounding failure
+        except Exception as e:  # noqa: BLE001, degrade to estimate/stub on any grounding failure
             body = ""
             try:
                 body = e.read().decode("utf-8")[:300]  # type: ignore[attr-defined]
@@ -217,7 +217,7 @@ def scout(material_id: str, material_name: str = "", brands: list[str] | None = 
         offers = _coerce(result.get("offers")) if result else []
         if offers:
             for o in offers:
-                o["url"] = ""  # estimates are from memory — don't surface fabricated source links
+                o["url"] = ""  # estimates are from memory, don't surface fabricated source links
             return offers, "llm"
         # fall through to stub on any LLM failure
 

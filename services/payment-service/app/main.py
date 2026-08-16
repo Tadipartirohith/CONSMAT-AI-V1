@@ -1,4 +1,4 @@
-"""payment-service — config-driven payment gateway (Consmat AI V1)."""
+"""payment-service, config-driven payment gateway (Consmat AI V1)."""
 from __future__ import annotations
 
 from fastapi import FastAPI
@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from .config import settings
 from .routers import payments
 
-app = FastAPI(title="Consmat AI V1 — Payment Service", version="0.1.0")
+app = FastAPI(title="Consmat AI V1, Payment Service", version="0.1.0")
 app.include_router(payments.router, prefix=settings.api_prefix)
 
 

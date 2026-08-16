@@ -37,7 +37,7 @@ export default function Vendors() {
               <tr key={v.id} className="border-b border-border/50">
                 <Td mono className="text-muted">{v.id}</Td>
                 <Td>{v.name}</Td>
-                <Td>{v.city || "—"}</Td>
+                <Td>{v.city || "-"}</Td>
                 <Td>{v.is_hub_self ? <Badge tone="accent">hub</Badge> : <Badge>{v.active ? "active" : "inactive"}</Badge>}</Td>
               </tr>
             ))}
@@ -73,7 +73,7 @@ export default function Vendors() {
         </div>
       </div>
 
-      <Card title="Market view — branded products (cheapest first)"
+      <Card title="Market view, branded products (cheapest first)"
         right={<Select value={material} onChange={(e) => setMaterial(e.target.value)}>{MATERIALS.map((m) => <option key={m} value={m}>{m}</option>)}</Select>}>
         {market.error ? <p className="text-sm text-red-400">{market.error}</p> : (
           <Table head={["#", "Product", "Brand", "Vendor", "Price", ""]}>
@@ -81,7 +81,7 @@ export default function Vendors() {
               <tr key={`${r.vendor_id}-${r.product_id}`} className="border-b border-border/50">
                 <Td mono className="text-muted">{i + 1}</Td>
                 <Td>{r.product_name}</Td>
-                <Td>{r.brand || <span className="text-muted">—</span>}</Td>
+                <Td>{r.brand || <span className="text-muted">-</span>}</Td>
                 <Td>{r.vendor_name} {r.is_hub_self && <Badge tone="accent">hub</Badge>}</Td>
                 <Td mono className={i === 0 ? "text-accent" : ""}>{inr(r.price)}</Td>
                 <Td>{i === 0 && <Badge tone="ok">best</Badge>}</Td>
@@ -107,23 +107,23 @@ function MarketScan({ material }) {
     catch (e) { setMsg(e.message); } finally { setBusy(false); }
   };
   return (
-    <Card title={`External market scan — ${material}`}
+    <Card title={`External market scan, ${material}`}
       right={<Button size="sm" onClick={scan} disabled={busy}>{busy ? "Scanning…" : "Scan the market"}</Button>}>
       {msg && <p className="mb-2 text-xs text-muted">{msg}</p>}
-      <p className="mb-2 text-[11px] text-[#f59e0b]">Advisory only — indicative internet prices, not firm quotes. Verify before purchase.</p>
+      <p className="mb-2 text-[11px] text-[#f59e0b]">Advisory only, indicative internet prices, not firm quotes. Verify before purchase.</p>
       {offers.data?.length ? (
         <Table head={["Seller", "Product", "Price", "Source", ""]}>
           {offers.data.map((o) => (
             <tr key={o.id} className="border-b border-border/50">
-              <Td>{o.seller || "—"}</Td>
-              <Td className="text-muted">{o.product_name || "—"}</Td>
+              <Td>{o.seller || "-"}</Td>
+              <Td className="text-muted">{o.product_name || "-"}</Td>
               <Td mono>{inr(o.price)}</Td>
               <Td className="text-muted">{o.source}</Td>
               <Td><Badge tone={o.confidence === "firm" ? "ok" : "warn"}>{o.confidence}</Badge></Td>
             </tr>
           ))}
         </Table>
-      ) : <p className="text-sm text-muted">No external offers yet — click “Scan the market”.</p>}
+      ) : <p className="text-sm text-muted">No external offers yet, click “Scan the market”.</p>}
     </Card>
   );
 }
@@ -149,8 +149,8 @@ function ProductSearch() {
             {results.map((p) => (
               <tr key={p.id} className="border-b border-border/50">
                 <Td>{p.name}</Td>
-                <Td>{p.brand || "—"}</Td>
-                <Td className="text-muted">{p.grade || "—"}</Td>
+                <Td>{p.brand || "-"}</Td>
+                <Td className="text-muted">{p.grade || "-"}</Td>
                 <Td mono className="text-muted">{p.material_id}</Td>
               </tr>
             ))}

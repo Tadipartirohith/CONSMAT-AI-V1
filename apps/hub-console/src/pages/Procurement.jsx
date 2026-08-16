@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { proc, inv, MATERIALS, inr } from "../api.js";
 import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync } from "../components/ui.jsx";
 
@@ -11,14 +11,6 @@ export default function Procurement() {
   const [msg, setMsg] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  // seed a default demand (first cement + steel product) once the catalog loads
-  useEffect(() => {
-    if (products.data && rows.length === 0) {
-      const pick = (m, q) => { const p = products.data.find((x) => x.material_id === m); return p ? [{ product_id: p.id, product_name: p.name, material_id: m, qty: q }] : []; };
-      const init = [...pick("cement", 200), ...pick("steel", 4)];
-      if (init.length) setRows(init);
-    }
-  }, [products.data]); // eslint-disable-line
 
   const setRow = (i, k, v) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
   const delRow = (i) => setRows(rows.filter((_, j) => j !== i));
@@ -79,7 +71,7 @@ export default function Procurement() {
                 {result.plan.lines.map((l) => (
                   <tr key={l.material_id} className="border-b border-border/50">
                     <Td>{l.material_id}</Td>
-                    <Td>{l.brand ? <span>{l.brand}</span> : <span className="text-muted">{l.product_name || "—"}</span>}</Td>
+                    <Td>{l.brand ? <span>{l.brand}</span> : <span className="text-muted">{l.product_name || "-"}</span>}</Td>
                     <Td>{l.vendor_name}{l.is_hub_self && <Badge tone="accent">hub</Badge>}</Td>
                     <Td mono>{l.qty}</Td>
                     <Td mono>{inr(l.unit_cost)}</Td>
@@ -97,11 +89,11 @@ export default function Procurement() {
                   <span>Margin: <span className={`font-mono ${p.profitable ? "text-emerald-400" : "text-red-400"}`}>{inr(p.margin_total)} ({p.margin_pct}%)</span></span>
                   <Badge tone={p.profitable ? "ok" : "bad"}>{p.profitable ? "profitable" : "loss"}</Badge>
                 </>}
-                <span className="text-[11px] text-muted">profitability vs {result.price_source || "—"}</span>
+                <span className="text-[11px] text-muted">profitability vs {result.price_source || "-"}</span>
                 <Button size="sm" onClick={createOrder} disabled={busy || !result.plan.lines.length}>Create order</Button>
               </div>
               {result.advice && <Advice advice={result.advice} />}
-              {result.engine === "deterministic" && <p className="mt-2 text-[11px] text-muted">Hub LLM on stub — deterministic analysis. Configure AI_PROVIDER to enable advice.</p>}
+              {result.engine === "deterministic" && <p className="mt-2 text-[11px] text-muted">Hub LLM on stub, deterministic analysis. Configure AI_PROVIDER to enable advice.</p>}
             </>
           )}
         </Card>
@@ -148,10 +140,10 @@ function Advice({ advice }) {
 function Unavailable({ items, vendors, onFixed }) {
   return (
     <div className="mt-3 border border-[#f59e0b]/40 bg-[#f59e0b]/5 p-3">
-      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-[#f59e0b]">Not procurable yet</p>
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-[#f59e0b]">Not procurable</p>
       {items.map((u, i) => (
         <div key={i} className="mb-2 last:mb-0 text-sm">
-          <p className="text-white/80">{u.name} — <span className="text-muted">{u.reason}</span></p>
+          <p className="text-white/80">{u.name}: <span className="text-muted">{u.reason}</span></p>
           {u.product_id && <SetPriceInline productId={u.product_id} vendors={vendors} onDone={onFixed} />}
         </div>
       ))}

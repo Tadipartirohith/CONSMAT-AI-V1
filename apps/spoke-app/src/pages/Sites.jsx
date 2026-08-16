@@ -31,8 +31,8 @@ export default function Sites() {
             {(sites.data || []).map((s) => (
               <tr key={s.id} className="border-b border-border/50">
                 <Td mono>{s.code}</Td>
-                <Td>{s.label || "—"}</Td>
-                <Td>{s.location || "—"}</Td>
+                <Td>{s.label || "-"}</Td>
+                <Td>{s.location || "-"}</Td>
                 <Td mono>{s.area_sqft} × {s.floors}f</Td>
                 <Td><Badge tone={s.status === "completed" ? "ok" : s.status === "active" ? "accent" : "muted"}>{s.status}</Badge></Td>
                 <Td><Link className="text-accent hover:underline" to={`/sites/${s.id}`}>open →</Link></Td>

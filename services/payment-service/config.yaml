@@ -1,7 +1,7 @@
 # Payment gateway configuration.
 #
 # The ACTIVE provider is chosen with `provider`. Each provider block holds its non-secret settings
-# (API base URL, currency) and the NAMES of the environment variables that carry its secrets — the
+# (API base URL, currency) and the NAMES of the environment variables that carry its secrets, the
 # secret VALUES themselves live only in the environment (.env), never in this file.
 #
 # Supported: mock (default, no external calls) | razorpay | stripe | payu | cashfree.
@@ -13,7 +13,7 @@ payments:
 
   providers:
     mock:
-      # Simulated gateway for local/dev — no network calls.
+      # Simulated gateway for local/dev, no network calls.
       auto_confirm: true          # payments settle immediately
 
     razorpay:

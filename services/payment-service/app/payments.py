@@ -1,9 +1,9 @@
-"""Payment-gateway adapter — dispatches to the provider configured in config.yaml.
+"""Payment-gateway adapter, dispatches to the provider configured in config.yaml.
 
 The mock provider settles locally (no network). Real providers (razorpay/stripe/payu/cashfree) read
 their credentials from the environment variables named in config.yaml; until those are set they create
 a *pending* intent and report that the provider is not yet wired. Real API calls are intentionally left
-as clearly-marked extension points — this service never hardcodes gateway keys.
+as clearly-marked extension points, this service never hardcodes gateway keys.
 """
 from __future__ import annotations
 

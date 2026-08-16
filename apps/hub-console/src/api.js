@@ -1,4 +1,4 @@
-// API layer — each service is reached through its own nginx path-proxy (mapped to /api/v1).
+// API layer, each service is reached through its own nginx path-proxy (mapped to /api/v1).
 import { authHeader, logout } from "./auth.js";
 
 const BASES = { inv: "/inv", proc: "/proc", site: "/site", price: "/price", pay: "/pay" };

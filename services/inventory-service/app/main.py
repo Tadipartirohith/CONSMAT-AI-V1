@@ -1,4 +1,4 @@
-"""inventory-service — hub stock + append-only ledger (Consmat AI V1)."""
+"""inventory-service, hub stock + append-only ledger (Consmat AI V1)."""
 from __future__ import annotations
 
 from fastapi import FastAPI
@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from .config import settings
 from .routers import inventory
 
-app = FastAPI(title="Consmat AI V1 — Inventory Service", version="0.1.0")
+app = FastAPI(title="Consmat AI V1, Inventory Service", version="0.1.0")
 app.include_router(inventory.router, prefix=settings.api_prefix)
 
 

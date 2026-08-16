@@ -3,7 +3,7 @@
 The hub keeps a list of vendors and their pricing (decision D1) and can add new vendors at any time.
 `Vendor.is_hub_self=True` models the hub's own supply as a vendor, so procurement selection can treat
 the hub uniformly alongside external suppliers. `material_id` is an opaque reference to the catalog
-owned by inventory-service (Q11) — no cross-service foreign key.
+owned by inventory-service (Q11), no cross-service foreign key.
 """
 from __future__ import annotations
 
@@ -66,7 +66,7 @@ class VendorPrice(Base):
 class ExternalOffer(Base):
     """A price observed from an external source (price-scout / supplier price list).
 
-    Advisory market intelligence — NOT part of the deterministic buy plan (the plan buys from the
+    Advisory market intelligence, NOT part of the deterministic buy plan (the plan buys from the
     registered vendor registry). `confidence` distinguishes `indicative` (LLM/web estimate) from `firm`
     (an uploaded supplier price list). The hub can onboard a promising offer as a registered vendor price.
     """

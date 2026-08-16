@@ -1,4 +1,4 @@
-"""identity-service — users, roles, JWT issuance (Consmat AI V1)."""
+"""identity-service, users, roles, JWT issuance (Consmat AI V1)."""
 from __future__ import annotations
 
 from fastapi import FastAPI
@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from .config import settings
 from .routers import auth
 
-app = FastAPI(title="Consmat AI V1 — Identity Service", version="0.1.0")
+app = FastAPI(title="Consmat AI V1, Identity Service", version="0.1.0")
 app.include_router(auth.router, prefix=settings.api_prefix)
 
 

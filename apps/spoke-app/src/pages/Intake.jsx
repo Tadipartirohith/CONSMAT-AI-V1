@@ -56,7 +56,7 @@ export default function Intake() {
                 <Td>{c.name}</Td>
                 <Td><Badge tone="accent">{c.tier}</Badge></Td>
                 <Td mono className="text-muted">{c.spoke_id}</Td>
-                <Td>{c.phone || "—"}</Td>
+                <Td>{c.phone || "-"}</Td>
               </tr>
             ))}
           </Table>
@@ -83,7 +83,7 @@ function SpokeCoverage({ spokes }) {
           {(spokes.data || []).map((s) => (
             <tr key={s.id} className="border-b border-border/50">
               <Td>{s.name}</Td>
-              <Td className="text-muted">{s.geofence || "—"}</Td>
+              <Td className="text-muted">{s.geofence || "-"}</Td>
             </tr>
           ))}
         </Table>

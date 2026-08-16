@@ -64,7 +64,7 @@ export default function Inventory() {
 function LedgerCard({ material, onClose }) {
   const ledger = useAsync(() => inv.ledger(material), [material]);
   return (
-    <Card title={`Ledger — ${material}`} right={<Button size="sm" variant="ghost" onClick={onClose}>Close</Button>}>
+    <Card title={`Ledger, ${material}`} right={<Button size="sm" variant="ghost" onClick={onClose}>Close</Button>}>
       {ledger.error ? <p className="text-sm text-red-400">{ledger.error}</p> : (
         <Table head={["Dir", "Qty", "Unit cost", "Balance", "Ref"]}>
           {(ledger.data || []).map((e) => (

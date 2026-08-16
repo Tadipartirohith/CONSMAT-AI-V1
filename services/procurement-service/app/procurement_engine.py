@@ -2,7 +2,7 @@
 
 Given a demand (materials + quantities), pick the cheapest active vendor for each material from the
 market view and compute costs. This is the reliable backbone; the Hub LLM (llm.py) only *advises* on
-top of these numbers — it never sets a price. Profitability is computed here when selling prices are
+top of these numbers, it never sets a price. Profitability is computed here when selling prices are
 supplied.
 """
 from __future__ import annotations
@@ -37,8 +37,8 @@ def plan(db: Session, demand: list[dict]) -> dict:
             unavailable.append({
                 "material_id": mid, "product_id": pid,
                 "name": d.get("product_name") or pid or mid,
-                "reason": ("no vendor in the registry sells this product yet"
-                           if pid else "no vendor sells this material yet"),
+                "reason": ("no vendor in the registry sells this product"
+                           if pid else "no vendor sells this material"),
             })
             continue
         best = market[0]

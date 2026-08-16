@@ -1,8 +1,8 @@
-"""Hub LLM — procurement intelligence (advice only).
+"""Hub LLM, procurement intelligence (advice only).
 
 Given a demand, the market prices, the deterministic cheapest-source plan, and (optionally) a
 profitability breakdown, the LLM explains margins, flags risks, and suggests cheaper alternatives.
-It NEVER computes or sets prices — every number is supplied by the deterministic engine. On any error
+It NEVER computes or sets prices, every number is supplied by the deterministic engine. On any error
 or when disabled (AI_PROVIDER=stub / no key) it returns None and callers fall back to the plan alone.
 
 Pluggable provider, carried from V0: OpenAI-compatible (openai/gemini/groq/openrouter/openai-compat)
@@ -26,23 +26,25 @@ OPENAI_COMPAT = {
 
 SCHEMA = (
     "You are the Hub's procurement analyst for a construction-materials distributor. You do NOT set "
-    "or invent prices, costs, or margins — every figure is given to you by the system. Read the "
+    "or invent prices, costs, or margins; every figure is given to you by the system. Read the "
     "demand, the market prices per material (cheapest-first), the chosen cheapest-source plan, and the "
     "profitability breakdown if present. Output STRICT JSON only with keys:\n"
     "  summary: one or two sentences on the procurement plan. If some demand is 'unavailable' (no "
-    "registry vendor prices that product/material), do NOT call it a failure — state plainly that those "
-    "items have no vendor yet and can be procured once a vendor price is added or a stocked brand is chosen.\n"
+    "registry vendor prices that product/material), do NOT call it a failure; state plainly that no "
+    "vendor in the registry sells it, and it can be procured once a vendor price is added or a stocked "
+    "brand is chosen. Keep it brief.\n"
     "  profitability_note: comment on margins (call out any loss-making or thin-margin materials). "
     "Empty string if no selling prices were given.\n"
-    "  alternatives: array of {material_id, suggestion} — cheaper options worth considering. You MUST "
-    "list a cheaper alternative for a material WHENEVER the data shows one, even if a registry vendor "
-    "already supplies it or the hub holds stock — procurement is about the next restock, so a cheaper "
-    "source is always worth flagging. Compare the chosen plan unit_cost against (a) other brands/vendors "
-    "in market and (b) external_offers. When something is materially cheaper (say >2%), state the seller/"
-    "brand, the price, and the approx per-unit or line saving, and recommend onboarding or switching. "
-    "external_offers with source 'web' are LIVE search results (cite the seller); all external prices are "
-    "INDICATIVE — flag them as estimates to verify before committing, not firm quotes. If nothing is "
-    "cheaper, return an empty array.\n"
+    "  alternatives: array of {material_id, suggestion}. List a cheaper alternative for a PROCURED plan "
+    "line whenever the data shows one that is a genuine substitute for the SAME product type, even if a "
+    "registry vendor already supplies it or the hub holds stock (procurement is about the next restock). "
+    "Compare the chosen plan unit_cost against (a) other brands/vendors in market and (b) external_offers; "
+    "when something is materially cheaper (say over 2%), state the seller/brand, the price, and the "
+    "approx per-unit or line saving. Do NOT offer a different, non-substitutable product as an "
+    "alternative: e.g. if the demand names a specialty item like 'white cement', never suggest ordinary "
+    "grey OPC/PPC as a cheaper option. If a demanded item is simply not stocked and has no comparable "
+    "substitute in the data, do not invent alternatives for it. external_offers prices are INDICATIVE "
+    "(verify, not firm). If nothing genuinely comparable is cheaper, return an empty array.\n"
     "  flags: array of short risk strings (e.g. 'demand below vendor min order qty', 'single source').\n"
     "  recommendation: a one-line recommended action for the hub manager.\n"
     "Base everything strictly on the numbers provided. Output JSON only."
@@ -91,7 +93,7 @@ def complete_json(system_prompt: str, user_content: str) -> dict | None:
                             "messages": [{"role": "user", "content": user_content}]})
             content = j["content"][0]["text"]
         return json.loads(content)
-    except Exception as e:  # noqa: BLE001 — any failure degrades gracefully
+    except Exception as e:  # noqa: BLE001, any failure degrades gracefully
         body = ""
         try:
             body = e.read().decode("utf-8")[:400]  # type: ignore[attr-defined]

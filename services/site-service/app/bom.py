@@ -2,7 +2,7 @@
 
 `compute_bom` turns a site's area/floors/construction-type into per-material totals using the
 `per_sqft` coefficients fetched from inventory-service. `phase_slice` distributes each material's total
-across the 9 phases via a tunable weight matrix (Q2) — completing a phase triggers dispatch of the next
+across the 9 phases via a tunable weight matrix (Q2), completing a phase triggers dispatch of the next
 phase's slice.
 """
 from __future__ import annotations

@@ -24,7 +24,7 @@ MATERIALS = [
 ]
 
 
-# Branded products (several companies per material) — the searchable catalog.
+# Branded products (several companies per material), the searchable catalog.
 def _p(pid, material, brand, name, grade, unit):
     return {"id": pid, "material_id": material, "brand": brand, "name": name, "grade": grade, "unit": unit}
 

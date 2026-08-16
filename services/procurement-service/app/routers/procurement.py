@@ -43,7 +43,7 @@ def analyze(body: schemas.AnalyzeIn, refresh: bool = False, db: Session = Depend
     """Deterministic plan + profitability, with optional Hub LLM advice layered on top.
 
     Procurement is tier-agnostic: it buys at the cheapest source regardless of consumer. Profitability is
-    a reference lens — computed against the hub's LIST price (pricing-service, no tier) unless explicit
+    a reference lens, computed against the hub's LIST price (pricing-service, no tier) unless explicit
     `selling_prices` are supplied. The Hub pulls **live external market prices** (Google-Search grounded
     when a Gemini key is set) for every demanded material so the LLM can flag a cheaper source even when
     the registry / inventory already supplies it. Pass `?refresh=1` to force a fresh web scout."""
@@ -64,7 +64,7 @@ def analyze(body: schemas.AnalyzeIn, refresh: bool = False, db: Session = Depend
         if refresh or not service.list_external_offers(db, mid):
             try:
                 scouted.append(service.run_scout(db, mid, mid))
-            except Exception as e:  # noqa: BLE001 — scouting is best-effort, never blocks the plan
+            except Exception as e:  # noqa: BLE001, scouting is best-effort, never blocks the plan
                 print(f"[analyze] scout failed for {mid}: {type(e).__name__}: {e}", flush=True)
     external = {}
     for mid in {d["material_id"] for d in demand}:

@@ -26,8 +26,8 @@ export default function Dashboard() {
 
       {d && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Stat label="Consumers" value={d.consumers.total} sub={Object.entries(d.consumers.by_tier).map(([k, v]) => `${v} ${k}`).join(" · ") || "—"} />
-          <Stat label="Sites" value={d.sites.total} sub={Object.entries(d.sites.by_status).map(([k, v]) => `${v} ${k}`).join(" · ") || "—"} />
+          <Stat label="Consumers" value={d.consumers.total} sub={Object.entries(d.consumers.by_tier).map(([k, v]) => `${v} ${k}`).join(" · ") || "-"} />
+          <Stat label="Sites" value={d.sites.total} sub={Object.entries(d.sites.by_status).map(([k, v]) => `${v} ${k}`).join(" · ") || "-"} />
           <Stat label="Coverage" value={d.spoke.areas.length} sub={d.spoke.areas.join(", ") || "no areas"} />
           <Stat label="Needs attention" value={d.attention.length} accent={d.attention.length > 0} sub="short deliveries" />
         </div>
@@ -43,11 +43,11 @@ export default function Dashboard() {
                   <Td>{s.consumer}</Td>
                   <Td>{s.tier}</Td>
                   <Td><Badge tone={s.status === "completed" ? "ok" : s.status === "active" ? "accent" : "muted"}>{s.status}</Badge></Td>
-                  <Td mono>{s.current_phase ?? "—"}</Td>
+                  <Td mono>{s.current_phase ?? "-"}</Td>
                   <Td><Link className="text-accent hover:underline" to={`/sites/${s.site_id}`}>open →</Link></Td>
                 </tr>
               ))}
-              {territory.data?.length === 0 && <tr><Td className="text-muted">No sites yet — create one from the Sites tab.</Td></tr>}
+              {territory.data?.length === 0 && <tr><Td className="text-muted">No sites yet, create one from the Sites tab.</Td></tr>}
             </Table>
           )}
         </Card>
@@ -64,7 +64,7 @@ export default function Dashboard() {
                     <Badge tone="warn">{a.status}</Badge>
                     <span className="text-muted">phase {a.phase_seq}</span>
                   </p>
-                  <p className="mt-1 text-[#f59e0b]">Short: {a.short_materials.join(", ") || "—"}</p>
+                  <p className="mt-1 text-[#f59e0b]">Short: {a.short_materials.join(", ") || "-"}</p>
                 </div>
               ))}
             </div>

@@ -11,7 +11,7 @@ from decimal import Decimal
 from .db import SessionLocal
 from .models import Vendor, VendorPrice
 
-# product_id -> (material_id, brand, full name) — mirrors the inventory catalog seed.
+# product_id -> (material_id, brand, full name), mirrors the inventory catalog seed.
 PRODUCTS = {
     "cement-ultratech-opc53": ("cement", "UltraTech", "UltraTech OPC 53 Grade Cement 50kg"),
     "cement-acc-gold-ppc": ("cement", "ACC", "ACC Gold Water Shield PPC Cement 50kg"),

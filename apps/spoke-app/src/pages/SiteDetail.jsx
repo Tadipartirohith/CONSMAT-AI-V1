@@ -41,8 +41,8 @@ export default function SiteDetail() {
       {msg && <p className={`text-xs ${msg.ok ? "text-emerald-400" : "text-red-400"}`}>{msg.text}</p>}
 
       <div className="flex flex-wrap gap-4 border border-border bg-panel p-4 text-sm">
-        <Info label="Label" value={s.label || "—"} />
-        <Info label="Location" value={s.location || "—"} />
+        <Info label="Label" value={s.label || "-"} />
+        <Info label="Location" value={s.location || "-"} />
         <Info label="Area" value={`${s.area_sqft} sqft × ${s.floors} floor(s)`} />
         <Info label="Type" value={s.construction_type} />
         <Info label="Built-up" value={`${s.total_area} sqft`} />
@@ -54,7 +54,7 @@ export default function SiteDetail() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Bill of materials">
-          {!planned ? <p className="text-sm text-muted">No plan yet — the architect must generate the BOM.</p> : (
+          {!planned ? <p className="text-sm text-muted">No plan yet, the architect must generate the BOM.</p> : (
             <Table head={["Material", "Total qty"]}>
               {s.bom_lines.map((b) => (
                 <tr key={b.material_id} className="border-b border-border/50">
@@ -97,7 +97,7 @@ export default function SiteDetail() {
               <div key={d.id} className="border border-border/60 bg-panel2 p-3">
                 <div className="mb-1.5 flex items-center gap-2 text-sm">
                   <span className="font-mono text-white">{d.code}</span>
-                  <span className="text-muted">phase {d.phase_seq} — {PHASE_NAMES[d.phase_seq]}</span>
+                  <span className="text-muted">phase {d.phase_seq}, {PHASE_NAMES[d.phase_seq]}</span>
                   <Badge tone={d.status === "dispatched" ? "ok" : d.status === "partial" ? "warn" : "bad"}>{d.status}</Badge>
                 </div>
                 <div className="flex flex-wrap gap-2">

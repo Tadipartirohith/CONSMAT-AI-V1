@@ -36,8 +36,8 @@ export default function Payments() {
               {(list.data || []).map((p) => (
                 <tr key={p.id} className="border-b border-border/50">
                   <Td mono>{p.code}</Td>
-                  <Td>{p.ref || "—"}</Td>
-                  <Td className="text-muted">{p.consumer_id || "—"}</Td>
+                  <Td>{p.ref || "-"}</Td>
+                  <Td className="text-muted">{p.consumer_id || "-"}</Td>
                   <Td mono>{inr(p.amount)}</Td>
                   <Td>{p.provider}</Td>
                   <Td><Badge tone={p.status === "paid" ? "ok" : p.status === "pending" ? "warn" : "bad"}>{p.status}</Badge></Td>

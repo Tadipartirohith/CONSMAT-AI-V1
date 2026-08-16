@@ -36,7 +36,7 @@ export default function Pricing() {
                 <Td>{m.material_id || <span className="text-muted">any</span>}</Td>
                 <Td>{m.tier || <span className="text-muted">any</span>}</Td>
                 <Td mono>{m.margin_pct}%</Td>
-                <Td className="text-muted">{m.updated_at ? new Date(m.updated_at).toLocaleDateString() : "—"}</Td>
+                <Td className="text-muted">{m.updated_at ? new Date(m.updated_at).toLocaleDateString() : "-"}</Td>
               </tr>
             ))}
           </Table>
