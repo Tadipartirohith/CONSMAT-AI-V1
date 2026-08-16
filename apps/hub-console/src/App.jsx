@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import Overview from "./pages/Overview.jsx";
+import Projects from "./pages/Projects.jsx";
 import Inventory from "./pages/Inventory.jsx";
 import Vendors from "./pages/Vendors.jsx";
 import Procurement from "./pages/Procurement.jsx";
@@ -11,6 +12,7 @@ import { getUser, logout } from "./auth.js";
 
 const NAV = [
   { to: "/overview", label: "Overview" },
+  { to: "/projects", label: "Projects" },
   { to: "/inventory", label: "Inventory" },
   { to: "/vendors", label: "Vendors" },
   { to: "/procurement", label: "Procurement" },
@@ -54,6 +56,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/overview" replace />} />
           <Route path="/overview" element={<Overview />} />
+          <Route path="/projects" element={<Projects />} />
           <Route path="/inventory" element={<Inventory />} />
           <Route path="/vendors" element={<Vendors />} />
           <Route path="/procurement" element={<Procurement />} />

@@ -30,8 +30,11 @@ export const inv = {
   searchProducts: (q) => req("inv", `/products/search?q=${encodeURIComponent(q)}`),
   createProduct: (b) => req("inv", "/products", body(b)),
   stock: () => req("inv", "/inventory"),
+  productStock: (m) => req("inv", `/product-stock${m ? `?material_id=${m}` : ""}`),
+  lowStock: () => req("inv", "/product-stock/low"),
   ledger: (m) => req("inv", `/inventory/${m}/ledger`),
   inbound: (b) => req("inv", "/inventory/inbound", body(b)),
+  productInbound: (b) => req("inv", "/inventory/product-inbound", body(b)),
   adjust: (b) => req("inv", "/inventory/adjust", body(b)),
 };
 
@@ -66,7 +69,18 @@ export const pay = {
 
 export const site = {
   sites: () => req("site", "/sites"),
+  siteDetail: (id) => req("site", `/sites/${id}`),
   backfillAll: () => req("site", "/backfill", { method: "POST" }),
+  phaseChanges: (status) => req("site", `/phase-changes${status ? `?status=${status}` : ""}`),
+  decideChange: (id, approve) => req("site", `/phase-changes/${id}/decide`, body({ approve })),
+  notifications: () => req("site", "/notifications"),
+  schedulerTick: () => req("site", "/scheduler/tick", { method: "POST" }),
+};
+
+export const PHASE_NAMES = {
+  1: "Excavation & footing", 2: "Foundation & plinth beam", 3: "RCC superstructure",
+  4: "Masonry / brickwork", 5: "Roofing / terrace slab", 6: "Internal plastering",
+  7: "External plastering", 8: "Flooring & tiling", 9: "MEP & finishing",
 };
 
 export const TIERS = ["individual", "contractor", "commercial", "government"];
