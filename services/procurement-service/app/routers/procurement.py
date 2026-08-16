@@ -39,12 +39,14 @@ def make_plan(body: schemas.PlanIn, db: Session = Depends(get_db)):
 
 
 @router.post("/procurement/analyze")
-def analyze(body: schemas.AnalyzeIn, db: Session = Depends(get_db)):
+def analyze(body: schemas.AnalyzeIn, refresh: bool = False, db: Session = Depends(get_db)):
     """Deterministic plan + profitability, with optional Hub LLM advice layered on top.
 
     Procurement is tier-agnostic: it buys at the cheapest source regardless of consumer. Profitability is
     a reference lens — computed against the hub's LIST price (pricing-service, no tier) unless explicit
-    `selling_prices` are supplied."""
+    `selling_prices` are supplied. The Hub pulls **live external market prices** (Google-Search grounded
+    when a Gemini key is set) for every demanded material so the LLM can flag a cheaper source even when
+    the registry / inventory already supplies it. Pass `?refresh=1` to force a fresh web scout."""
     demand = [d.model_dump() for d in body.demand]
     result = procurement_engine.plan(db, demand)
     selling = body.selling_prices
@@ -55,13 +57,21 @@ def analyze(body: schemas.AnalyzeIn, db: Session = Depends(get_db)):
     profit = procurement_engine.profitability(result, selling)
     # Market context for the LLM (all vendors per material, not just the chosen one).
     market = {d["material_id"]: service.market_prices(db, d["material_id"]) for d in demand}
-    # External market intelligence (indicative internet prices / imported price lists), if scouted.
+    # Live external market intelligence: scout the open web for each material if we have nothing cached
+    # (or on ?refresh=1). Grounded offers become advisory alternatives the LLM compares against.
+    scouted = []
+    for mid in {d["material_id"] for d in demand}:
+        if refresh or not service.list_external_offers(db, mid):
+            try:
+                scouted.append(service.run_scout(db, mid, mid))
+            except Exception as e:  # noqa: BLE001 — scouting is best-effort, never blocks the plan
+                print(f"[analyze] scout failed for {mid}: {type(e).__name__}: {e}", flush=True)
     external = {}
-    for d in demand:
-        offers = service.list_external_offers(db, d["material_id"])
+    for mid in {d["material_id"] for d in demand}:
+        offers = service.list_external_offers(db, mid)
         if offers:
-            external[d["material_id"]] = [
-                {"seller": o.seller, "product": o.product_name, "price": float(o.price),
+            external[mid] = [
+                {"seller": o.seller, "product": o.product_name, "price": float(o.price), "url": o.url,
                  "source": o.source, "confidence": o.confidence} for o in offers]
     advice = llm.analyze({
         "demand": demand, "plan": result, "profitability": profit, "market": market,

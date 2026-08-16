@@ -4,13 +4,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.db import Base
-from app import service, llm
+from app import service, price_scout
 
 
 @pytest.fixture()
 def db(monkeypatch):
-    # force the stub scout provider (LLM not configured)
-    monkeypatch.setattr(llm, "is_configured", lambda: False)
+    # force the offline stub scout provider (no live web/LLM calls in unit tests)
+    monkeypatch.setattr(price_scout.settings, "scout_provider", "stub")
     engine = create_engine("sqlite://", future=True)
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine, expire_on_commit=False, future=True)

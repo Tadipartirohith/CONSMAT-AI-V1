@@ -130,7 +130,16 @@ function Advice({ advice }) {
     <div className="mt-3 border border-accent/30 bg-accent/5 p-3 text-sm">
       <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-accent">Hub LLM advice</p>
       {advice.summary && <p className="text-white/80">{advice.summary}</p>}
-      {advice.recommendation && <p className="mt-1 text-white/80"><b>Recommendation:</b> {advice.recommendation}</p>}
+      {advice.profitability_note && <p className="mt-1 text-muted">{advice.profitability_note}</p>}
+      {advice.alternatives?.length > 0 && (
+        <div className="mt-2 border-l-2 border-[#22c55e]/50 pl-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#22c55e]">Cheaper alternatives</p>
+          {advice.alternatives.map((a, i) => (
+            <p key={i} className="mt-0.5 text-white/80">↓ {typeof a === "string" ? a : a.suggestion}</p>
+          ))}
+        </div>
+      )}
+      {advice.recommendation && <p className="mt-2 text-white/80"><b>Recommendation:</b> {advice.recommendation}</p>}
       {advice.flags?.length > 0 && <p className="mt-1 text-[#f59e0b]">⚑ {advice.flags.join(" · ")}</p>}
     </div>
   );
