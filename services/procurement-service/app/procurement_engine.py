@@ -25,7 +25,7 @@ def plan(db: Session, demand: list[dict]) -> dict:
     and flags below_min_qty when the demand is under that vendor's minimum order quantity.
     """
     lines: list[dict] = []
-    unavailable: list[str] = []
+    unavailable: list[dict] = []
     total = Decimal("0")
     for d in demand:
         mid = d["material_id"]
@@ -34,7 +34,12 @@ def plan(db: Session, demand: list[dict]) -> dict:
         # A specific product (brand) if requested; otherwise the cheapest brand for the material.
         market = service.product_offers(db, pid) if pid else service.market_prices(db, mid)
         if not market:
-            unavailable.append(pid or mid)
+            unavailable.append({
+                "material_id": mid, "product_id": pid,
+                "name": d.get("product_name") or pid or mid,
+                "reason": ("no vendor in the registry sells this product yet"
+                           if pid else "no vendor sells this material yet"),
+            })
             continue
         best = market[0]
         unit_cost = _dec(best["price"])

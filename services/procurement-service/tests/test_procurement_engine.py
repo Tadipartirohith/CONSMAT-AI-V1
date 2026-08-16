@@ -45,8 +45,19 @@ def test_plan_picks_cheapest_product(db):
 
 def test_plan_flags_unavailable(db):
     result = procurement_engine.plan(db, [{"material_id": "bricks", "qty": 1000}])
-    assert result["unavailable"] == ["bricks"]
+    assert len(result["unavailable"]) == 1
+    assert result["unavailable"][0]["material_id"] == "bricks"
     assert result["lines"] == []
+
+
+def test_specific_product_without_vendor_is_unavailable(db):
+    result = procurement_engine.plan(db, [
+        {"material_id": "cement", "product_id": "cement-nobody-sells", "product_name": "Nobody Sells Cement", "qty": 100}])
+    assert result["lines"] == []
+    u = result["unavailable"][0]
+    assert u["product_id"] == "cement-nobody-sells"
+    assert u["name"] == "Nobody Sells Cement"
+    assert "no vendor" in u["reason"]
 
 
 def test_multi_material_total(db):

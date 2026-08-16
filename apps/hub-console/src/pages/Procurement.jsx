@@ -5,6 +5,7 @@ import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync } from "
 export default function Procurement() {
   const orders = useAsync(() => proc.orders());
   const products = useAsync(() => inv.products());
+  const vendors = useAsync(() => proc.vendors());
   const [rows, setRows] = useState([]);
   const [result, setResult] = useState(null);
   const [msg, setMsg] = useState(null);
@@ -22,7 +23,7 @@ export default function Procurement() {
   const setRow = (i, k, v) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
   const delRow = (i) => setRows(rows.filter((_, j) => j !== i));
   const addRow = (prod, qty) => setRows([...rows, { product_id: prod.id, product_name: prod.name, material_id: prod.material_id, qty }]);
-  const demand = () => rows.map((r) => ({ material_id: r.material_id, product_id: r.product_id, qty: Number(r.qty) }));
+  const demand = () => rows.map((r) => ({ material_id: r.material_id, product_id: r.product_id, product_name: r.product_name, qty: Number(r.qty) }));
 
   const analyze = async () => {
     setBusy(true); setMsg(null);
@@ -86,6 +87,9 @@ export default function Procurement() {
                   </tr>
                 ))}
               </Table>
+              {result.plan.unavailable?.length > 0 && (
+                <Unavailable items={result.plan.unavailable} vendors={vendors.data || []} onFixed={analyze} />
+              )}
               <div className="mt-3 flex flex-wrap items-center gap-4 text-sm">
                 <span>Buy total: <span className="font-mono text-white">{inr(result.plan.total_cost)}</span></span>
                 {p && <>
@@ -129,6 +133,43 @@ function Advice({ advice }) {
       {advice.recommendation && <p className="mt-1 text-white/80"><b>Recommendation:</b> {advice.recommendation}</p>}
       {advice.flags?.length > 0 && <p className="mt-1 text-[#f59e0b]">⚑ {advice.flags.join(" · ")}</p>}
     </div>
+  );
+}
+
+function Unavailable({ items, vendors, onFixed }) {
+  return (
+    <div className="mt-3 border border-[#f59e0b]/40 bg-[#f59e0b]/5 p-3">
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-[#f59e0b]">Not procurable yet</p>
+      {items.map((u, i) => (
+        <div key={i} className="mb-2 last:mb-0 text-sm">
+          <p className="text-white/80">{u.name} — <span className="text-muted">{u.reason}</span></p>
+          {u.product_id && <SetPriceInline productId={u.product_id} vendors={vendors} onDone={onFixed} />}
+        </div>
+      ))}
+      <p className="mt-1 text-[11px] text-muted">Add a vendor price to procure it, or pick a stocked brand instead.</p>
+    </div>
+  );
+}
+
+function SetPriceInline({ productId, vendors, onDone }) {
+  const [vid, setVid] = useState("");
+  const [price, setPrice] = useState("");
+  const [msg, setMsg] = useState(null);
+  const save = async (e) => {
+    e.preventDefault(); setMsg(null);
+    try { await proc.setPrice(vid, { product_id: productId, price: Number(price) }); onDone(); }
+    catch (e) { setMsg(e.message); }
+  };
+  return (
+    <form onSubmit={save} className="mt-1 flex items-center gap-2">
+      <Select value={vid} required onChange={(e) => setVid(e.target.value)}>
+        <option value="">vendor…</option>
+        {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+      </Select>
+      <div className="w-24"><Input type="number" step="any" value={price} placeholder="₹/unit" required onChange={(e) => setPrice(e.target.value)} /></div>
+      <Button size="sm" type="submit">Set price &amp; retry</Button>
+      {msg && <span className="text-[11px] text-red-400">{msg}</span>}
+    </form>
   );
 }
 
