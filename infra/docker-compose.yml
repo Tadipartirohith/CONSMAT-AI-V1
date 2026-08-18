@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: consmat
       POSTGRES_DB: inventory
     ports:
-      - "${DB_PORT:-5433}:5432"
+      - "127.0.0.1:${DB_PORT:-5433}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -28,7 +28,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
       DEMO_PASSWORD: ${DEMO_PASSWORD:-consmat123}
     ports:
-      - "${IDENTITY_PORT:-8005}:8000"
+      - "127.0.0.1:${IDENTITY_PORT:-8005}:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -42,7 +42,7 @@ services:
       API_PREFIX: /api/v1
       JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
     ports:
-      - "${INVENTORY_PORT:-8001}:8000"
+      - "127.0.0.1:${INVENTORY_PORT:-8001}:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -67,7 +67,7 @@ services:
       # Live web price-scout search key (e.g. Tavily, free tier). Empty = fall back to LLM estimates.
       SCOUT_API_KEY: ${SCOUT_API_KEY:-}
     ports:
-      - "${PROCUREMENT_PORT:-8002}:8000"
+      - "127.0.0.1:${PROCUREMENT_PORT:-8002}:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -82,7 +82,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
       INVENTORY_URL: http://inventory-service:8000
     ports:
-      - "${SITE_PORT:-8003}:8000"
+      - "127.0.0.1:${SITE_PORT:-8003}:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -100,7 +100,7 @@ services:
       INVENTORY_URL: http://inventory-service:8000
       DEFAULT_MARGIN_PCT: ${DEFAULT_MARGIN_PCT:-10}
     ports:
-      - "${PRICING_PORT:-8004}:8000"
+      - "127.0.0.1:${PRICING_PORT:-8004}:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -126,7 +126,7 @@ services:
       CASHFREE_APP_ID: ${CASHFREE_APP_ID:-}
       CASHFREE_SECRET: ${CASHFREE_SECRET:-}
     ports:
-      - "${PAYMENT_PORT:-8006}:8000"
+      - "127.0.0.1:${PAYMENT_PORT:-8006}:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -136,7 +136,7 @@ services:
     build: ../gateway
     container_name: consmat-v1-gateway
     ports:
-      - "${GATEWAY_PORT:-8088}:80"
+      - "127.0.0.1:${GATEWAY_PORT:-8088}:80"
     depends_on:
       - identity-service
       - inventory-service
@@ -150,7 +150,7 @@ services:
     build: ../apps/hub-console
     container_name: consmat-v1-hub-console
     ports:
-      - "${HUB_CONSOLE_PORT:-8095}:80"
+      - "127.0.0.1:${HUB_CONSOLE_PORT:-8095}:80"
     depends_on:
       - gateway
     restart: unless-stopped
@@ -159,7 +159,7 @@ services:
     build: ../apps/spoke-app
     container_name: consmat-v1-spoke-app
     ports:
-      - "${SPOKE_APP_PORT:-8096}:80"
+      - "127.0.0.1:${SPOKE_APP_PORT:-8096}:80"
     depends_on:
       - gateway
     restart: unless-stopped
@@ -168,7 +168,7 @@ services:
     build: ../apps/consumer-portal
     container_name: consmat-v1-consumer-portal
     ports:
-      - "${CONSUMER_PORTAL_PORT:-8097}:80"
+      - "127.0.0.1:${CONSUMER_PORTAL_PORT:-8097}:80"
     depends_on:
       - gateway
     restart: unless-stopped
