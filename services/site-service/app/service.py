@@ -7,7 +7,8 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import bom, geofence, inventory_client, models
+from . import bom, geofence, identity_client, inventory_client, models
+from .config import settings
 
 
 class SiteError(Exception):
@@ -73,13 +74,22 @@ def create_consumer(db: Session, name: str, tier: str, spoke_id: str, phone: str
 
 
 def intake(db: Session, name: str, tier: str, location: str, phone: str = "") -> dict:
-    """Spokesperson intake: classify the consumer (tier) and auto-assign the serving spoke by
-    geofence (location). Fails if no active spoke covers the location."""
+    """Onboarding: classify the consumer (tier), auto-assign the serving spoke by geofence (location),
+    and provision a `consumer` login so the customer can track their project. Fails if no active spoke
+    covers the location."""
     spoke = geofence.resolve_spoke(db, location)
     if spoke is None:
         raise SiteError(f"No spoke covers '{location}'. Add coverage to a spoke or assign manually.")
     consumer = create_consumer(db, name, tier, spoke.id, phone)
-    return {"consumer": consumer, "spoke": spoke}
+    # Provision a customer login linked to this consumer (best-effort).
+    email = f"{consumer.id}@consmat.com"
+    login = None
+    try:
+        identity_client.create_consumer_user(email, consumer.name, consumer.id, settings.demo_password)
+        login = {"email": email, "temp_password": settings.demo_password, "created": True}
+    except identity_client.IdentityUnavailable as e:
+        login = {"email": email, "created": False, "error": str(e)}
+    return {"consumer": consumer, "spoke": spoke, "login": login}
 
 
 def update_consumer(db: Session, consumer_id: str, *, tier: str | None = None,

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { site, TIERS } from "../api.js";
+import { getUser } from "../auth.js";
 import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync } from "../components/ui.jsx";
 
 export default function Intake() {
@@ -7,58 +8,65 @@ export default function Intake() {
   const consumers = useAsync(() => site.consumers());
   const [result, setResult] = useState(null);
   const [err, setErr] = useState(null);
+  const [busy, setBusy] = useState(false);
 
   const [form, setForm] = useState({ name: "", tier: "individual", location: "", phone: "" });
   const submit = async (e) => {
-    e.preventDefault(); setErr(null); setResult(null);
+    e.preventDefault(); setErr(null); setResult(null); setBusy(true);
     try {
       const r = await site.intake(form);
       setResult(r);
       setForm({ name: "", tier: "individual", location: "", phone: "" });
       consumers.reload();
-    } catch (e) { setErr(e.message); }
+    } catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
 
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="font-head text-2xl font-extrabold text-white">Consumer Intake</h1>
-        <p className="text-xs text-muted">Classify the consumer and auto-assign the serving spoke by location (geofence).</p>
+        <h1 className="font-head text-2xl font-extrabold text-white">Onboarding</h1>
+        <p className="text-xs text-muted">Register a customer, auto-assign the serving spoke by location, and create their tracking login.</p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card title="New intake">
+        <Card title="New client">
           <form onSubmit={submit} className="space-y-3">
-            <Field label="Name"><Input value={form.name} required onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-            <Field label="Consumer tier">
+            <Field label="Customer name"><Input value={form.name} required onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
+            <Field label="Customer tier">
               <Select value={form.tier} onChange={(e) => setForm({ ...form, tier: e.target.value })}>
                 {TIERS.map((t) => <option key={t} value={t}>{t}</option>)}
               </Select>
             </Field>
             <Field label="Location (site area)"><Input value={form.location} required placeholder="e.g. Medchal" onChange={(e) => setForm({ ...form, location: e.target.value })} /></Field>
             <Field label="Phone"><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
-            <Button type="submit">Intake & assign</Button>
+            <Button type="submit" disabled={busy}>{busy ? "Onboarding…" : "Onboard customer"}</Button>
             {err && <p className="text-xs text-red-400">{err}</p>}
             {result && (
-              <div className="border border-emerald-500/30 bg-emerald-500/5 p-2.5 text-sm">
-                <p className="text-emerald-400">✓ {result.consumer.name} ({result.consumer.tier})</p>
-                <p className="text-muted">assigned to <span className="text-white">{result.assigned_spoke.name}</span></p>
+              <div className="space-y-1 rounded border border-emerald-500/30 bg-emerald-500/5 p-3 text-sm">
+                <p className="text-emerald-400">✓ {result.consumer.name} onboarded ({result.consumer.tier})</p>
+                <p className="text-muted">Builder ID <span className="font-mono text-white">{result.consumer.id}</span> · spoke <span className="text-white">{result.assigned_spoke.name}</span></p>
+                {result.login?.created ? (
+                  <p className="text-muted">Login <span className="font-mono text-white">{result.login.email}</span> · temp password <span className="font-mono text-white">{result.login.temp_password}</span></p>
+                ) : result.login ? (
+                  <p className="text-[#f59e0b]">Login {result.login.email} could not be created ({result.login.error || "already exists"}).</p>
+                ) : null}
               </div>
             )}
           </form>
         </Card>
 
-        <Card title="Consumers" className="lg:col-span-2" right={<Button size="sm" variant="ghost" onClick={consumers.reload}>Refresh</Button>}>
-          <Table head={["ID", "Name", "Tier", "Spoke", "Phone"]}>
+        <Card title="Customers" className="lg:col-span-2" right={<Button size="sm" variant="ghost" onClick={consumers.reload}>Refresh</Button>}>
+          <Table head={["Builder ID", "Name", "Tier", "Login", "Phone"]}>
             {(consumers.data || []).map((c) => (
               <tr key={c.id} className="border-b border-border/50">
                 <Td mono className="text-muted">{c.id}</Td>
                 <Td>{c.name}</Td>
                 <Td><Badge tone="accent">{c.tier}</Badge></Td>
-                <Td mono className="text-muted">{c.spoke_id}</Td>
+                <Td mono className="text-muted">{c.id}@consmat.com</Td>
                 <Td>{c.phone || "-"}</Td>
               </tr>
             ))}
+            {consumers.data?.length === 0 && <tr><Td className="text-muted">No customers yet.</Td></tr>}
           </Table>
         </Card>
       </div>
@@ -69,32 +77,27 @@ export default function Intake() {
 }
 
 function SpokeCoverage({ spokes }) {
+  const me = getUser();
+  const mySpokeId = me?.org_ref || spokes.data?.[0]?.id;
   const [msg, setMsg] = useState(null);
-  const [form, setForm] = useState({ spoke_id: "", area: "" });
+  const [area, setArea] = useState("");
+  const detail = useAsync(() => (mySpokeId ? site.spoke(mySpokeId) : Promise.resolve(null)), [mySpokeId]);
+  const areas = detail.data?.areas || [];
+
   const addArea = async (e) => {
     e.preventDefault(); setMsg(null);
-    try { await site.addArea(form.spoke_id, form.area); setForm({ ...form, area: "" }); spokes.reload(); setMsg("Coverage added."); }
+    try { await site.addArea(mySpokeId, area); setArea(""); detail.reload(); setMsg("Region added."); }
     catch (e) { setMsg(e.message); }
   };
   return (
-    <Card title="Spoke coverage (geofence)">
+    <Card title="My coverage (geofenced regions)">
       <div className="grid gap-4 md:grid-cols-2">
-        <Table head={["Spoke", "Areas covered"]}>
-          {(spokes.data || []).map((s) => (
-            <tr key={s.id} className="border-b border-border/50">
-              <Td>{s.name}</Td>
-              <Td className="text-muted">{s.geofence || "-"}</Td>
-            </tr>
-          ))}
-        </Table>
+        <div>
+          <p className="mb-2 text-[11px] uppercase tracking-wider text-muted">Regions served by {detail.data?.name || "your spoke"}</p>
+          <p className="text-sm text-white/90">{areas.length ? areas.join(", ") : "no regions yet — add one"}</p>
+        </div>
         <form onSubmit={addArea} className="flex items-end gap-2">
-          <Field label="Spoke">
-            <Select value={form.spoke_id} required onChange={(e) => setForm({ ...form, spoke_id: e.target.value })}>
-              <option value="">select…</option>
-              {(spokes.data || []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </Select>
-          </Field>
-          <Field label="Area keyword"><Input value={form.area} required placeholder="e.g. Kompally" onChange={(e) => setForm({ ...form, area: e.target.value })} /></Field>
+          <Field label="Add a region keyword"><Input value={area} required placeholder="e.g. Kompally" onChange={(e) => setArea(e.target.value)} /></Field>
           <Button type="submit">Add</Button>
         </form>
       </div>

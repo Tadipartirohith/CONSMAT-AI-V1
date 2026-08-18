@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     jwt_alg: str = "HS256"
     # inventory-service base URL: catalog lookups + phase dispatch (outbound) go here.
     inventory_url: str = "http://localhost:8001"
+    # identity-service base URL: onboarding creates a consumer login here.
+    identity_url: str = "http://localhost:8005"
+    demo_password: str = "consmat123"  # temp password issued to a newly onboarded consumer
     # JIT dispatch scheduler: warn 3 days before a phase ends and pre-dispatch the next phase.
     scheduler_enabled: bool = True
     scheduler_interval_seconds: int = 60

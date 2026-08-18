@@ -8,9 +8,9 @@ import Login from "./pages/Login.jsx";
 import { getUser, logout } from "./auth.js";
 
 const NAV = [
-  { to: "/dashboard", label: "Territory" },
-  { to: "/intake", label: "Intake" },
-  { to: "/sites", label: "Sites" },
+  { to: "/dashboard", label: "Coverage", icon: "🗺️" },
+  { to: "/intake", label: "Onboarding", icon: "🤝" },
+  { to: "/sites", label: "Sites", icon: "🏗️" },
 ];
 
 export default function App() {
@@ -20,20 +20,20 @@ export default function App() {
     <div className="flex min-h-screen">
       <aside className="w-56 shrink-0 border-r border-border bg-panel">
         <div className="flex items-center gap-2 border-b border-border px-4 py-4">
-          <div className="grid h-7 w-7 place-items-center bg-accent font-mono text-sm font-bold text-black">S</div>
+          <div className="grid h-8 w-8 place-items-center rounded bg-accent font-mono text-sm font-bold text-black">C</div>
           <div>
-            <p className="text-sm font-bold leading-tight text-white">Consmat Spoke</p>
-            <p className="text-[10px] leading-tight text-muted">Field App</p>
+            <p className="text-sm font-bold leading-tight text-white">Consmat Field</p>
+            <p className="text-[10px] leading-tight text-muted">Spoke workspace</p>
           </div>
         </div>
         <nav className="p-2">
           {NAV.map((n) => (
             <NavLink key={n.to} to={n.to}
               className={({ isActive }) =>
-                `block px-3 py-2 text-sm transition-colors ${
+                `flex items-center gap-2.5 rounded px-3 py-2 text-sm transition-colors ${
                   isActive ? "bg-accent/10 text-accent" : "text-white/70 hover:bg-white/5"
                 }`}>
-              {n.label}
+              <span className="text-base">{n.icon}</span>{n.label}
             </NavLink>
           ))}
         </nav>

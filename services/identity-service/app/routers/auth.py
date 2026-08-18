@@ -36,7 +36,7 @@ def list_users(_: dict = Depends(auth.require_role("admin", "hub_manager")), db:
 
 @router.post("/users", response_model=schemas.UserOut, status_code=201)
 def create_user(body: schemas.UserIn,
-                _: dict = Depends(auth.require_role("admin", "hub_manager")),
+                _: dict = Depends(auth.require_role("admin", "hub_manager", "service")),
                 db: Session = Depends(get_db)):
     try:
         return service.create_user(db, body.email, body.password, body.name, body.role, body.org_ref)

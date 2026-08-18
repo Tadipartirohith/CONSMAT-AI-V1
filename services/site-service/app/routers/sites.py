@@ -96,6 +96,7 @@ def intake(body: schemas.IntakeIn, db: Session = Depends(get_db)):
     return {
         "consumer": {"id": c.id, "name": c.name, "tier": c.tier, "phone": c.phone, "spoke_id": c.spoke_id},
         "assigned_spoke": {"id": s.id, "name": s.name},
+        "login": result.get("login"),
     }
 
 
