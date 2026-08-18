@@ -75,6 +75,8 @@ export const pay = {
 export const site = {
   sites: () => req("site", "/sites"),
   siteDetail: (id) => req("site", `/sites/${id}`),
+  consumers: () => req("site", "/consumers"),
+  spokes: () => req("site", "/spokes"),
   backfillAll: () => req("site", "/backfill", { method: "POST" }),
   phaseChanges: (status) => req("site", `/phase-changes${status ? `?status=${status}` : ""}`),
   decideChange: (id, approve) => req("site", `/phase-changes/${id}/decide`, body({ approve })),

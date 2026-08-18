@@ -4,6 +4,7 @@ import { login } from "../auth.js";
 const DEMO = [
   ["manager@consmat.com", "Hub Manager"],
   ["supervisor@consmat.com", "Hub Supervisor"],
+  ["ops@consmat.com", "Operations"],
 ];
 
 export default function Login({ onDone }) {
@@ -32,7 +33,7 @@ export default function Login({ onDone }) {
           <div className="grid h-8 w-8 place-items-center bg-accent font-mono text-sm font-bold text-black">C</div>
           <div>
             <p className="font-bold text-white">Consmat Hub Console</p>
-            <p className="text-[10px] text-muted">Supervisor + manager operations</p>
+            <p className="text-[10px] text-muted">Manager · Supervisor · Operations</p>
           </div>
         </div>
         <form onSubmit={submit} className="space-y-3">
