@@ -269,6 +269,22 @@ def set_bom(db: Session, site_id: int, lines: list[dict]) -> models.Site:
     return site
 
 
+def phase_needs(db: Session, site_id: int) -> list[dict]:
+    """Return each phase's product requirements (the BOM sliced by the material weight matrix)."""
+    site = db.get(models.Site, site_id)
+    if site is None:
+        raise SiteError(f"Unknown site: SITE-{site_id}")
+    lines = _bom_line_dicts(site)
+    phase_status = {p.phase_seq: p.status for p in site.phases}
+    out = []
+    for seq, name, _rpf in bom.PHASES:
+        out.append({
+            "phase_seq": seq, "name": name, "status": phase_status.get(seq, models.PH_PENDING),
+            "lines": bom.product_phase_slice(lines, seq),
+        })
+    return out
+
+
 def _totals(site: models.Site) -> dict[str, float]:
     return {b.material_id: float(b.total_qty) for b in site.bom_lines}
 

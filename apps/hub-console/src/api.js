@@ -56,6 +56,7 @@ export const proc = {
   llmStatus: () => req("proc", "/procurement/llm-status"),
   scout: (material_id) => req("proc", "/procurement/scout", body({ material_id })),
   externalOffers: (m) => req("proc", `/external-offers${m ? `?material_id=${m}` : ""}`),
+  bomOptimize: (b) => req("proc", "/procurement/bom-optimize", body(b)),
   priceDrops: () => req("proc", "/market/price-drops"),
   marketScan: (category) => req("proc", "/market/scan", body({ category: category || "" })),
   alerts: () => req("proc", "/market/alerts"),
@@ -87,6 +88,8 @@ export const site = {
   decideChange: (id, approve) => req("site", `/phase-changes/${id}/decide`, body({ approve })),
   notifications: () => req("site", "/notifications"),
   schedulerTick: () => req("site", "/scheduler/tick", { method: "POST" }),
+  setBom: (id, lines) => req("site", `/sites/${id}/bom`, body({ lines })),
+  phaseNeeds: (id) => req("site", `/sites/${id}/phase-needs`),
 };
 
 export const PHASE_NAMES = {

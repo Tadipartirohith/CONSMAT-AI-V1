@@ -2,6 +2,7 @@ import { useState } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import Overview from "./pages/Overview.jsx";
 import Projects from "./pages/Projects.jsx";
+import ProjectDetail from "./pages/ProjectDetail.jsx";
 import Inventory from "./pages/Inventory.jsx";
 import Vendors from "./pages/Vendors.jsx";
 import Market from "./pages/Market.jsx";
@@ -59,6 +60,7 @@ export default function App() {
           <Route path="/" element={<Navigate to="/overview" replace />} />
           <Route path="/overview" element={<Overview />} />
           <Route path="/projects" element={<Projects />} />
+          <Route path="/projects/:id" element={<ProjectDetail />} />
           <Route path="/inventory" element={<Inventory />} />
           <Route path="/vendors" element={<Vendors />} />
           <Route path="/market" element={<Market />} />

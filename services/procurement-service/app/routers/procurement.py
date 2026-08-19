@@ -91,6 +91,31 @@ def create_order(body: schemas.OrderIn, db: Session = Depends(get_db)):
     return _run(orders.create_order, db=db, lines=[l.model_dump() for l in body.lines], note=body.note)
 
 
+_BOM_OPT_SCHEMA = (
+    "You are a Bill-of-Materials optimizer for a construction-materials hub. You are given the current "
+    "BOM (product lines with whole-project quantities), the available product catalog (branded SKUs "
+    "under each material), and the hub user's instruction. Propose an optimized BOM. Output STRICT JSON "
+    "only: {\"summary\": string, \"lines\": [{\"product_id\": string, \"product_name\": string, "
+    "\"material_id\": string, \"total_qty\": number, \"reason\": string}]}.\n"
+    "Rules: use ONLY product_id values that appear in the provided catalog; keep each material's total "
+    "quantity close to the current BOM unless the instruction changes it; 'optimize cost' picks the "
+    "cheaper/value brands, 'use premium' swaps to premium brands, quantity instructions adjust totals. "
+    "Preserve the materials the project needs. If the current BOM is empty, propose a sensible starter "
+    "BOM from the catalog per the instruction. The hub user reviews and edits your suggestion, so make it "
+    "concrete and grounded in the catalog. Output JSON only."
+)
+
+
+@router.post("/procurement/bom-optimize", dependencies=[Depends(HUB_WRITE)])
+def bom_optimize(body: schemas.BomOptimizeIn):
+    """Hub LLM: suggest an optimized product BOM from the catalog per the user's instruction (advisory)."""
+    import json as _json
+    result = llm.complete_json(_BOM_OPT_SCHEMA, _json.dumps({
+        "instruction": body.prompt, "current_bom": body.current_bom, "catalog": body.catalog,
+    }))
+    return result or {"summary": "Hub LLM unavailable — configure AI_PROVIDER.", "lines": []}
+
+
 @router.post("/procurement/scout", dependencies=[Depends(HUB_WRITE)])
 def scout(body: schemas.ScoutIn, db: Session = Depends(get_db)):
     """Pull indicative external market prices for a material (advisory market intelligence)."""

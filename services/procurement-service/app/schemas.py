@@ -96,6 +96,12 @@ class ScanIn(BaseModel):
     category: str = ""   # "" = all categories
 
 
+class BomOptimizeIn(BaseModel):
+    prompt: str = ""
+    current_bom: list[dict] = []   # [{product_id, product_name, material_id, total_qty}]
+    catalog: list[dict] = []       # [{id, name, brand, material_id, grade}]
+
+
 class PriceIn(BaseModel):
     product_id: str = Field(min_length=1)
     price: float = Field(ge=0)

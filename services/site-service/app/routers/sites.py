@@ -127,10 +127,16 @@ def generate_plan(site_id: int, db: Session = Depends(get_db)):
     return _run(service.generate_plan, db=db, site_id=site_id)
 
 
-@router.post("/sites/{site_id}/bom", response_model=schemas.SiteOut, dependencies=[Depends(FIELD)])
+@router.post("/sites/{site_id}/bom", response_model=schemas.SiteOut, dependencies=[Depends(SCHEDULE)])
 def set_bom(site_id: int, body: schemas.SetBomIn, db: Session = Depends(get_db)):
-    """CE/spoke enters (or edits) the site's product-level Bill of Materials. Editable before start."""
+    """CE/spoke (or the hub, as final authority) enters/edits the product BOM. Editable before start."""
     return _run(service.set_bom, db=db, site_id=site_id, lines=[l.model_dump() for l in body.lines])
+
+
+@router.get("/sites/{site_id}/phase-needs")
+def phase_needs(site_id: int, db: Session = Depends(get_db)):
+    """Per-phase product requirements (the BOM sliced across the 9 phases)."""
+    return _run(service.phase_needs, db=db, site_id=site_id)
 
 
 @router.post("/sites/{site_id}/phases/{seq}/dates", dependencies=[Depends(SCHEDULE)])
