@@ -56,6 +56,11 @@ export const proc = {
   llmStatus: () => req("proc", "/procurement/llm-status"),
   scout: (material_id) => req("proc", "/procurement/scout", body({ material_id })),
   externalOffers: (m) => req("proc", `/external-offers${m ? `?material_id=${m}` : ""}`),
+  priceDrops: () => req("proc", "/market/price-drops"),
+  marketScan: (category) => req("proc", "/market/scan", body({ category: category || "" })),
+  alerts: () => req("proc", "/market/alerts"),
+  createAlert: (b) => req("proc", "/market/alerts", body(b)),
+  deleteAlert: (id) => req("proc", `/market/alerts/${id}`, { method: "DELETE" }),
 };
 
 export const price = {

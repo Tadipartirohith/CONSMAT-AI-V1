@@ -102,6 +102,46 @@ def external_offers(material_id: str | None = None, db: Session = Depends(get_db
     return service.list_external_offers(db, material_id)
 
 
+# ---- Open-market watch: price drops + alerts ----
+
+@router.get("/market/price-drops")
+def price_drops(db: Session = Depends(get_db)):
+    """Products whose hub avg cost is beaten by a cheaper open-market offer (same category)."""
+    return service.price_drops(db)
+
+
+@router.post("/market/scan", dependencies=[Depends(HUB_WRITE)])
+def market_scan(body: schemas.ScanIn, db: Session = Depends(get_db)):
+    """Refresh open-market offers by scouting a category (or all). Also runs every 4h in the background."""
+    from .. import catalog_client
+    if body.category:
+        mats = [body.category]
+    else:
+        try:
+            mats = sorted({p["material_id"] for p in catalog_client.list_products()})
+        except Exception:  # noqa: BLE001
+            mats = ["cement", "steel", "sand", "aggregate", "bricks"]
+    return service.scan_markets(db, mats)
+
+
+@router.get("/market/alerts")
+def list_alerts(db: Session = Depends(get_db)):
+    """Active alerts with the offers currently matching each."""
+    return service.evaluate_alerts(db)
+
+
+@router.post("/market/alerts", status_code=201)
+def create_alert(body: schemas.AlertIn, db: Session = Depends(get_db)):
+    a = _run(service.create_alert, db=db, material_id=body.material_id, query=body.query, op=body.op,
+             value=body.value, seller=body.seller, location=body.location)
+    return {"id": a.id}
+
+
+@router.delete("/market/alerts/{alert_id}", status_code=204)
+def delete_alert(alert_id: int, db: Session = Depends(get_db)):
+    service.delete_alert(db, alert_id)
+
+
 @router.post("/external-offers/import", dependencies=[Depends(HUB_WRITE)])
 def import_offers(body: schemas.ImportIn, db: Session = Depends(get_db)):
     """Ingest a supplier price list (firm external offers, e.g. from CSV)."""

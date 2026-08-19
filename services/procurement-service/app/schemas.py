@@ -83,6 +83,19 @@ class DecideVendorIn(BaseModel):
     approve: bool
 
 
+class AlertIn(BaseModel):
+    material_id: str = ""
+    query: str = ""
+    op: str = Field(default="lt", pattern="^(lt|lte|gt|gte|eq)$")
+    value: float = Field(ge=0)
+    seller: str = ""
+    location: str = ""
+
+
+class ScanIn(BaseModel):
+    category: str = ""   # "" = all categories
+
+
 class PriceIn(BaseModel):
     product_id: str = Field(min_length=1)
     price: float = Field(ge=0)

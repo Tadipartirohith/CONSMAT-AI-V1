@@ -114,6 +114,25 @@ class ExternalOffer(Base):
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class MarketAlert(Base):
+    """A user rule that flags external (open-market) offers of interest.
+
+    Matches scouted `external_offers` by category, a text query (product/seller), a price comparison,
+    and optional seller/location contains. Evaluated on demand for the market-watch widget.
+    """
+    __tablename__ = "market_alerts"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    material_id: Mapped[str] = mapped_column(String(40), default="")   # "" = any category
+    query: Mapped[str] = mapped_column(String(120), default="")        # matches product_name (brand/name)
+    op: Mapped[str] = mapped_column(String(4), default="lt")           # lt | lte | gt | gte | eq
+    value: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
+    seller: Mapped[str] = mapped_column(String(120), default="")       # contains
+    location: Mapped[str] = mapped_column(String(120), default="")     # contains (matched on note/seller)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class ProcurementOrder(Base):
     """A hub purchase from vendors. On receive, each line posts an inbound to inventory-service."""
     __tablename__ = "procurement_orders"

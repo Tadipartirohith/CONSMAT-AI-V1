@@ -222,6 +222,107 @@ def import_offers(db: Session, offers: list[dict]) -> int:
     return n
 
 
+# ---- Open-market watch: price drops + alerts ----
+
+_ALERT_OPS = {"lt": lambda a, b: a < b, "lte": lambda a, b: a <= b, "gt": lambda a, b: a > b,
+              "gte": lambda a, b: a >= b, "eq": lambda a, b: a == b}
+
+
+def price_drops(db: Session) -> list[dict]:
+    """Products whose current hub avg cost is beaten by an open-market offer in the same category.
+
+    e.g. a brand's stocked avg cost is 350 while an external offer sits at 300 -> surfaced as a saving.
+    """
+    try:
+        stocks = catalog_client.list_product_stock()
+        products = {p["id"]: p for p in catalog_client.list_products()}
+    except catalog_client.CatalogError:
+        stocks, products = [], {}
+    by_mat: dict[str, list] = {}
+    for o in list_external_offers(db):
+        by_mat.setdefault(o.material_id, []).append(o)
+    out, seen = [], set()
+    for s in stocks:
+        avg = float(s.get("avg_cost") or 0)
+        if avg <= 0:
+            continue
+        pid = s["product_id"]
+        prod = products.get(pid, {})
+        for o in by_mat.get(s.get("material_id", ""), []):
+            price = float(o.price)
+            if price >= avg or (pid, o.id) in seen:
+                continue
+            seen.add((pid, o.id))
+            saving = avg - price
+            out.append({
+                "product_id": pid, "product_name": prod.get("name", pid), "brand": prod.get("brand", ""),
+                "material_id": s.get("material_id", ""), "avg_cost": round(avg, 2),
+                "seller": o.seller, "offer_price": price, "url": o.url, "source": o.source,
+                "confidence": o.confidence, "saving": round(saving, 2),
+                "saving_pct": round(saving / avg * 100, 1),
+            })
+    out.sort(key=lambda x: x["saving_pct"], reverse=True)
+    return out
+
+
+def create_alert(db: Session, *, material_id: str = "", query: str = "", op: str = "lt",
+                 value: float, seller: str = "", location: str = "") -> models.MarketAlert:
+    if op not in _ALERT_OPS:
+        raise ProcurementError(f"op must be one of {list(_ALERT_OPS)}")
+    a = models.MarketAlert(material_id=material_id, query=query, op=op, value=_dec(value),
+                           seller=seller, location=location)
+    db.add(a)
+    db.commit()
+    db.refresh(a)
+    return a
+
+
+def delete_alert(db: Session, alert_id: int) -> None:
+    a = db.get(models.MarketAlert, alert_id)
+    if a is not None:
+        db.delete(a)
+        db.commit()
+
+
+def evaluate_alerts(db: Session) -> list[dict]:
+    """For each active alert, return the external offers that currently match it."""
+    alerts = list(db.execute(select(models.MarketAlert).where(models.MarketAlert.active.is_(True))
+                             .order_by(models.MarketAlert.id.desc())).scalars())
+    offers = list_external_offers(db)
+    result = []
+    for al in alerts:
+        matches = []
+        for o in offers:
+            if al.material_id and o.material_id != al.material_id:
+                continue
+            if al.query and al.query.lower() not in (o.product_name or "").lower():
+                continue
+            if al.seller and al.seller.lower() not in (o.seller or "").lower():
+                continue
+            if al.location and al.location.lower() not in f"{o.seller} {o.note}".lower():
+                continue
+            if not _ALERT_OPS[al.op](float(o.price), float(al.value)):
+                continue
+            matches.append({"material_id": o.material_id, "seller": o.seller, "product_name": o.product_name,
+                            "price": float(o.price), "url": o.url, "source": o.source})
+        result.append({
+            "alert": {"id": al.id, "material_id": al.material_id, "query": al.query, "op": al.op,
+                      "value": float(al.value), "seller": al.seller, "location": al.location},
+            "matches": matches,
+        })
+    return result
+
+
+def scan_markets(db: Session, materials: list[str]) -> dict:
+    """Refresh external offers by scouting each material. Returns per-material counts."""
+    total, provider = 0, ""
+    for mid in materials:
+        r = run_scout(db, mid, mid)
+        total += r["count"]
+        provider = r["provider"]
+    return {"scanned": materials, "offers": total, "provider": provider}
+
+
 def market_prices(db: Session, material_id: str) -> list[dict]:
     """Cheapest-first view of every active vendor's branded-product price for a material.
 

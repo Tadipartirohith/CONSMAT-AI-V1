@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     scout_provider: str = "auto"
     # Search-provider API key (e.g. Tavily) for live web scouting, supplied via .env, never committed.
     scout_api_key: str = ""
+    # Open-market watch: auto-refresh external offers on this interval (default 4h).
+    scout_refresh_enabled: bool = True
+    scout_refresh_seconds: int = 14400
 
 
 settings = Settings()
