@@ -36,12 +36,6 @@ export default function Vendors() {
     catch (e) { setMsg(e.message); }
   };
 
-  const [pr, setPr] = useState({ vendor_id: "", product_id: "", price: "" });
-  const setPrice = async (e) => {
-    e.preventDefault(); setMsg(null);
-    try { await proc.setPrice(pr.vendor_id, { product_id: pr.product_id, price: Number(pr.price) }); setPr({ ...pr, price: "" }); market.reload(); }
-    catch (e) { setMsg(e.message); }
-  };
 
   return (
     <div className="space-y-5">
@@ -99,23 +93,8 @@ export default function Vendors() {
               {!isApprover && <p className="text-[11px] text-muted">A supervisor or manager will approve this.</p>}
             </form>
           </Card>
-          <Card title="Set product price">
-            <form onSubmit={setPrice} className="space-y-3">
-              <Field label="Vendor">
-                <Select value={pr.vendor_id} required onChange={(e) => setPr({ ...pr, vendor_id: e.target.value })}>
-                  <option value="">select…</option>
-                  {(vendors.data || []).map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-                </Select>
-              </Field>
-              <Field label="Product (brand)">
-                <Select value={pr.product_id} required onChange={(e) => setPr({ ...pr, product_id: e.target.value })}>
-                  <option value="">select…</option>
-                  {(products.data || []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </Select>
-              </Field>
-              <Field label="Price (₹/unit)"><Input type="number" step="any" value={pr.price} required onChange={(e) => setPr({ ...pr, price: e.target.value })} /></Field>
-              <Button type="submit">Save price</Button>
-            </form>
+          <Card title="Vendor prices">
+            <p className="text-sm text-muted">Prices are now captured when you <b className="text-white/80">receive stock</b> (Inventory → Receive stock records the vendor, product and rate together). The market view below reflects the latest rates.</p>
           </Card>
         </div>
       </div>
@@ -129,9 +108,9 @@ export default function Vendors() {
                 <Td mono className="text-muted">{i + 1}</Td>
                 <Td>{r.product_name}</Td>
                 <Td>{r.brand || <span className="text-muted">-</span>}</Td>
-                <Td>{r.vendor_name} {r.is_hub_self && <Badge tone="accent">hub</Badge>}</Td>
+                <Td>{r.vendor_name} {r.is_hub_self && <Badge tone="accent">hub</Badge>}{i === 0 && <Badge tone="ok">best</Badge>}</Td>
                 <Td mono className={i === 0 ? "text-accent" : ""}>{inr(r.price)}</Td>
-                <Td>{i === 0 && <Badge tone="ok">best</Badge>}</Td>
+                <Td><BuyNow row={r} onOrdered={() => setMsg("Order placed.")} /></Td>
               </tr>
             ))}
             {market.data?.length === 0 && <tr><Td className="text-muted">No vendor prices for {material}.</Td></tr>}
@@ -139,38 +118,75 @@ export default function Vendors() {
         )}
       </Card>
 
-      <MarketScan material={material} />
+      <MarketScan />
     </div>
   );
 }
 
-function MarketScan({ material }) {
-  const offers = useAsync(() => proc.externalOffers(material), [material]);
+function BuyNow({ row, onOrdered }) {
+  const [open, setOpen] = useState(false);
+  const [qty, setQty] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  const place = async (e) => {
+    e.preventDefault(); setBusy(true); setErr(null);
+    try {
+      await proc.createOrder({ lines: [{ material_id: row.material_id, product_id: row.product_id, product_name: row.product_name, vendor_id: row.vendor_id, qty: Number(qty), unit_cost: row.price }], note: "buy-now from market view" });
+      setOpen(false); setQty(""); onOrdered();
+    } catch (e) { setErr(e.message); } finally { setBusy(false); }
+  };
+  if (!open) return <Button size="sm" onClick={() => setOpen(true)}>Buy now</Button>;
+  return (
+    <form onSubmit={place} className="flex items-center gap-1">
+      <div className="w-20"><Input type="number" step="any" value={qty} placeholder="qty" required onChange={(e) => setQty(e.target.value)} /></div>
+      <Button size="sm" type="submit" disabled={busy}>Order</Button>
+      <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>✕</Button>
+      {err && <span className="text-[11px] text-red-400">{err}</span>}
+    </form>
+  );
+}
+
+function MarketScan() {
+  const offers = useAsync(() => proc.externalOffers());
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
-  const scan = async () => {
+  const [cat, setCat] = useState("all");
+  const scanAll = async () => {
     setBusy(true); setMsg(null);
-    try { const r = await proc.scout(material); setMsg(`Scouted ${r.count} offer(s) via ${r.provider}.`); offers.reload(); }
-    catch (e) { setMsg(e.message); } finally { setBusy(false); }
+    try {
+      const targets = cat === "all" ? MATERIALS : [cat];
+      let n = 0, prov = "";
+      for (const m of targets) { const r = await proc.scout(m); n += r.count; prov = r.provider; }
+      setMsg(`Scouted ${n} offer(s) across ${targets.length} categor(ies) via ${prov}.`);
+      offers.reload();
+    } catch (e) { setMsg(e.message); } finally { setBusy(false); }
   };
+  const list = (offers.data || []).filter((o) => cat === "all" || o.material_id === cat);
   return (
-    <Card title={`External market scan, ${material}`}
-      right={<Button size="sm" onClick={scan} disabled={busy}>{busy ? "Scanning…" : "Scan the market"}</Button>}>
+    <Card title="External market scan (all categories)"
+      right={<div className="flex items-center gap-2">
+        <Select value={cat} onChange={(e) => setCat(e.target.value)}>
+          <option value="all">all categories</option>
+          {MATERIALS.map((m) => <option key={m} value={m}>{m}</option>)}
+        </Select>
+        <Button size="sm" onClick={scanAll} disabled={busy}>{busy ? "Scanning…" : "Scan the market"}</Button>
+      </div>}>
       {msg && <p className="mb-2 text-xs text-muted">{msg}</p>}
-      <p className="mb-2 text-[11px] text-[#f59e0b]">Advisory only, indicative internet prices, not firm quotes. Verify before purchase.</p>
-      {offers.data?.length ? (
-        <Table head={["Seller", "Product", "Price", "Source", ""]}>
-          {offers.data.map((o) => (
+      <p className="mb-2 text-[11px] text-[#f59e0b]">Advisory only — indicative internet prices, not firm quotes. Verify before purchase.</p>
+      {list.length ? (
+        <Table head={["Category", "Seller", "Product", "Price", "Source", ""]}>
+          {list.map((o) => (
             <tr key={o.id} className="border-b border-border/50">
+              <Td className="text-muted">{o.material_id}</Td>
               <Td>{o.seller || "-"}</Td>
               <Td className="text-muted">{o.product_name || "-"}</Td>
               <Td mono>{inr(o.price)}</Td>
-              <Td className="text-muted">{o.source}</Td>
-              <Td><Badge tone={o.confidence === "firm" ? "ok" : "warn"}>{o.confidence}</Badge></Td>
+              <Td><Badge tone={o.confidence === "firm" ? "ok" : "warn"}>{o.source}</Badge></Td>
+              <Td>{o.url ? <a href={o.url} target="_blank" rel="noreferrer"><Button size="sm">Buy now →</Button></a> : <span className="text-muted">-</span>}</Td>
             </tr>
           ))}
         </Table>
-      ) : <p className="text-sm text-muted">No external offers yet, click “Scan the market”.</p>}
+      ) : <p className="text-sm text-muted">No external offers yet — pick a category and click “Scan the market”.</p>}
     </Card>
   );
 }

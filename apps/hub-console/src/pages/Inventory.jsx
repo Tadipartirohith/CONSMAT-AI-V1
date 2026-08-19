@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { inv, inr } from "../api.js";
+import { inv, proc, inr } from "../api.js";
 import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync } from "../components/ui.jsx";
 
 const ICON = { cement: "🧱", steel: "🔩", sand: "🏖️", aggregate: "🪨", bricks: "🟥" };
@@ -82,8 +82,10 @@ export default function Inventory() {
 }
 
 function ReceiveStock({ products, onClose, onDone }) {
+  const vendors = useAsync(() => proc.vendors());
   const [q, setQ] = useState("");
   const [pid, setPid] = useState("");
+  const [vendorId, setVendorId] = useState("");
   const [qty, setQty] = useState("");
   const [rate, setRate] = useState("");
   const [busy, setBusy] = useState(false);
@@ -96,8 +98,12 @@ function ReceiveStock({ products, onClose, onDone }) {
 
   const save = async (e) => {
     e.preventDefault(); setBusy(true); setErr(null);
-    try { await inv.productInbound({ product_id: pid, qty: Number(qty), unit_cost: Number(rate), ref_type: "manual" }); onDone(); }
-    catch (e) { setErr(e.message); } finally { setBusy(false); }
+    try {
+      await inv.productInbound({ product_id: pid, qty: Number(qty), unit_cost: Number(rate), ref_type: "manual" });
+      // Record the rate as the vendor's current price too (relocated from the old Set-price form).
+      if (vendorId) { try { await proc.setPrice(vendorId, { product_id: pid, price: Number(rate) }); } catch { /* price is best-effort */ } }
+      onDone();
+    } catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
 
   return (
@@ -130,6 +136,12 @@ function ReceiveStock({ products, onClose, onDone }) {
                 {q.trim() && matches.length === 0 && <p className="mt-1 text-[11px] text-muted">No product matches — add it first via “+ Add product”.</p>}
               </>
             )}
+          </Field>
+          <Field label="Vendor (records this rate as their price)">
+            <Select value={vendorId} onChange={(e) => setVendorId(e.target.value)}>
+              <option value="">— optional —</option>
+              {(vendors.data || []).map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </Select>
           </Field>
           <Field label="Quantity"><Input type="number" step="any" value={qty} required onChange={(e) => setQty(e.target.value)} /></Field>
           <Field label="Rate (₹/unit)"><Input type="number" step="any" value={rate} required onChange={(e) => setRate(e.target.value)} /></Field>
