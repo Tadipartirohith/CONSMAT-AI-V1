@@ -60,6 +60,20 @@ def _apply_remove_area(db: Session, spoke_id: str, area: str) -> None:
             db.delete(a)
 
 
+def add_area(db: Session, spoke_id: str, area: str) -> models.Spoke:
+    """Directly add a coverage region (used by seed/tests). The API uses change_area for approvals."""
+    spoke = db.get(models.Spoke, spoke_id)
+    if spoke is None:
+        raise SiteError(f"Unknown spoke: {spoke_id}")
+    area = (area or "").strip()
+    if not area:
+        raise SiteError("Region is required")
+    _apply_add_area(db, spoke_id, area)
+    db.commit()
+    db.refresh(spoke)
+    return spoke
+
+
 def change_area(db: Session, spoke_id: str, area: str, action: str, actor_role: str,
                 actor_name: str) -> dict:
     """Add/remove a coverage region. A spokesperson's change becomes a pending request; a
