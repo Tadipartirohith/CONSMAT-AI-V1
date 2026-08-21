@@ -33,7 +33,7 @@ export const site = {
   spokes: () => req("site", "/spokes"),
   spoke: (id) => req("site", `/spokes/${id}`),
   createSpoke: (b) => req("site", "/spokes", body(b)),
-  addArea: (id, area) => req("site", `/spokes/${id}/areas`, body({ area })),
+  addArea: (id, area, action = "add") => req("site", `/spokes/${id}/areas`, body({ area, action })),
   dashboard: (id) => req("site", `/spokes/${id}/dashboard`),
   territory: (id) => req("site", `/spokes/${id}/sites`),
   intake: (b) => req("site", "/intake", body(b)),

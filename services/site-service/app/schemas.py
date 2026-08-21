@@ -21,6 +21,20 @@ class SpokeOut(BaseModel):
 
 class AreaIn(BaseModel):
     area: str = Field(min_length=1)
+    action: str = Field(default="add", pattern="^(add|remove)$")
+
+
+class AreaRequestOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    spoke_id: str
+    area: str
+    action: str
+    status: str
+    requested_by: str
+    requested_by_role: str
+    decided_by: str
+    created_at: datetime | None = None
 
 
 class SpokeDetailOut(SpokeOut):
@@ -37,6 +51,7 @@ class IntakeIn(BaseModel):
     tier: str = "individual"
     location: str = Field(min_length=1)
     phone: str = ""
+    email: str = ""
 
 
 class ConsumerUpdate(BaseModel):
@@ -57,6 +72,7 @@ class ConsumerOut(BaseModel):
     name: str
     tier: str
     phone: str
+    email: str = ""
     spoke_id: str
 
 

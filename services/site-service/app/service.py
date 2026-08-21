@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from . import bom, geofence, identity_client, inventory_client, models
@@ -45,50 +45,108 @@ def create_spoke(db: Session, name: str, geofence: str = "") -> models.Spoke:
     return s
 
 
-def add_area(db: Session, spoke_id: str, area: str) -> models.Spoke:
-    """Add a coverage keyword (geofence) to a spoke."""
+AREA_APPROVERS = ("hub_supervisor", "hub_manager", "admin")
+
+
+def _apply_add_area(db: Session, spoke_id: str, area: str) -> None:
+    spoke = db.get(models.Spoke, spoke_id)
+    if spoke and not any(a.area.lower() == area.lower() for a in spoke.areas):
+        db.add(models.SpokeArea(spoke_id=spoke_id, area=area))
+
+
+def _apply_remove_area(db: Session, spoke_id: str, area: str) -> None:
+    for a in db.execute(select(models.SpokeArea).where(models.SpokeArea.spoke_id == spoke_id)).scalars():
+        if a.area.lower() == area.lower():
+            db.delete(a)
+
+
+def change_area(db: Session, spoke_id: str, area: str, action: str, actor_role: str,
+                actor_name: str) -> dict:
+    """Add/remove a coverage region. A spokesperson's change becomes a pending request; a
+    supervisor/manager (or admin) change applies directly."""
     spoke = db.get(models.Spoke, spoke_id)
     if spoke is None:
         raise SiteError(f"Unknown spoke: {spoke_id}")
-    area = area.strip()
+    area = (area or "").strip()
     if not area:
-        raise SiteError("Area is required")
-    if not any(a.area.lower() == area.lower() for a in spoke.areas):
-        db.add(models.SpokeArea(spoke_id=spoke_id, area=area))
+        raise SiteError("Region is required")
+    if action not in (models.AR_ADD, models.AR_REMOVE):
+        raise SiteError("action must be 'add' or 'remove'")
+    if actor_role in AREA_APPROVERS:
+        (_apply_add_area if action == models.AR_ADD else _apply_remove_area)(db, spoke_id, area)
         db.commit()
-        db.refresh(spoke)
-    return spoke
+        return {"applied": True}
+    req = models.AreaRequest(spoke_id=spoke_id, area=area, action=action,
+                             requested_by_role=actor_role, requested_by=actor_name)
+    db.add(req)
+    db.commit()
+    db.refresh(req)
+    return {"applied": False, "pending_request_id": req.id}
 
 
-def create_consumer(db: Session, name: str, tier: str, spoke_id: str, phone: str = "") -> models.Consumer:
+def list_area_requests(db: Session, status: str | None = None) -> list[models.AreaRequest]:
+    stmt = select(models.AreaRequest).order_by(models.AreaRequest.id.desc())
+    if status:
+        stmt = stmt.where(models.AreaRequest.status == status)
+    return list(db.execute(stmt).scalars())
+
+
+def decide_area_request(db: Session, req_id: int, approve: bool, actor_role: str,
+                        actor_name: str) -> models.AreaRequest:
+    if actor_role not in AREA_APPROVERS:
+        raise SiteError("Only a hub supervisor or manager can decide coverage requests")
+    req = db.get(models.AreaRequest, req_id)
+    if req is None:
+        raise SiteError(f"Unknown area request: {req_id}")
+    if req.status != models.AR_PENDING:
+        raise SiteError("This request has already been decided")
+    if approve:
+        (_apply_add_area if req.action == models.AR_ADD else _apply_remove_area)(db, req.spoke_id, req.area)
+        req.status = models.AR_APPROVED
+    else:
+        req.status = models.AR_REJECTED
+    req.decided_by_role = actor_role
+    req.decided_by = actor_name
+    req.decided_at = db.execute(select(func.now())).scalar()
+    db.commit()
+    db.refresh(req)
+    return req
+
+
+def create_consumer(db: Session, name: str, tier: str, spoke_id: str, phone: str = "",
+                    email: str = "") -> models.Consumer:
     if tier not in models.CONSUMER_TIERS:
         raise SiteError(f"tier must be one of {models.CONSUMER_TIERS}")
     if db.get(models.Spoke, spoke_id) is None:
         raise SiteError(f"Unknown spoke: {spoke_id}")
     cid = _unique_id(db, models.Consumer, _slug(name, "c"))
-    c = models.Consumer(id=cid, name=name.strip(), tier=tier, spoke_id=spoke_id, phone=phone)
+    c = models.Consumer(id=cid, name=name.strip(), tier=tier, spoke_id=spoke_id, phone=phone,
+                        email=email.strip().lower())
     db.add(c)
     db.commit()
     db.refresh(c)
     return c
 
 
-def intake(db: Session, name: str, tier: str, location: str, phone: str = "") -> dict:
+def intake(db: Session, name: str, tier: str, location: str, phone: str = "", email: str = "") -> dict:
     """Onboarding: classify the consumer (tier), auto-assign the serving spoke by geofence (location),
-    and provision a `consumer` login so the customer can track their project. Fails if no active spoke
-    covers the location."""
+    and provision a `consumer` login (the customer's own email if given) so they can track their
+    project. Fails if no active spoke covers the location."""
     spoke = geofence.resolve_spoke(db, location)
     if spoke is None:
         raise SiteError(f"No spoke covers '{location}'. Add coverage to a spoke or assign manually.")
-    consumer = create_consumer(db, name, tier, spoke.id, phone)
-    # Provision a customer login linked to this consumer (best-effort).
-    email = f"{consumer.id}@consmat.com"
+    login_email = (email or "").strip().lower()
+    consumer = create_consumer(db, name, tier, spoke.id, phone, email=login_email)
+    if not login_email:
+        login_email = f"{consumer.id}@consmat.com"
+        consumer.email = login_email
+        db.commit()
     login = None
     try:
-        identity_client.create_consumer_user(email, consumer.name, consumer.id, settings.demo_password)
-        login = {"email": email, "temp_password": settings.demo_password, "created": True}
+        identity_client.create_consumer_user(login_email, consumer.name, consumer.id, settings.demo_password)
+        login = {"email": login_email, "temp_password": settings.demo_password, "created": True}
     except identity_client.IdentityUnavailable as e:
-        login = {"email": email, "created": False, "error": str(e)}
+        login = {"email": login_email, "created": False, "error": str(e)}
     return {"consumer": consumer, "spoke": spoke, "login": login}
 
 

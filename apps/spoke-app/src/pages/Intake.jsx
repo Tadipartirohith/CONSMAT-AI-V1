@@ -10,13 +10,13 @@ export default function Intake() {
   const [err, setErr] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  const [form, setForm] = useState({ name: "", tier: "individual", location: "", phone: "" });
+  const [form, setForm] = useState({ name: "", tier: "individual", location: "", phone: "", email: "" });
   const submit = async (e) => {
     e.preventDefault(); setErr(null); setResult(null); setBusy(true);
     try {
       const r = await site.intake(form);
       setResult(r);
-      setForm({ name: "", tier: "individual", location: "", phone: "" });
+      setForm({ name: "", tier: "individual", location: "", phone: "", email: "" });
       consumers.reload();
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
@@ -38,6 +38,7 @@ export default function Intake() {
               </Select>
             </Field>
             <Field label="Location (site area)"><Input value={form.location} required placeholder="e.g. Medchal" onChange={(e) => setForm({ ...form, location: e.target.value })} /></Field>
+            <Field label="Email (customer login)"><Input type="email" value={form.email} placeholder="customer@email.com — blank = auto id" onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
             <Field label="Phone"><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
             <Button type="submit" disabled={busy}>{busy ? "Onboarding…" : "Onboard customer"}</Button>
             {err && <p className="text-xs text-red-400">{err}</p>}
@@ -62,7 +63,7 @@ export default function Intake() {
                 <Td mono className="text-muted">{c.id}</Td>
                 <Td>{c.name}</Td>
                 <Td><Badge tone="accent">{c.tier}</Badge></Td>
-                <Td mono className="text-muted">{c.id}@consmat.com</Td>
+                <Td mono className="text-muted">{c.email || `${c.id}@consmat.com`}</Td>
                 <Td>{c.phone || "-"}</Td>
               </tr>
             ))}
@@ -86,8 +87,11 @@ function SpokeCoverage({ spokes }) {
 
   const addArea = async (e) => {
     e.preventDefault(); setMsg(null);
-    try { await site.addArea(mySpokeId, area); setArea(""); detail.reload(); setMsg("Region added."); }
-    catch (e) { setMsg(e.message); }
+    try {
+      const r = await site.addArea(mySpokeId, area);
+      setArea(""); detail.reload();
+      setMsg(r?.applied ? "Region added." : "Request sent to supervisor/manager for approval.");
+    } catch (e) { setMsg(e.message); }
   };
   return (
     <Card title="My coverage (geofenced regions)">

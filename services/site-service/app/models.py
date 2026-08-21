@@ -33,6 +33,13 @@ PDC_PENDING = "pending"
 PDC_APPROVED = "approved"
 PDC_REJECTED = "rejected"
 
+# coverage-area change requests (a spoke's add/remove needs supervisor/manager approval)
+AR_PENDING = "pending"
+AR_APPROVED = "approved"
+AR_REJECTED = "rejected"
+AR_ADD = "add"
+AR_REMOVE = "remove"
+
 
 class Spoke(Base):
     __tablename__ = "spokes"
@@ -56,12 +63,30 @@ class SpokeArea(Base):
     spoke: Mapped["Spoke"] = relationship(back_populates="areas")
 
 
+class AreaRequest(Base):
+    """A spoke's request to add/remove a coverage region. Needs supervisor/manager approval; a
+    supervisor/manager can also add/remove directly."""
+    __tablename__ = "area_requests"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    spoke_id: Mapped[str] = mapped_column(ForeignKey("spokes.id"), index=True)
+    area: Mapped[str] = mapped_column(String(80), nullable=False)
+    action: Mapped[str] = mapped_column(String(10), default=AR_ADD)   # add | remove
+    status: Mapped[str] = mapped_column(String(16), default=AR_PENDING)
+    requested_by_role: Mapped[str] = mapped_column(String(32), default="")
+    requested_by: Mapped[str] = mapped_column(String(120), default="")
+    decided_by_role: Mapped[str] = mapped_column(String(32), default="")
+    decided_by: Mapped[str] = mapped_column(String(120), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class Consumer(Base):
     __tablename__ = "consumers"
     id: Mapped[str] = mapped_column(String(48), primary_key=True)
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     tier: Mapped[str] = mapped_column(String(20), default="individual")
     phone: Mapped[str] = mapped_column(String(32), default="")
+    email: Mapped[str] = mapped_column(String(160), default="")   # customer login id (identity user)
     spoke_id: Mapped[str] = mapped_column(ForeignKey("spokes.id"), index=True)
     spoke: Mapped["Spoke"] = relationship(back_populates="consumers")
     sites: Mapped[list["Site"]] = relationship(back_populates="consumer")

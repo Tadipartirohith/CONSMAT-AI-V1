@@ -91,6 +91,9 @@ export const site = {
   schedulerTick: () => req("site", "/scheduler/tick", { method: "POST" }),
   setBom: (id, lines) => req("site", `/sites/${id}/bom`, body({ lines })),
   phaseNeeds: (id) => req("site", `/sites/${id}/phase-needs`),
+  areaRequests: (status) => req("site", `/area-requests${status ? `?status=${status}` : ""}`),
+  decideArea: (id, approve) => req("site", `/area-requests/${id}/decide`, body({ approve })),
+  changeArea: (spokeId, area, action) => req("site", `/spokes/${spokeId}/areas`, body({ area, action })),
 };
 
 export const PHASE_NAMES = {

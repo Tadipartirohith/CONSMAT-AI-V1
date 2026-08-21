@@ -53,11 +53,25 @@ def get_spoke(spoke_id: str, db: Session = Depends(get_db)):
     return schemas.SpokeDetailOut.from_spoke(spoke)
 
 
-@router.post("/spokes/{spoke_id}/areas", response_model=schemas.SpokeDetailOut, dependencies=[Depends(FIELD)])
-def add_area(spoke_id: str, body: schemas.AreaIn, db: Session = Depends(get_db)):
-    """Add a geofence coverage keyword to a spoke."""
-    spoke = _run(service.add_area, db=db, spoke_id=spoke_id, area=body.area)
-    return schemas.SpokeDetailOut.from_spoke(spoke)
+@router.post("/spokes/{spoke_id}/areas", dependencies=[Depends(SCHEDULE)])
+def change_area(spoke_id: str, body: schemas.AreaIn, user: dict = Depends(current_user), db: Session = Depends(get_db)):
+    """Add/remove a coverage region. A spokesperson's change needs supervisor/manager approval; a
+    supervisor/manager change applies directly."""
+    return _run(service.change_area, db=db, spoke_id=spoke_id, area=body.area, action=body.action,
+                actor_role=user.get("role", ""), actor_name=user.get("name", ""))
+
+
+@router.get("/area-requests", response_model=list[schemas.AreaRequestOut])
+def list_area_requests(status: str | None = None, db: Session = Depends(get_db)):
+    """Coverage-region change requests (supervisor/manager review queue)."""
+    return service.list_area_requests(db, status)
+
+
+@router.post("/area-requests/{req_id}/decide", response_model=schemas.AreaRequestOut)
+def decide_area_request(req_id: int, body: schemas.DecideChangeIn, user: dict = Depends(current_user), db: Session = Depends(get_db)):
+    """Supervisor/manager approves or rejects a spoke's coverage change."""
+    return _run(service.decide_area_request, db=db, req_id=req_id, approve=body.approve,
+                actor_role=user.get("role", ""), actor_name=user.get("name", ""))
 
 
 @router.get("/spokes/{spoke_id}/sites")
@@ -91,7 +105,7 @@ def update_consumer(consumer_id: str, body: schemas.ConsumerUpdate, db: Session 
 def intake(body: schemas.IntakeIn, db: Session = Depends(get_db)):
     """Consumer intake: classify (tier) and auto-assign the serving spoke by geofence (location)."""
     result = _run(service.intake, db=db, name=body.name, tier=body.tier,
-                  location=body.location, phone=body.phone)
+                  location=body.location, phone=body.phone, email=body.email)
     c, s = result["consumer"], result["spoke"]
     return {
         "consumer": {"id": c.id, "name": c.name, "tier": c.tier, "phone": c.phone, "spoke_id": c.spoke_id},

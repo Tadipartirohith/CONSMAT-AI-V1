@@ -25,6 +25,7 @@ export default function Projects() {
   const consumers = useAsync(() => site.consumers());
   const spokes = useAsync(() => site.spokes());
   const changes = useAsync(() => site.phaseChanges("pending"));
+  const areaReqs = useAsync(() => site.areaRequests("pending"));
   const [area, setArea] = useState(null);
   const [msg, setMsg] = useState(null);
   const today = useMemo(() => new Date(), []);
@@ -51,6 +52,11 @@ export default function Projects() {
     try { await site.decideChange(id, approve); setMsg({ ok: true, text: approve ? "Approved." : "Rejected." }); changes.reload(); sites.reload(); }
     catch (e) { setMsg({ ok: false, text: e.message }); }
   };
+  const decideArea = async (id, approve) => {
+    setMsg(null);
+    try { await site.decideArea(id, approve); setMsg({ ok: true, text: approve ? "Region approved." : "Rejected." }); areaReqs.reload(); spokes.reload(); }
+    catch (e) { setMsg({ ok: false, text: e.message }); }
+  };
 
   return (
     <div className="space-y-5">
@@ -74,6 +80,22 @@ export default function Projects() {
                 <Td>{c.new_end}</Td>
                 <Td className="text-muted">{c.requested_by || c.requested_by_role}</Td>
                 <Td><div className="flex gap-2"><Button size="sm" onClick={() => decide(c.id, true)}>Approve</Button><Button size="sm" variant="ghost" onClick={() => decide(c.id, false)}>Reject</Button></div></Td>
+              </tr>
+            ))}
+          </Table>
+        </Card>
+      )}
+
+      {areaReqs.data?.length > 0 && (
+        <Card title="Coverage region requests awaiting approval">
+          <Table head={["Spoke", "Action", "Region", "By", ""]}>
+            {areaReqs.data.map((r) => (
+              <tr key={r.id} className="border-b border-border/50">
+                <Td mono>{r.spoke_id}</Td>
+                <Td><Badge tone={r.action === "remove" ? "bad" : "ok"}>{r.action}</Badge></Td>
+                <Td>{r.area}</Td>
+                <Td className="text-muted">{r.requested_by || r.requested_by_role}</Td>
+                <Td><div className="flex gap-2"><Button size="sm" onClick={() => decideArea(r.id, true)}>Approve</Button><Button size="sm" variant="ghost" onClick={() => decideArea(r.id, false)}>Reject</Button></div></Td>
               </tr>
             ))}
           </Table>
