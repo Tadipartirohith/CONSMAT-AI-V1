@@ -50,6 +50,7 @@ export const site = {
   notifications: (spokeId) => req("site", `/notifications${spokeId ? `?spoke_id=${spokeId}` : ""}`),
   start: (id) => req("site", `/sites/${id}/start`, { method: "POST" }),
   completePhase: (id, seq) => req("site", `/sites/${id}/phases/${seq}/complete`, { method: "POST" }),
+  confirmDelivery: (dispatchId) => req("site", `/dispatches/${dispatchId}/confirm`, { method: "POST" }),
   backfill: (id) => req("site", `/sites/${id}/backfill`, { method: "POST" }),
 };
 

@@ -37,11 +37,6 @@ export default function Project({ me }) {
       : nextPhase ? `${PHASE_NAMES[nextPhase.phase_seq]} materials${etaDate ? ` — expected around ${fmt(etaDate)}` : " — date being scheduled"}`
         : "All materials for the current plan are on their way.";
 
-  const confirmReceipt = async (dispatchId) => {
-    try { await site.confirmReceipt(dispatchId); detail.reload(); events.reload(); }
-    catch (e) { /* surfaced via reload */ }
-  };
-
   return (
     <div className="space-y-5">
       <Link to="/" className="text-sm text-muted hover:text-white">← My projects</Link>
@@ -96,10 +91,7 @@ export default function Project({ me }) {
                   {nextPhase && p.phase_seq === nextPhase.phase_seq && delivered.length === 0 && (
                     <p className="mt-0.5 text-xs text-accent">🚚 Materials expected {etaDate ? `around ${fmt(etaDate)}` : "soon"}</p>
                   )}
-                  {d && d.status === "received" && <p className="mt-0.5 text-xs text-emerald-400">📦 Receipt confirmed{d.received_at ? ` · ${fmt(new Date(d.received_at))}` : ""}</p>}
-                  {d && d.status === "dispatched" && awaiting.length === 0 && delivered.length > 0 && (
-                    <button onClick={() => confirmReceipt(d.id)} className="mt-1 border border-accent px-2.5 py-1 text-[11px] font-semibold text-accent hover:bg-accent/10">Confirm receipt</button>
-                  )}
+                  {d && d.status === "received" && <p className="mt-0.5 text-xs text-emerald-400">📦 Delivered &amp; confirmed{d.received_at ? ` · ${fmt(new Date(d.received_at))}` : ""}</p>}
                 </div>
               </li>
             );

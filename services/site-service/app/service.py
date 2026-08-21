@@ -681,25 +681,26 @@ def mark_all_read(db: Session, consumer_id: str) -> dict:
     return {"marked": n}
 
 
-def confirm_receipt(db: Session, dispatch_id: int, actor_role: str, actor_org: str) -> models.Dispatch:
-    """Customer (or hub staff) confirms a delivery arrived; feeds back into the dispatch status."""
+def confirm_receipt(db: Session, dispatch_id: int, actor_role: str, actor_name: str) -> models.Dispatch:
+    """The CE/spoke (or hub staff) confirms the stock reached the site; feeds back into dispatch status.
+
+    Customers never confirm; they only track progress. The confirmation is surfaced to everyone
+    (audience 'all') so the customer sees the delivery as confirmed on their timeline."""
     d = db.get(models.Dispatch, dispatch_id)
     if d is None:
         raise SiteError(f"Unknown dispatch: {dispatch_id}")
-    site = db.get(models.Site, d.site_id)
-    is_owner = actor_role == "consumer" and site is not None and site.consumer_id == actor_org
-    is_staff = actor_role in ("spokesperson", "architect", "civil_engineer",
-                              "hub_supervisor", "hub_manager", "admin")
-    if not (is_owner or is_staff):
-        raise SiteError("Only the customer or hub staff can confirm receipt")
+    if actor_role not in ("spokesperson", "architect", "civil_engineer",
+                          "hub_supervisor", "hub_manager", "admin"):
+        raise SiteError("Only the spoke/CE or hub staff can confirm a delivery")
     if d.status not in (models.DSP_DISPATCHED, models.DSP_RECEIVED):
         raise SiteError("Only a fully-delivered shipment can be confirmed (shortfalls are still pending)")
+    site = db.get(models.Site, d.site_id)
     if d.received_at is None:
         d.received_at = db.execute(select(func.now())).scalar()
         d.status = models.DSP_RECEIVED
         _notify(db, site, "received",
-                f"Customer confirmed receipt of Phase {d.phase_seq} "
-                f"({_PHASE_NAME.get(d.phase_seq, '')}) materials.", phase_seq=d.phase_seq, audience="all")
+                f"Phase {d.phase_seq} ({_PHASE_NAME.get(d.phase_seq, '')}) materials delivery confirmed"
+                f"{f' by {actor_name}' if actor_name else ''}.", phase_seq=d.phase_seq, audience="all")
     db.commit()
     db.refresh(d)
     return d
@@ -733,9 +734,9 @@ def run_scheduler_tick(db: Session, *, today=None, notice_days: int = 3, dispatc
             continue
         site = db.get(models.Site, d.site_id)
         _notify(db, site, "confirm_reminder",
-                f"Phase {d.phase_seq} ({_PHASE_NAME.get(d.phase_seq, '')}) materials were delivered "
-                f"{age} day(s) ago but the customer hasn't confirmed receipt. Please follow up.",
-                phase_seq=d.phase_seq, audience="field")
+                f"Phase {d.phase_seq} ({_PHASE_NAME.get(d.phase_seq, '')}) materials were dispatched "
+                f"{age} day(s) ago but the delivery is not yet confirmed. Please confirm once the stock "
+                f"reaches the site.", phase_seq=d.phase_seq, audience="field")
         actions.append({"site": site.code, "kind": "confirm_reminder", "phase": d.phase_seq})
 
     for site in db.execute(select(models.Site).where(models.Site.status == "active")).scalars():

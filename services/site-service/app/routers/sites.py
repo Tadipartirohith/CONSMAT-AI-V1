@@ -223,11 +223,11 @@ def read_all_notifications(consumer_id: str, db: Session = Depends(get_db)):
     return service.mark_all_read(db, consumer_id)
 
 
-@router.post("/dispatches/{dispatch_id}/confirm", response_model=schemas.DispatchOut)
+@router.post("/dispatches/{dispatch_id}/confirm", response_model=schemas.DispatchOut, dependencies=[Depends(BACKFILL)])
 def confirm_receipt(dispatch_id: int, user: dict = Depends(current_user), db: Session = Depends(get_db)):
-    """Customer (or hub staff) confirms a delivery arrived -> dispatch status becomes 'received'."""
+    """CE/spoke (or hub staff) confirms a delivery reached the site -> dispatch status 'received'."""
     return _run(service.confirm_receipt, db=db, dispatch_id=dispatch_id,
-                actor_role=user.get("role", ""), actor_org=user.get("org_ref", ""))
+                actor_role=user.get("role", ""), actor_name=user.get("name", ""))
 
 
 @router.post("/scheduler/tick", dependencies=[Depends(BACKFILL)])

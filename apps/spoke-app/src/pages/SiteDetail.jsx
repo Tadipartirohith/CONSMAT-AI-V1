@@ -87,7 +87,9 @@ export default function SiteDetail() {
                 <div className="mb-1.5 flex items-center gap-2 text-sm">
                   <span className="font-mono text-white">{d.code}</span>
                   <span className="text-muted">phase {d.phase_seq}, {PHASE_NAMES[d.phase_seq]}</span>
-                  <Badge tone={d.status === "dispatched" ? "ok" : d.status === "partial" ? "warn" : "bad"}>{d.status}</Badge>
+                  <Badge tone={d.status === "received" ? "accent" : d.status === "dispatched" ? "ok" : d.status === "partial" ? "warn" : "bad"}>{d.status}</Badge>
+                  {d.status === "dispatched" && <Button size="sm" onClick={() => act(() => site.confirmDelivery(d.id), "Delivery confirmed")} disabled={busy}>Confirm delivery</Button>}
+                  {d.status === "received" && <span className="text-[11px] text-accent">✓ confirmed</span>}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {d.lines.map((l, i) => (
