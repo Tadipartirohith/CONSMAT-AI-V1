@@ -25,6 +25,7 @@ export const site = {
   consumers: () => req("/site", "/consumers"),
   sites: () => req("/site", "/sites"),
   siteDetail: (id) => req("/site", `/sites/${id}`),
+  notifications: (consumerId) => req("/site", `/notifications?consumer_id=${encodeURIComponent(consumerId)}`),
 };
 
 export const price = {

@@ -3,9 +3,15 @@ import { Link, useParams } from "react-router-dom";
 import { site, price, pay, progressOf, PHASE_NAMES, inr } from "../api.js";
 import { Card, Badge, Progress, useAsync } from "../components/ui.jsx";
 
+const EVENT = {
+  started: { icon: "🏗️", tone: "accent" }, dispatched: { icon: "🚚", tone: "ok" },
+  phase_done: { icon: "✅", tone: "ok" }, project_done: { icon: "🎉", tone: "ok" },
+};
+
 export default function Project({ me }) {
   const { id } = useParams();
   const detail = useAsync(() => site.siteDetail(id), [id]);
+  const events = useAsync(() => (me ? site.notifications(me) : Promise.resolve([])), [me]);
   const s = detail.data;
 
   if (detail.error) return <p className="text-sm text-red-400">{detail.error}</p>;
@@ -56,6 +62,29 @@ export default function Project({ me }) {
       </div>
 
       {s.bom_lines.length > 0 && <PayPanel site={s} me={me} />}
+
+      <Card title="Updates">
+        {(() => {
+          const mine = (events.data || []).filter((n) => n.site_id === Number(id));
+          if (mine.length === 0) return <p className="text-sm text-muted">No updates yet. You'll see delivery and phase updates here.</p>;
+          return (
+            <div className="space-y-2">
+              {mine.slice(0, 12).map((n) => {
+                const e = EVENT[n.kind] || { icon: "🔔", tone: "muted" };
+                return (
+                  <div key={n.id} className="flex items-start gap-2 border-b border-border/50 pb-2 text-sm">
+                    <span className="text-base">{e.icon}</span>
+                    <div>
+                      <span className="text-white/90">{n.message}</span>
+                      {n.created_at && <span className="ml-2 text-[11px] text-muted">{new Date(n.created_at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
+      </Card>
 
       <Card title="Construction timeline">
         <ol className="space-y-2">

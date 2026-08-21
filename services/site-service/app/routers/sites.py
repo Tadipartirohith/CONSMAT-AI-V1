@@ -203,9 +203,13 @@ def backfill_all(db: Session = Depends(get_db)):
 # ---- Notifications + JIT scheduler ----
 @router.get("/notifications", response_model=list[schemas.NotificationOut])
 def list_notifications(spoke_id: str | None = None, site_id: int | None = None,
-                       unread_only: bool = False, db: Session = Depends(get_db)):
-    """Field-team notifications (JIT dispatch warnings). Filter by spoke, site, or unread."""
-    return service.list_notifications(db, spoke_id=spoke_id, site_id=site_id, unread_only=unread_only)
+                       consumer_id: str | None = None, unread_only: bool = False,
+                       db: Session = Depends(get_db)):
+    """Notifications/events. Field/hub see everything; pass consumer_id to get a customer's own
+    project events only (audience 'all'/'consumer')."""
+    audiences = ("all", "consumer") if consumer_id else None
+    return service.list_notifications(db, spoke_id=spoke_id, site_id=site_id, consumer_id=consumer_id,
+                                      audiences=audiences, unread_only=unread_only)
 
 
 @router.post("/notifications/{notif_id}/read", response_model=schemas.NotificationOut)

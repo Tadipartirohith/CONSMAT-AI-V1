@@ -455,6 +455,10 @@ def backfill_site(db: Session, site_id: int) -> dict:
                 still_short.append(entry)
         if changed:
             _recompute_dispatch(d)
+    if backfilled:
+        _notify(db, site, "dispatched",
+                f"Previously-short materials have now been delivered ({len(backfilled)} item(s)).",
+                audience="all")
     db.commit()
     return {"site": site.code, "backfilled": backfilled, "still_short": still_short}
 
@@ -471,12 +475,18 @@ def backfill_all(db: Session) -> dict:
 
 def _ensure_phase_dispatched(db: Session, site: models.Site, seq: int) -> models.Dispatch | None:
     """Dispatch a phase's materials once (idempotent). The scheduler may pre-dispatch before the CE
-    completes the prior phase; this guard stops a second dispatch on completion."""
+    completes the prior phase; this guard stops a second dispatch on completion. Emits a consumer-
+    visible 'dispatched' event for every path (start / complete / scheduler)."""
     ph = _phase(site, seq)
     if ph is None or ph.dispatched:
         return None
     dispatch = _dispatch_phase(db, site, seq)
     ph.dispatched = True
+    shorts = [l.product_name or l.material_id for l in dispatch.lines if l.status == "short"]
+    msg = f"Materials for Phase {seq} ({_PHASE_NAME.get(seq, '')}) have been dispatched to the site."
+    if shorts:
+        msg += f" Awaiting stock: {', '.join(shorts)}."
+    _notify(db, site, "dispatched", msg, phase_seq=seq, audience="all")
     return dispatch
 
 
@@ -492,6 +502,7 @@ def start_site(db: Session, site_id: int) -> models.Dispatch:
         raise SiteError("Site already started")
     p1.status = models.PH_IN_PROGRESS
     site.status = "active"
+    _notify(db, site, "started", "Construction has started. Phase 1 materials are on the way.", audience="all")
     dispatch = _ensure_phase_dispatched(db, site, 1)
     db.commit()
     if dispatch is not None:
@@ -510,8 +521,9 @@ def complete_phase(db: Session, site_id: int, seq: int) -> dict:
     if ph.status == models.PH_DONE:
         raise SiteError(f"Phase {seq} already complete")
     ph.status = models.PH_DONE
-    from sqlalchemy import func
     ph.completed_at = db.execute(select(func.now())).scalar()
+    _notify(db, site, "phase_done", f"Phase {seq} ({_PHASE_NAME.get(seq, '')}) is complete.",
+            phase_seq=seq, audience="all")
 
     next_seq = seq + 1
     nxt = _phase(site, next_seq)
@@ -521,6 +533,7 @@ def complete_phase(db: Session, site_id: int, seq: int) -> dict:
         dispatch = _ensure_phase_dispatched(db, site, next_seq)  # skips if the scheduler pre-dispatched
     elif nxt is None:
         site.status = "completed"
+        _notify(db, site, "project_done", "🎉 Your construction project is complete!", audience="all")
     db.commit()
     result = {"site": site.code, "completed_phase": seq,
               "next_phase": next_seq if nxt is not None else None,
@@ -611,6 +624,9 @@ def decide_phase_change(db: Session, change_id: int, approve: bool, actor_role: 
 
 # ---- Notifications + JIT scheduler ----
 
+_PHASE_NAME = {seq: name for seq, name, _ in bom.PHASES}
+
+
 def _notify(db: Session, site: models.Site, kind: str, message: str, *, phase_seq: int = 0,
             audience: str = "field") -> models.Notification:
     spoke_id = site.consumer.spoke_id if site.consumer else ""
@@ -621,12 +637,19 @@ def _notify(db: Session, site: models.Site, kind: str, message: str, *, phase_se
 
 
 def list_notifications(db: Session, *, spoke_id: str | None = None, site_id: int | None = None,
+                       consumer_id: str | None = None, audiences: tuple | None = None,
                        unread_only: bool = False) -> list[models.Notification]:
     stmt = select(models.Notification).order_by(models.Notification.id.desc())
     if spoke_id:
         stmt = stmt.where(models.Notification.spoke_id == spoke_id)
     if site_id is not None:
         stmt = stmt.where(models.Notification.site_id == site_id)
+    if consumer_id:  # scope to this customer's own sites (privacy)
+        site_ids = [s for s in db.execute(
+            select(models.Site.id).where(models.Site.consumer_id == consumer_id)).scalars()]
+        stmt = stmt.where(models.Notification.site_id.in_(site_ids or [-1]))
+    if audiences:
+        stmt = stmt.where(models.Notification.audience.in_(audiences))
     if unread_only:
         stmt = stmt.where(models.Notification.read.is_(False))
     return list(db.execute(stmt.limit(100)).scalars())
@@ -668,13 +691,8 @@ def run_scheduler_tick(db: Session, *, today=None, notice_days: int = 3, dispatc
                         phase_seq=nxt.phase_seq)
                 actions.append({"site": site.code, "kind": "dispatch_pending", "phase": nxt.phase_seq})
         if days_left <= dispatch_days:
-            dispatch = _ensure_phase_dispatched(db, site, nxt.phase_seq)
+            dispatch = _ensure_phase_dispatched(db, site, nxt.phase_seq)  # emits the 'dispatched' event
             if dispatch is not None:
-                shorts = [l.product_name or l.material_id for l in dispatch.lines if l.status == "short"]
-                msg = f"Phase {nxt.phase_seq} materials dispatched ({dispatch.code})."
-                if shorts:
-                    msg += f" Short: {', '.join(shorts)} (procurement needed)."
-                _notify(db, site, "dispatched", msg, phase_seq=nxt.phase_seq)
                 actions.append({"site": site.code, "kind": "dispatched", "phase": nxt.phase_seq,
                                 "dispatch": dispatch.code})
     db.commit()
