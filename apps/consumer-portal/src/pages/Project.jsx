@@ -19,6 +19,18 @@ export default function Project({ me }) {
   const dispatchByPhase = {};
   for (const d of s.dispatches) dispatchByPhase[d.phase_seq] = d;
 
+  // Next material delivery (ETA) — the hub pre-dispatches ~2 days before the current phase ends.
+  const fmt = (d) => d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  const dispatchedSeqs = new Set(s.dispatches.map((x) => x.phase_seq));
+  const cur = phases.find((p) => p.status === "in_progress");
+  const nextPhase = phases.find((p) => !dispatchedSeqs.has(p.phase_seq) && p.status !== "done");
+  let etaDate = null;
+  if (cur?.planned_end) { const d = new Date(cur.planned_end); d.setDate(d.getDate() - 2); etaDate = d; }
+  const nextDelivery = s.status === "completed" ? "All deliveries completed 🎉"
+    : !cur ? "Deliveries begin once construction starts."
+      : nextPhase ? `${PHASE_NAMES[nextPhase.phase_seq]} materials${etaDate ? ` — expected around ${fmt(etaDate)}` : " — date being scheduled"}`
+        : "All materials for the current plan are on their way.";
+
   return (
     <div className="space-y-5">
       <Link to="/" className="text-sm text-muted hover:text-white">← My projects</Link>
@@ -35,6 +47,11 @@ export default function Project({ me }) {
             <span className="font-mono text-accent">{pr.done}/{pr.total} phases · {pr.pct}%</span>
           </div>
           <Progress pct={pr.pct} />
+        </div>
+        <div className="mt-4 flex items-center gap-2 rounded border border-accent/30 bg-accent/5 px-3 py-2 text-sm">
+          <span className="text-lg">🚚</span>
+          <span className="text-[10px] uppercase tracking-wider text-accent">Next delivery</span>
+          <span className="text-white/90">{nextDelivery}</span>
         </div>
       </div>
 
@@ -60,8 +77,12 @@ export default function Project({ me }) {
                     </span>
                     <Badge tone={p.status === "done" ? "ok" : p.status === "in_progress" ? "warn" : "muted"}>{p.status.replace("_", " ")}</Badge>
                   </div>
+                  {(p.planned_start || p.planned_end) && <p className="mt-0.5 text-[11px] text-muted">Scheduled: {p.planned_start || "?"} → {p.planned_end || "?"}</p>}
                   {delivered.length > 0 && <p className="mt-0.5 text-xs text-emerald-400">✓ Materials delivered: {delivered.join(", ")}</p>}
                   {awaiting.length > 0 && <p className="mt-0.5 text-xs text-[#f59e0b]">⏳ Awaiting stock: {awaiting.join(", ")}</p>}
+                  {nextPhase && p.phase_seq === nextPhase.phase_seq && delivered.length === 0 && (
+                    <p className="mt-0.5 text-xs text-accent">🚚 Materials expected {etaDate ? `around ${fmt(etaDate)}` : "soon"}</p>
+                  )}
                 </div>
               </li>
             );
