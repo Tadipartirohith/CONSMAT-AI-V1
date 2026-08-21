@@ -40,9 +40,10 @@ def create_spoke(body: schemas.SpokeIn, db: Session = Depends(get_db)):
     return _run(service.create_spoke, db=db, name=body.name, geofence=body.geofence)
 
 
-@router.get("/spokes", response_model=list[schemas.SpokeOut])
+@router.get("/spokes", response_model=list[schemas.SpokeDetailOut])
 def list_spokes(db: Session = Depends(get_db)):
-    return db.execute(select(models.Spoke).order_by(models.Spoke.name)).scalars().all()
+    spokes = db.execute(select(models.Spoke).order_by(models.Spoke.name)).scalars().all()
+    return [schemas.SpokeDetailOut.from_spoke(s) for s in spokes]
 
 
 @router.get("/spokes/{spoke_id}", response_model=schemas.SpokeDetailOut)

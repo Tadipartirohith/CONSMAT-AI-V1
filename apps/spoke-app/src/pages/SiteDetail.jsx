@@ -2,6 +2,31 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { site, inv, proc, PHASE_NAMES } from "../api.js";
 import { Card, Table, Td, Badge, Button, Input, Select, useAsync } from "../components/ui.jsx";
+import { getUser } from "../auth.js";
+
+// What each field role owns on a site. The architect is the design authority: the Bill of Materials
+// (which products and how much) and the phase schedule come from the architect's drawings; the civil
+// engineer executes the build phase by phase; the spokesperson owns the customer relationship.
+const ROLE_TASK = {
+  architect: { icon: "📐", title: "Architect - design spec", text: "Enter and refine this site's Bill of Materials (products & quantities) from the drawings, and set each phase's planned dates. This is your design output; it stays editable until construction starts." },
+  civil_engineer: { icon: "🏗️", title: "Civil engineer - execution", text: "Run the build: start the site, complete phases in order (the hub auto-dispatches the next phase's materials), and confirm each delivery when it reaches site." },
+  spokesperson: { icon: "🤝", title: "Spokesperson - coverage", text: "Own the customer relationship and coverage. Review and approve civil-engineer phase-date changes; keep the plan and schedule aligned with the hub." },
+};
+
+function RoleGuide() {
+  const role = getUser()?.role;
+  const t = ROLE_TASK[role];
+  if (!t) return null;
+  return (
+    <div className="flex items-start gap-2.5 border border-accent/30 bg-accent/5 px-3 py-2">
+      <span className="text-lg">{t.icon}</span>
+      <div>
+        <p className="text-xs font-semibold text-accent">{t.title}</p>
+        <p className="text-[11px] text-white/70">{t.text}</p>
+      </div>
+    </div>
+  );
+}
 
 export default function SiteDetail() {
   const { id } = useParams();
@@ -40,6 +65,8 @@ export default function SiteDetail() {
         </div>
       </div>
       {msg && <p className={`text-xs ${msg.ok ? "text-emerald-400" : "text-red-400"}`}>{msg.text}</p>}
+
+      <RoleGuide />
 
       <div className="flex flex-wrap gap-4 border border-border bg-panel p-4 text-sm">
         <Info label="Label" value={s.label || "-"} />
@@ -164,7 +191,7 @@ function BomCard({ siteId, lines, editable, onSaved }) {
   }
 
   return (
-    <Card title="Bill of materials (enter / upload / edit)"
+    <Card title="Bill of materials · design spec (architect)"
       right={<label className="cursor-pointer text-[11px] text-accent hover:underline">Upload doc<input type="file" accept=".pdf,.docx,.txt,.csv" className="hidden" onChange={uploadDoc} /></label>}>
       <div className="space-y-2">
         {info && <p className="text-[11px] text-[#f59e0b]">{info}</p>}

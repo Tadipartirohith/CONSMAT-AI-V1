@@ -30,3 +30,10 @@ class UserIn(BaseModel):
     name: str = ""
     role: str
     org_ref: str = ""
+
+
+class UserUpdate(BaseModel):
+    role: str | None = None
+    active: bool | None = None
+    org_ref: str | None = None
+    name: str | None = None

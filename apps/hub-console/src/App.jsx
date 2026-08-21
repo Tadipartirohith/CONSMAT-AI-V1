@@ -9,6 +9,7 @@ import Market from "./pages/Market.jsx";
 import Procurement from "./pages/Procurement.jsx";
 import Pricing from "./pages/Pricing.jsx";
 import Payments from "./pages/Payments.jsx";
+import Team from "./pages/Team.jsx";
 import Login from "./pages/Login.jsx";
 import { getUser, logout } from "./auth.js";
 
@@ -21,6 +22,7 @@ const NAV = [
   { to: "/procurement", label: "Procurement" },
   { to: "/pricing", label: "Pricing" },
   { to: "/payments", label: "Payments" },
+  { to: "/team", label: "Team & access", roles: ["admin", "hub_manager", "hub_supervisor"] },
 ];
 
 export default function App() {
@@ -38,7 +40,7 @@ export default function App() {
           </div>
         </div>
         <nav className="p-2">
-          {NAV.map((n) => (
+          {NAV.filter((n) => !n.roles || n.roles.includes(user.role)).map((n) => (
             <NavLink key={n.to} to={n.to}
               className={({ isActive }) =>
                 `block px-3 py-2 text-sm transition-colors ${
@@ -67,6 +69,7 @@ export default function App() {
           <Route path="/procurement" element={<Procurement />} />
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/payments" element={<Payments />} />
+          <Route path="/team" element={<Team />} />
           <Route path="*" element={<Navigate to="/overview" replace />} />
         </Routes>
       </main>

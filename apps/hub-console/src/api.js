@@ -1,7 +1,7 @@
 // API layer, each service is reached through its own nginx path-proxy (mapped to /api/v1).
 import { authHeader, logout } from "./auth.js";
 
-const BASES = { inv: "/inv", proc: "/proc", site: "/site", price: "/price", pay: "/pay" };
+const BASES = { inv: "/inv", proc: "/proc", site: "/site", price: "/price", pay: "/pay", id: "/id" };
 
 async function req(base, path, opts = {}) {
   const res = await fetch(BASES[base] + path, {
@@ -86,11 +86,25 @@ export const pay = {
   create: (b) => req("pay", "/payments", body(b)),
 };
 
+export const team = {
+  users: () => req("id", "/users"),
+  roles: () => req("id", "/roles"),
+  createUser: (b) => req("id", "/users", body(b)),
+  updateUser: (email, b) => req("id", `/users/${encodeURIComponent(email)}`, { method: "PATCH", body: JSON.stringify(b) }),
+};
+
+export const ROLE_LABEL = {
+  admin: "Admin", hub_manager: "Hub manager", hub_supervisor: "Hub supervisor",
+  spokesperson: "Spokesperson", architect: "Architect", civil_engineer: "Civil engineer",
+  vendor: "Vendor", consumer: "Consumer", service: "Service",
+};
+
 export const site = {
   sites: () => req("site", "/sites"),
   siteDetail: (id) => req("site", `/sites/${id}`),
   consumers: () => req("site", "/consumers"),
   spokes: () => req("site", "/spokes"),
+  createSpoke: (b) => req("site", "/spokes", body(b)),
   backfillAll: () => req("site", "/backfill", { method: "POST" }),
   phaseChanges: (status) => req("site", `/phase-changes${status ? `?status=${status}` : ""}`),
   decideChange: (id, approve) => req("site", `/phase-changes/${id}/decide`, body({ approve })),
