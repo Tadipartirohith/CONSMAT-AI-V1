@@ -1,7 +1,7 @@
 // Spoke app talks mainly to site-service (/site); reads hub stock (/inv) for context.
 import { authHeader, logout } from "./auth.js";
 
-const BASES = { site: "/site", inv: "/inv" };
+const BASES = { site: "/site", inv: "/inv", proc: "/proc" };
 
 export const PHASE_NAMES = {
   1: "Excavation & footing", 2: "Foundation & plinth beam", 3: "RCC superstructure",
@@ -57,6 +57,16 @@ export const inv = {
   stock: () => req("inv", "/inventory"),
   products: (m) => req("inv", `/products${m ? `?material_id=${m}` : ""}`),
   searchProducts: (q) => req("inv", `/products/search?q=${encodeURIComponent(q)}`),
+};
+
+export const proc = {
+  bomExtract: async (file) => {
+    const fd = new FormData(); fd.append("file", file);
+    const res = await fetch("/proc/procurement/bom-extract", { method: "POST", headers: { ...authHeader() }, body: fd });
+    if (res.status === 401) { logout(); throw new Error("Session expired"); }
+    if (!res.ok) { let d = res.statusText; try { d = (await res.json()).detail || d; } catch {} throw new Error(typeof d === "string" ? d : JSON.stringify(d)); }
+    return res.json();
+  },
 };
 
 export const TIERS = ["individual", "contractor", "commercial", "government"];

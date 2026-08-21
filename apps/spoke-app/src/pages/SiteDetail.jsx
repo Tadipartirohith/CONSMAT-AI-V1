@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { site, inv, PHASE_NAMES } from "../api.js";
+import { site, inv, proc, PHASE_NAMES } from "../api.js";
 import { Card, Table, Td, Badge, Button, Input, Select, useAsync } from "../components/ui.jsx";
 
 export default function SiteDetail() {
@@ -117,32 +117,43 @@ export default function SiteDetail() {
 
 function BomCard({ siteId, lines, editable, onSaved }) {
   const products = useAsync(() => inv.products());
-  const [rows, setRows] = useState(() => lines.map((b) => ({ product_id: b.product_id, material_id: b.material_id, product_name: b.product_name || b.material_id, total_qty: b.total_qty })));
+  const [rows, setRows] = useState(() => lines.map((b) => ({ product_id: b.product_id, material_id: b.material_id, product_name: b.product_name || b.material_id, phase_seq: b.phase_seq || 0, total_qty: b.total_qty })));
   const [pid, setPid] = useState("");
   const [qty, setQty] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
+  const [info, setInfo] = useState(null);
 
   const add = () => {
     const p = (products.data || []).find((x) => x.id === pid);
     if (!p || !qty) return;
-    setRows([...rows, { product_id: p.id, material_id: p.material_id, product_name: p.name, total_qty: Number(qty) }]);
+    setRows([...rows, { product_id: p.id, material_id: p.material_id, product_name: p.name, phase_seq: 0, total_qty: Number(qty) }]);
     setPid(""); setQty("");
   };
   const del = (i) => setRows(rows.filter((_, j) => j !== i));
+  const setField = (i, k, v) => setRows(rows.map((x, j) => j === i ? { ...x, [k]: v } : x));
   const save = async () => {
     setBusy(true); setErr(null);
-    try { await site.setBom(siteId, rows.map((r) => ({ material_id: r.material_id, product_id: r.product_id, product_name: r.product_name, total_qty: Number(r.total_qty) }))); onSaved("Bill of materials saved."); }
+    try { await site.setBom(siteId, rows.filter((r) => r.product_id).map((r) => ({ material_id: r.material_id, product_id: r.product_id, product_name: r.product_name, phase_seq: Number(r.phase_seq) || 0, total_qty: Number(r.total_qty) }))); onSaved("Bill of materials saved."); }
     catch (e) { setErr(e.message); } finally { setBusy(false); }
+  };
+  const uploadDoc = async (e) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    setBusy(true); setInfo("Reading document…"); setErr(null);
+    try {
+      const r = await proc.bomExtract(file);
+      setRows((r.lines || []).map((l) => ({ product_id: l.product_id || "", material_id: l.material_id || "", product_name: l.product_name || l.raw || "", phase_seq: l.phase_seq || 0, total_qty: l.total_qty || 0 })));
+      setInfo(`${r.summary} — review & map any unmatched, set phases, then Save.`);
+    } catch (e) { setErr(e.message); } finally { setBusy(false); e.target.value = ""; }
   };
 
   if (!editable) {
     return (
       <Card title="Bill of materials">
         {rows.length === 0 ? <p className="text-sm text-muted">No BOM entered.</p> : (
-          <Table head={["Product", "Total qty"]}>
+          <Table head={["Product", "Phase", "Total qty"]}>
             {rows.map((r, i) => (
-              <tr key={i} className="border-b border-border/50"><Td>{r.product_name}</Td><Td mono>{r.total_qty}</Td></tr>
+              <tr key={i} className="border-b border-border/50"><Td>{r.product_name}</Td><Td className="text-muted">{r.phase_seq ? `P${r.phase_seq}` : "auto"}</Td><Td mono>{r.total_qty}</Td></tr>
             ))}
           </Table>
         )}
@@ -151,16 +162,27 @@ function BomCard({ siteId, lines, editable, onSaved }) {
   }
 
   return (
-    <Card title="Bill of materials (enter / edit)">
+    <Card title="Bill of materials (enter / upload / edit)"
+      right={<label className="cursor-pointer text-[11px] text-accent hover:underline">Upload doc<input type="file" accept=".pdf,.docx,.txt,.csv" className="hidden" onChange={uploadDoc} /></label>}>
       <div className="space-y-2">
+        {info && <p className="text-[11px] text-[#f59e0b]">{info}</p>}
         {rows.map((r, i) => (
           <div key={i} className="flex items-center gap-2 text-sm">
-            <span className="flex-1 truncate text-white/80" title={r.product_name}>{r.product_name}</span>
-            <span className="font-mono text-white/70">×{r.total_qty}</span>
+            {r.product_id
+              ? <span className="flex-1 truncate text-white/80" title={r.product_name}>{r.product_name}</span>
+              : <Select value="" onChange={(e) => { const p = (products.data || []).find((x) => x.id === e.target.value); if (p) setRows(rows.map((x, j) => j === i ? { ...x, product_id: p.id, material_id: p.material_id, product_name: p.name } : x)); }}>
+                  <option value="">map “{r.product_name}”…</option>
+                  {(products.data || []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </Select>}
+            <Select value={r.phase_seq} onChange={(e) => setField(i, "phase_seq", Number(e.target.value))}>
+              <option value={0}>auto</option>
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => <option key={n} value={n}>P{n}</option>)}
+            </Select>
+            <div className="w-20"><Input type="number" step="any" value={r.total_qty} onChange={(e) => setField(i, "total_qty", e.target.value)} /></div>
             <Button size="sm" variant="ghost" onClick={() => del(i)}>✕</Button>
           </div>
         ))}
-        {rows.length === 0 && <p className="text-xs text-muted">Add the products and quantities this project needs.</p>}
+        {rows.length === 0 && <p className="text-xs text-muted">Add products, or upload a BOM doc — the LLM extracts and maps it.</p>}
         <div className="flex items-center gap-2 pt-1">
           <Select value={pid} onChange={(e) => setPid(e.target.value)}>
             <option value="">select product…</option>
@@ -170,10 +192,10 @@ function BomCard({ siteId, lines, editable, onSaved }) {
           <Button size="sm" onClick={add}>Add</Button>
         </div>
         <div className="flex items-center gap-2 pt-1">
-          <Button onClick={save} disabled={busy || rows.length === 0}>Save BOM</Button>
+          <Button onClick={save} disabled={busy || rows.filter((r) => r.product_id).length === 0}>Save BOM</Button>
           {err && <span className="text-xs text-red-400">{err}</span>}
         </div>
-        <p className="text-[11px] text-muted">The hub reserves this demand and slices it across the 9 phases automatically. Editable until construction starts.</p>
+        <p className="text-[11px] text-muted">Set a phase per line (“auto” lets the hub slice it across phases). Editable until construction starts.</p>
       </div>
     </Card>
   );
