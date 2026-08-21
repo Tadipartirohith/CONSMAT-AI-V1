@@ -9,6 +9,8 @@ export default function ProjectDetail() {
   const { id } = useParams();
   const detail = useAsync(() => site.siteDetail(id), [id]);
   const notifs = useAsync(() => site.notifications(), [id]);
+  const needs = useAsync(() => site.phaseNeeds(id), [id]);
+  const pstock = useAsync(() => inv.productStock(), [id]);
   const [tab, setTab] = useState("Overview");
   const s = detail.data;
 
@@ -24,6 +26,8 @@ export default function ProjectDetail() {
         <span className="text-xs text-muted">{s.code} · {s.location} · {s.area_sqft} sqft × {s.floors} floor(s) · {s.construction_type}</span>
       </div>
 
+      <ControlTower s={s} needs={needs.data || []} stock={pstock.data || []} />
+
       <div className="flex gap-1 border-b border-border">
         {TABS.map((t) => (
           <button key={t} onClick={() => setTab(t)}
@@ -34,6 +38,39 @@ export default function ProjectDetail() {
       {tab === "Overview" && <Overview s={s} notifs={notifs} />}
       {tab === "Bill of materials" && <BomTab s={s} onSaved={detail.reload} />}
       {tab === "Phase needs" && <PhaseNeedsTab s={s} />}
+    </div>
+  );
+}
+
+function ControlTower({ s, needs, stock }) {
+  const phases = s.phases.slice().sort((a, b) => a.phase_seq - b.phase_seq);
+  const cur = phases.find((p) => p.status === "in_progress");
+  const done = phases.filter((p) => p.status === "done").length;
+  const dispatched = new Set((s.dispatches || []).map((d) => d.phase_seq));
+  const nextPhase = phases.find((p) => !dispatched.has(p.phase_seq) && p.status !== "done");
+
+  let eta = null;
+  if (cur?.planned_end) { const d = new Date(cur.planned_end); d.setDate(d.getDate() - 2); eta = d.toISOString().slice(0, 10); }
+
+  const avail = Object.fromEntries((stock || []).map((x) => [x.product_id, Number(x.available)]));
+  const nextNeeds = (needs.find((n) => nextPhase && n.phase_seq === nextPhase.phase_seq)?.lines) || [];
+  const shortItems = nextNeeds.filter((l) => (avail[l.product_id] || 0) < l.qty);
+  const covered = nextNeeds.length > 0 && shortItems.length === 0;
+
+  const Tile = ({ label, value, sub, tone }) => (
+    <div className="border border-border bg-panel p-3">
+      <p className="text-[10px] uppercase tracking-wider text-muted">{label}</p>
+      <p className={`mt-0.5 font-head text-lg font-bold ${tone || "text-white"}`}>{value}</p>
+      {sub && <p className="text-[11px] text-muted">{sub}</p>}
+    </div>
+  );
+
+  return (
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <Tile label="Current phase" value={cur ? `${cur.phase_seq}. ${PHASE_NAMES[cur.phase_seq]}` : (s.status === "completed" ? "Completed" : "Not started")} sub={cur?.planned_end ? `ends ${cur.planned_end}` : "no end date"} />
+      <Tile label="Progress" value={`${done}/9 phases`} sub={`${Math.round(done / 9 * 100)}% done`} />
+      <Tile label="Next shipment" value={nextPhase ? `Phase ${nextPhase.phase_seq}` : "—"} sub={nextPhase ? (eta ? `≈ ${eta}` : "set phase dates") : "all dispatched"} tone="text-accent" />
+      <Tile label="Stock for next phase" value={nextNeeds.length === 0 ? "—" : covered ? "Covered" : `${shortItems.length} short`} sub={shortItems.length ? shortItems.map((l) => l.product_name || l.material_id).join(", ") : (nextNeeds.length ? "hub has stock" : "nothing needed")} tone={nextNeeds.length === 0 ? "text-white" : covered ? "text-emerald-400" : "text-[#f59e0b]"} />
     </div>
   );
 }
