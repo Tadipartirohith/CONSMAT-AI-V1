@@ -154,6 +154,7 @@ function AreaProjects({ area, today, onBack }) {
           const cur = (s.phases || []).find((p) => p.status === "in_progress");
           const done = (s.phases || []).filter((p) => p.status === "done").length;
           const sh = shorts(s);
+          const awaitingAck = (s.dispatches || []).filter((d) => d.status === "dispatched").length;
           return (
             <tr key={s.id} className="border-b border-border/50">
               <Td>{s.label || s.code}</Td>
@@ -162,7 +163,13 @@ function AreaProjects({ area, today, onBack }) {
               <Td mono>{done}/{TOTAL_PHASES}</Td>
               <Td className="text-muted">{cur ? `${cur.phase_seq}. ${PHASE_NAMES[cur.phase_seq]}` : "-"}</Td>
               <Td><span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: TONE[h.tone] }} /><span className="text-[11px] text-muted">{LABEL[h.tone]}</span></span></Td>
-              <Td>{sh.length ? <Badge tone="bad">{sh.length} short</Badge> : <span className="text-muted">-</span>}</Td>
+              <Td>
+                <div className="flex flex-wrap gap-1">
+                  {sh.length > 0 && <Badge tone="bad">{sh.length} short</Badge>}
+                  {awaitingAck > 0 && <Badge tone="warn">{awaitingAck} awaiting ack</Badge>}
+                  {sh.length === 0 && awaitingAck === 0 && <span className="text-muted">-</span>}
+                </div>
+              </Td>
               <Td><a className="text-accent hover:underline" href={`/projects/${s.id}`}>open →</a></Td>
             </tr>
           );

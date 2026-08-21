@@ -57,6 +57,11 @@ function ControlTower({ s, needs, stock }) {
   const shortItems = nextNeeds.filter((l) => (avail[l.product_id] || 0) < l.qty);
   const covered = nextNeeds.length > 0 && shortItems.length === 0;
 
+  // Delivery acknowledgement: fully-delivered shipments confirmed by the customer vs still awaiting.
+  const delivered = (s.dispatches || []).filter((d) => d.status === "dispatched" || d.status === "received");
+  const confirmed = delivered.filter((d) => d.status === "received").length;
+  const awaiting = delivered.filter((d) => d.status === "dispatched").length;
+
   const Tile = ({ label, value, sub, tone }) => (
     <div className="border border-border bg-panel p-3">
       <p className="text-[10px] uppercase tracking-wider text-muted">{label}</p>
@@ -66,11 +71,12 @@ function ControlTower({ s, needs, stock }) {
   );
 
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
       <Tile label="Current phase" value={cur ? `${cur.phase_seq}. ${PHASE_NAMES[cur.phase_seq]}` : (s.status === "completed" ? "Completed" : "Not started")} sub={cur?.planned_end ? `ends ${cur.planned_end}` : "no end date"} />
       <Tile label="Progress" value={`${done}/9 phases`} sub={`${Math.round(done / 9 * 100)}% done`} />
       <Tile label="Next shipment" value={nextPhase ? `Phase ${nextPhase.phase_seq}` : "—"} sub={nextPhase ? (eta ? `≈ ${eta}` : "set phase dates") : "all dispatched"} tone="text-accent" />
       <Tile label="Stock for next phase" value={nextNeeds.length === 0 ? "—" : covered ? "Covered" : `${shortItems.length} short`} sub={shortItems.length ? shortItems.map((l) => l.product_name || l.material_id).join(", ") : (nextNeeds.length ? "hub has stock" : "nothing needed")} tone={nextNeeds.length === 0 ? "text-white" : covered ? "text-emerald-400" : "text-[#f59e0b]"} />
+      <Tile label="Deliveries confirmed" value={delivered.length === 0 ? "—" : `${confirmed}/${delivered.length}`} sub={awaiting > 0 ? `${awaiting} awaiting confirmation` : (delivered.length ? "all confirmed" : "none delivered")} tone={delivered.length === 0 ? "text-white" : awaiting > 0 ? "text-[#f59e0b]" : "text-emerald-400"} />
     </div>
   );
 }
