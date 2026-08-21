@@ -271,6 +271,12 @@ Detail in [LLD §5](./LLD.md#5-authentication--roles).
 **Complete:** all services + auth + payments + API gateway; product/brand catalog, pricing, and stock;
 web-scouted procurement; the full JIT site-dispatch system (product BOM entry, phase dates + approval,
 3× buffer, background scheduler, notifications); vendor request→approval; per-product margins. Hub LLM live.
+Delivery confirmation is a CE/spoke/hub action with an unconfirmed-delivery reminder (D23); events are
+audience-scoped across hub/spoke/consumer with a hub Network-events feed (D24); RBAC is managed through a
+Team & access portal with a role hierarchy — admins add spokes/regions and manage all roles, supervisors
+manage ops, members belong to a spoke team (D25); the hub-console carries a project-health donut, a
+stock-buffer widget, URL-driven navigation/filters, and procure-from-inventory (D26); the Hub LLM
+surfaces open-market alternatives for unavailable items and the architect owns the design spec (D27).
 
 **Deferred / optional:** real payment-provider API calls (extension points in `payment-service`),
 email/push delivery of notifications (in-app only in v1), and finer product questions in

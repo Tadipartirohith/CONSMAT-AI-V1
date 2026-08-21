@@ -43,6 +43,11 @@ flowchart TB
     PROC -. optional .-> LLM
 ```
 
+The frontends reach identity through the `/id` proxy for auth **and** team management: `GET /roles`,
+`GET /users`, `POST /users`, and `PATCH /users/{email}` back the hub-console **Team & access** page
+(role-gated to admin/manager/supervisor). Delivery confirmation (`POST /site/dispatches/{id}/confirm`)
+and coverage/role changes are all JWT- and hierarchy-guarded at the owning service (identity/site).
+
 ---
 
 ## 2. Container Inventory

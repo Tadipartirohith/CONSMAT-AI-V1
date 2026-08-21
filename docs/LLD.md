@@ -164,7 +164,9 @@ All paths under `/api/v1`. Auth column: *any* = any authenticated user; otherwis
 |--------|------|------|
 | POST | `/auth/login` | none |
 | GET | `/auth/me` | any |
-| GET / POST | `/users` | admin, hub_manager |
+| GET | `/users` · `/roles` | admin, hub_manager, hub_supervisor (Team portal) |
+| POST | `/users` | actor must out-rank the new role (`service` for consumer/vendor provisioning) |
+| PATCH | `/users/{email}` | actor must out-rank the user's current **and** new role (assign role / move to a spoke team via `org_ref` / (de)activate) |
 
 ### 4.2 inventory
 | Method | Path | Auth |
@@ -274,8 +276,8 @@ React 18 + Vite + Tailwind; each app: `src/api.js` (fetch wrapper attaching the 
 
 | App | Notable pages / actions |
 |-----|-------------------------|
-| hub-console | Overview; **Projects** (all sites + phase-date approval queue + notifications + run-scheduler); Inventory (**per-brand stock grouped by category, 3× low-stock panel, product inbound**, ledger); Vendors (registry/prices/market, **role-aware request → approve add/remove**, web scout); Procurement (plan/analyze **+ LLM advice + auto web scout**/order/receive); Pricing (**per-product** + material/tier rules, product price lookup); Payments |
-| spoke-app | Territory; Intake (classify + geofence); Sites; Site detail (**enter/edit product BOM**, **per-phase start/end dates**, **approve CE date changes**, **notifications**, start/complete phase/backfill) |
+| hub-console | Overview (**project-health donut** + **stock-buffer widget** + **Network-events feed** + awaiting-materials/re-dispatch); **Projects** (area cards + **URL-driven cross-area filters**, phase-date & coverage approval queues, project-name links); Inventory (**per-brand stock grouped by category, available clamped ≥ 0 + over-committed flag, product inbound, Procure per product = vendor + open-market rates → PO**, ledger); Vendors (registry/prices/market, role-aware request → approve add/remove, web scout); Procurement (plan/analyze + LLM advice + auto web scout/order/receive); Pricing (per-product + material/tier rules); Payments; **Team & access** (RBAC: add spokes/regions, create/reassign/deactivate members within the role hierarchy) |
+| spoke-app | Coverage; Onboarding (classify + geofence); Sites; Site detail (**per-role guide — architect owns the BOM/design spec + phase schedule, CE executes, spokesperson owns coverage**; enter/edit product BOM, per-phase start/end dates, approve CE date changes, **confirm delivery**, notifications, start/complete phase/backfill) |
 | consumer-portal | Projects, phase timeline + delivery status (**product names**), **Pay for project** (price BOM at tier → pay) |
 
 `hub-console` gains `getUser().role`-aware UI (operator vs approver). Both hub-console and spoke-app share
