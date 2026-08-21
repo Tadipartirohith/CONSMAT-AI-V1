@@ -49,7 +49,7 @@ def test_market_prices_cheapest_first_active_only(db):
     service.set_price(db, a.id, "cement-ultratech", 420)
     service.set_price(db, b.id, "cement-acc", 402)
     service.set_price(db, c.id, "cement-bharathi", 395)
-    service.deactivate_vendor(db, c.id)  # cheapest but inactive → excluded
+    service.deactivate_vendor(db, c.id)  # cheapest but inactive to excluded
     market = service.market_prices(db, "cement")
     assert [m["vendor_id"] for m in market] == [b.id, a.id]
     assert market[0]["price"] == 402 and market[0]["brand"] == "ACC"

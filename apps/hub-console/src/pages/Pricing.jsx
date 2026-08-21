@@ -72,8 +72,8 @@ export default function Pricing() {
 
 function CategoryPricing({ material, products, rules, tier, stockOf, onBack, onSaved, onError }) {
   return (
-    <Card title={`${material?.name} — per-product margins (${tier})`}
-      right={<Button size="sm" variant="ghost" onClick={onBack}>← Categories</Button>}>
+    <Card title={`${material?.name} - per-product margins (${tier})`}
+      right={<Button size="sm" variant="ghost" onClick={onBack}>Back to Categories</Button>}>
       <Table head={["Product", "Brand", "Landed cost", "Margin %", "Selling price", "Source", ""]}>
         {products.map((p) => (
           <ProductRow key={p.id} product={p} rules={rules} tier={tier} stock={stockOf(p.id)}

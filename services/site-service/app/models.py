@@ -2,7 +2,7 @@
 
 A spoke (geo-fenced spokesperson) serves consumers; a consumer owns sites; a site's architect plan
 yields a BOM; the civil engineer advances the 9 phases, and completing a phase triggers a Dispatch of
-the next phase's materials from hub inventory (hub → site, D3). `material_id` is an opaque reference to
+the next phase's materials from hub inventory (hub to site, D3). `material_id` is an opaque reference to
 the inventory-service catalog (Q11).
 """
 from __future__ import annotations
@@ -26,7 +26,7 @@ PH_DONE = "done"
 # dispatch statuses
 DSP_DISPATCHED = "dispatched"
 DSP_PARTIAL = "partial"
-DSP_PENDING = "pending"      # nothing could be fulfilled (stockout → procurement needed)
+DSP_PENDING = "pending"      # nothing could be fulfilled (stockout to procurement needed)
 DSP_RECEIVED = "received"    # customer confirmed receipt
 
 # phase-date change-request statuses (CE edits to a phase end date need spoke/manager approval)

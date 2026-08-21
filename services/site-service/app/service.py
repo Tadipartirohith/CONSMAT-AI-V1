@@ -380,7 +380,7 @@ def _phase(site: models.Site, seq: int) -> models.PhaseProgress | None:
     return next((p for p in site.phases if p.phase_seq == seq), None)
 
 
-# ---- Dispatch (hub → site) for a phase ----
+# ---- Dispatch (hub to site) for a phase ----
 
 def _dispatch_phase(db: Session, site: models.Site, seq: int) -> models.Dispatch:
     """Compute the phase's product slice and pull it from hub inventory (brand-level outbound)."""
@@ -426,7 +426,7 @@ def backfill_site(db: Session, site_id: int) -> dict:
     """Retry every still-short dispatch line for a site against current hub stock.
 
     When the hub replenishes after a shortfall, this pushes the outstanding materials out and heals the
-    affected dispatches (partial/pending → dispatched). Idempotent: already-dispatched lines are skipped.
+    affected dispatches (partial/pending to dispatched). Idempotent: already-dispatched lines are skipped.
     """
     site = db.get(models.Site, site_id)
     if site is None:
@@ -511,7 +511,7 @@ def start_site(db: Session, site_id: int) -> models.Dispatch:
 
 
 def complete_phase(db: Session, site_id: int, seq: int) -> dict:
-    """Civil-engineer action: mark a phase done → trigger dispatch of the next phase (JIT)."""
+    """Civil-engineer action: mark a phase done to trigger dispatch of the next phase (JIT)."""
     site = db.get(models.Site, site_id)
     if site is None:
         raise SiteError(f"Unknown site: SITE-{site_id}")

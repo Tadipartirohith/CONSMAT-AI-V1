@@ -94,7 +94,7 @@ export default function Vendors() {
             </form>
           </Card>
           <Card title="Vendor prices">
-            <p className="text-sm text-muted">Prices are now captured when you <b className="text-white/80">receive stock</b> (Inventory → Receive stock records the vendor, product and rate together). The market view below reflects the latest rates.</p>
+            <p className="text-sm text-muted">Prices are now captured when you <b className="text-white/80">receive stock</b> (Inventory to Receive stock records the vendor, product and rate together). The market view below reflects the latest rates.</p>
           </Card>
         </div>
       </div>
@@ -172,7 +172,7 @@ function MarketScan() {
         <Button size="sm" onClick={scanAll} disabled={busy}>{busy ? "Scanning…" : "Scan the market"}</Button>
       </div>}>
       {msg && <p className="mb-2 text-xs text-muted">{msg}</p>}
-      <p className="mb-2 text-[11px] text-[#f59e0b]">Advisory only — indicative internet prices, not firm quotes. Verify before purchase.</p>
+      <p className="mb-2 text-[11px] text-[#f59e0b]">Advisory only - indicative internet prices, not firm quotes. Verify before purchase.</p>
       {list.length ? (
         <Table head={["Category", "Seller", "Product", "Price", "Source", ""]}>
           {list.map((o) => (
@@ -182,11 +182,11 @@ function MarketScan() {
               <Td className="text-muted">{o.product_name || "-"}</Td>
               <Td mono>{inr(o.price)}</Td>
               <Td><Badge tone={o.confidence === "firm" ? "ok" : "warn"}>{o.source}</Badge></Td>
-              <Td>{o.url ? <a href={o.url} target="_blank" rel="noreferrer"><Button size="sm">Buy now →</Button></a> : <span className="text-muted">-</span>}</Td>
+              <Td>{o.url ? <a href={o.url} target="_blank" rel="noreferrer"><Button size="sm">Buy now </Button></a> : <span className="text-muted">-</span>}</Td>
             </tr>
           ))}
         </Table>
-      ) : <p className="text-sm text-muted">No external offers yet — pick a category and click “Scan the market”.</p>}
+      ) : <p className="text-sm text-muted">No external offers yet - pick a category and click “Scan the market”.</p>}
     </Card>
   );
 }

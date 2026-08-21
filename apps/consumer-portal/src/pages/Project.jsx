@@ -25,7 +25,7 @@ export default function Project({ me }) {
   const dispatchByPhase = {};
   for (const d of s.dispatches) dispatchByPhase[d.phase_seq] = d;
 
-  // Next material delivery (ETA) — the hub pre-dispatches ~2 days before the current phase ends.
+  // Next material delivery (ETA) - the hub pre-dispatches ~2 days before the current phase ends.
   const fmt = (d) => d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
   const dispatchedSeqs = new Set(s.dispatches.map((x) => x.phase_seq));
   const cur = phases.find((p) => p.status === "in_progress");
@@ -34,12 +34,12 @@ export default function Project({ me }) {
   if (cur?.planned_end) { const d = new Date(cur.planned_end); d.setDate(d.getDate() - 2); etaDate = d; }
   const nextDelivery = s.status === "completed" ? "All deliveries completed 🎉"
     : !cur ? "Deliveries begin once construction starts."
-      : nextPhase ? `${PHASE_NAMES[nextPhase.phase_seq]} materials${etaDate ? ` — expected around ${fmt(etaDate)}` : " — date being scheduled"}`
+      : nextPhase ? `${PHASE_NAMES[nextPhase.phase_seq]} materials${etaDate ? ` - expected around ${fmt(etaDate)}` : " - date being scheduled"}`
         : "All materials for the current plan are on their way.";
 
   return (
     <div className="space-y-5">
-      <Link to="/" className="text-sm text-muted hover:text-white">← My projects</Link>
+      <Link to="/" className="text-sm text-muted hover:text-white">Back to My projects</Link>
 
       <div className="border border-border bg-panel p-5">
         <div className="flex items-center justify-between">
@@ -85,7 +85,7 @@ export default function Project({ me }) {
                     </span>
                     <Badge tone={p.status === "done" ? "ok" : p.status === "in_progress" ? "warn" : "muted"}>{p.status.replace("_", " ")}</Badge>
                   </div>
-                  {(p.planned_start || p.planned_end) && <p className="mt-0.5 text-[11px] text-muted">Scheduled: {p.planned_start || "?"} → {p.planned_end || "?"}</p>}
+                  {(p.planned_start || p.planned_end) && <p className="mt-0.5 text-[11px] text-muted">Scheduled: {p.planned_start || "?"} to {p.planned_end || "?"}</p>}
                   {delivered.length > 0 && <p className="mt-0.5 text-xs text-emerald-400">✓ Materials delivered: {delivered.join(", ")}</p>}
                   {awaiting.length > 0 && <p className="mt-0.5 text-xs text-[#f59e0b]">⏳ Awaiting stock: {awaiting.join(", ")}</p>}
                   {nextPhase && p.phase_seq === nextPhase.phase_seq && delivered.length === 0 && (

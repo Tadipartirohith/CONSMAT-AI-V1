@@ -22,7 +22,7 @@ export default function Dashboard() {
           <div>
             <p className="text-[11px] uppercase tracking-wider text-accent">Coverage · geofenced service area</p>
             <h1 className="font-head text-2xl font-extrabold text-white">{d?.spoke?.name || "My coverage"}</h1>
-            <p className="mt-0.5 text-xs text-muted">Hi {me?.name || "there"} — your consumers, sites and deliveries needing attention.</p>
+            <p className="mt-0.5 text-xs text-muted">Hi {me?.name || "there"} - your consumers, sites and deliveries needing attention.</p>
           </div>
           <div className="text-right">
             <p className="text-[10px] uppercase tracking-wider text-muted">Regions served</p>
@@ -51,10 +51,10 @@ export default function Dashboard() {
                   <Td><Badge tone="accent">{s.tier}</Badge></Td>
                   <Td><Badge tone={s.status === "completed" ? "ok" : s.status === "active" ? "accent" : "muted"}>{s.status}</Badge></Td>
                   <Td mono>{s.current_phase ?? "-"}</Td>
-                  <Td><Link className="text-accent hover:underline" to={`/sites/${s.site_id}`}>open →</Link></Td>
+                  <Td><Link className="text-accent hover:underline" to={`/sites/${s.site_id}`}>open </Link></Td>
                 </tr>
               ))}
-              {territory.data?.length === 0 && <tr><Td className="text-muted">No sites yet — onboard a consumer, then create a site.</Td></tr>}
+              {territory.data?.length === 0 && <tr><Td className="text-muted">No sites yet - onboard a consumer, then create a site.</Td></tr>}
             </Table>
           )}
         </Card>

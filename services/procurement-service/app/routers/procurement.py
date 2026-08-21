@@ -60,10 +60,17 @@ def analyze(body: schemas.AnalyzeIn, refresh: bool = False, db: Session = Depend
     # Live external market intelligence: scout the open web for each material if we have nothing cached
     # (or on ?refresh=1). Grounded offers become advisory alternatives the LLM compares against.
     scouted = []
+    # Use a demanded product name as the scout query when given (e.g. 'JSW Neosteel TMT bars'), so an
+    # unavailable branded item still pulls relevant open-market offers for its material.
+    scout_name = {}
+    for d in demand:
+        mid = d["material_id"]
+        if d.get("product_name") and mid not in scout_name:
+            scout_name[mid] = d["product_name"]
     for mid in {d["material_id"] for d in demand}:
         if refresh or not service.list_external_offers(db, mid):
             try:
-                scouted.append(service.run_scout(db, mid, mid))
+                scouted.append(service.run_scout(db, mid, scout_name.get(mid, mid)))
             except Exception as e:  # noqa: BLE001, scouting is best-effort, never blocks the plan
                 print(f"[analyze] scout failed for {mid}: {type(e).__name__}: {e}", flush=True)
     external = {}
@@ -135,7 +142,7 @@ async def bom_extract(file: UploadFile = File(...)):
         catalog = []
     import json as _json
     result = llm.complete_json(_BOM_EXTRACT_SCHEMA, _json.dumps({"document": text, "catalog": catalog}))
-    return result or {"summary": "Hub LLM unavailable — configure AI_PROVIDER.", "lines": []}
+    return result or {"summary": "Hub LLM unavailable - configure AI_PROVIDER.", "lines": []}
 
 
 @router.post("/procurement/bom-optimize", dependencies=[Depends(HUB_WRITE)])
@@ -145,7 +152,7 @@ def bom_optimize(body: schemas.BomOptimizeIn):
     result = llm.complete_json(_BOM_OPT_SCHEMA, _json.dumps({
         "instruction": body.prompt, "current_bom": body.current_bom, "catalog": body.catalog,
     }))
-    return result or {"summary": "Hub LLM unavailable — configure AI_PROVIDER.", "lines": []}
+    return result or {"summary": "Hub LLM unavailable - configure AI_PROVIDER.", "lines": []}
 
 
 @router.post("/procurement/scout", dependencies=[Depends(HUB_WRITE)])

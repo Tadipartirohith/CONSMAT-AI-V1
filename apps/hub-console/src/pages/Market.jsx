@@ -13,7 +13,7 @@ export default function Market() {
 
   const scan = async (category) => {
     setBusy(true); setMsg(null);
-    try { const r = await proc.marketScan(category); setMsg(`Scanned ${r.scanned.length} categor(ies) — ${r.offers} offers via ${r.provider}.`); drops.reload(); alerts.reload(); }
+    try { const r = await proc.marketScan(category); setMsg(`Scanned ${r.scanned.length} categor(ies) - ${r.offers} offers via ${r.provider}.`); drops.reload(); alerts.reload(); }
     catch (e) { setMsg(e.message); } finally { setBusy(false); }
   };
 
@@ -60,12 +60,12 @@ export default function Market() {
                 <Td mono className="text-accent">{inr(d.offer_price)}</Td>
                 <Td className="text-muted">{d.seller} <Badge tone={d.confidence === "firm" ? "ok" : "warn"}>{d.source}</Badge></Td>
                 <Td mono className="text-emerald-400">−{d.saving_pct}%</Td>
-                <Td>{d.url ? <a href={d.url} target="_blank" rel="noreferrer"><Button size="sm">Buy now →</Button></a> : <span className="text-muted">-</span>}</Td>
+                <Td>{d.url ? <a href={d.url} target="_blank" rel="noreferrer"><Button size="sm">Buy now </Button></a> : <span className="text-muted">-</span>}</Td>
               </tr>
             ))}
           </Table>
         )}
-        <p className="mt-2 text-[11px] text-[#f59e0b]">Advisory — indicative internet prices, verify before purchase.</p>
+        <p className="mt-2 text-[11px] text-[#f59e0b]">Advisory - indicative internet prices, verify before purchase.</p>
       </Card>
 
       <Alerts alerts={alerts} />

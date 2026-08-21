@@ -38,7 +38,7 @@ export default function Intake() {
               </Select>
             </Field>
             <Field label="Location (site area)"><Input value={form.location} required placeholder="e.g. Medchal" onChange={(e) => setForm({ ...form, location: e.target.value })} /></Field>
-            <Field label="Email (customer login)"><Input type="email" value={form.email} placeholder="customer@email.com — blank = auto id" onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
+            <Field label="Email (customer login)"><Input type="email" value={form.email} placeholder="customer@email.com - blank = auto id" onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
             <Field label="Phone"><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
             <Button type="submit" disabled={busy}>{busy ? "Onboarding…" : "Onboard customer"}</Button>
             {err && <p className="text-xs text-red-400">{err}</p>}
@@ -98,7 +98,7 @@ function SpokeCoverage({ spokes }) {
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <p className="mb-2 text-[11px] uppercase tracking-wider text-muted">Regions served by {detail.data?.name || "your spoke"}</p>
-          <p className="text-sm text-white/90">{areas.length ? areas.join(", ") : "no regions yet — add one"}</p>
+          <p className="text-sm text-white/90">{areas.length ? areas.join(", ") : "no regions yet - add one"}</p>
         </div>
         <form onSubmit={addArea} className="flex items-end gap-2">
           <Field label="Add a region keyword"><Input value={area} required placeholder="e.g. Kompally" onChange={(e) => setArea(e.target.value)} /></Field>

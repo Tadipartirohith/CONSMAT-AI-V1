@@ -20,7 +20,7 @@ export default function ProjectDetail() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
-        <Link to="/projects" className="text-sm text-muted hover:text-white">← Projects</Link>
+        <Link to="/projects" className="text-sm text-muted hover:text-white">Back to Projects</Link>
         <h1 className="font-head text-2xl font-extrabold text-white">{s.label || s.code}</h1>
         <Badge tone={s.status === "completed" ? "ok" : s.status === "active" ? "accent" : "muted"}>{s.status}</Badge>
         <span className="text-xs text-muted">{s.code} · {s.location} · {s.area_sqft} sqft × {s.floors} floor(s) · {s.construction_type}</span>
@@ -74,9 +74,9 @@ function ControlTower({ s, needs, stock }) {
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
       <Tile label="Current phase" value={cur ? `${cur.phase_seq}. ${PHASE_NAMES[cur.phase_seq]}` : (s.status === "completed" ? "Completed" : "Not started")} sub={cur?.planned_end ? `ends ${cur.planned_end}` : "no end date"} />
       <Tile label="Progress" value={`${done}/9 phases`} sub={`${Math.round(done / 9 * 100)}% done`} />
-      <Tile label="Next shipment" value={nextPhase ? `Phase ${nextPhase.phase_seq}` : "—"} sub={nextPhase ? (eta ? `≈ ${eta}` : "set phase dates") : "all dispatched"} tone="text-accent" />
-      <Tile label="Stock for next phase" value={nextNeeds.length === 0 ? "—" : covered ? "Covered" : `${shortItems.length} short`} sub={shortItems.length ? shortItems.map((l) => l.product_name || l.material_id).join(", ") : (nextNeeds.length ? "hub has stock" : "nothing needed")} tone={nextNeeds.length === 0 ? "text-white" : covered ? "text-emerald-400" : "text-[#f59e0b]"} />
-      <Tile label="Deliveries confirmed" value={delivered.length === 0 ? "—" : `${confirmed}/${delivered.length}`} sub={awaiting > 0 ? `${awaiting} awaiting confirmation` : (delivered.length ? "all confirmed" : "none delivered")} tone={delivered.length === 0 ? "text-white" : awaiting > 0 ? "text-[#f59e0b]" : "text-emerald-400"} />
+      <Tile label="Next shipment" value={nextPhase ? `Phase ${nextPhase.phase_seq}` : "-"} sub={nextPhase ? (eta ? `~${eta}` : "set phase dates") : "all dispatched"} tone="text-accent" />
+      <Tile label="Stock for next phase" value={nextNeeds.length === 0 ? "-" : covered ? "Covered" : `${shortItems.length} short`} sub={shortItems.length ? shortItems.map((l) => l.product_name || l.material_id).join(", ") : (nextNeeds.length ? "hub has stock" : "nothing needed")} tone={nextNeeds.length === 0 ? "text-white" : covered ? "text-emerald-400" : "text-[#f59e0b]"} />
+      <Tile label="Deliveries confirmed" value={delivered.length === 0 ? "-" : `${confirmed}/${delivered.length}`} sub={awaiting > 0 ? `${awaiting} awaiting confirmation` : (delivered.length ? "all confirmed" : "none delivered")} tone={delivered.length === 0 ? "text-white" : awaiting > 0 ? "text-[#f59e0b]" : "text-emerald-400"} />
     </div>
   );
 }
@@ -158,7 +158,7 @@ function BomTab({ s, onSaved }) {
       const r = await proc.bomExtract(file);
       const extracted = (r.lines || []).map((l) => ({ product_id: l.product_id || "", material_id: l.material_id || "", product_name: l.product_name || l.raw || "", phase_seq: l.phase_seq || 0, total_qty: l.total_qty || 0, matched: l.matched }));
       setRows(extracted);
-      setExtractMsg(`${r.summary} (${extracted.filter((x) => x.product_id).length}/${extracted.length} mapped — review, fix unmatched, then Save)`);
+      setExtractMsg(`${r.summary} (${extracted.filter((x) => x.product_id).length}/${extracted.length} mapped - review, fix unmatched, then Save)`);
     } catch (e) { setExtractMsg(e.message); } finally { setBusy(false); e.target.value = ""; }
   };
   const optimize = async () => {
@@ -177,7 +177,7 @@ function BomTab({ s, onSaved }) {
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <Card title={editable ? "Bill of materials — enter, upload or optimize" : "Bill of materials (locked after start)"}
+      <Card title={editable ? "Bill of materials - enter, upload or optimize" : "Bill of materials (locked after start)"}
         right={editable && <label className="cursor-pointer text-[11px] text-accent hover:underline">Upload doc (pdf/docx)<input type="file" accept=".pdf,.docx,.txt,.csv" className="hidden" onChange={uploadDoc} /></label>}>
         {msg && <p className={`mb-2 text-xs ${msg.ok ? "text-emerald-400" : "text-red-400"}`}>{msg.text}</p>}
         {extractMsg && <p className="mb-2 text-xs text-[#f59e0b]">{extractMsg}</p>}
@@ -200,7 +200,7 @@ function BomTab({ s, onSaved }) {
               {editable && <Button size="sm" variant="ghost" onClick={() => setRows(rows.filter((_, j) => j !== i))}>✕</Button>}
             </div>
           ))}
-          {rows.length === 0 && <p className="text-xs text-muted">No BOM yet — add products, upload a doc, or ask the LLM.</p>}
+          {rows.length === 0 && <p className="text-xs text-muted">No BOM yet - add products, upload a doc, or ask the LLM.</p>}
           {editable && (
             <>
               <div className="flex items-center gap-2 pt-1">
@@ -218,7 +218,7 @@ function BomTab({ s, onSaved }) {
         </div>
       </Card>
 
-      <Card title="LLM optimize (you are the boss — review before applying)">
+      <Card title="LLM optimize (you are the boss - review before applying)">
         <div className="space-y-2">
           <div className="flex gap-2">
             <Input value={prompt} placeholder="e.g. optimize for cost / use premium brands / cut cement 10%" onChange={(e) => setPrompt(e.target.value)} />
@@ -238,10 +238,10 @@ function BomTab({ s, onSaved }) {
                   ))}
                 </Table>
               )}
-              {editable && sug.lines?.length > 0 && <Button size="sm" className="mt-2" onClick={applySuggestion}>Apply to editor →</Button>}
+              {editable && sug.lines?.length > 0 && <Button size="sm" className="mt-2" onClick={applySuggestion}>Apply to editor </Button>}
             </div>
           )}
-          <p className="text-[11px] text-muted">The LLM only suggests. You review, edit, and Save — nothing changes until you do.</p>
+          <p className="text-[11px] text-muted">The LLM only suggests. You review, edit, and Save - nothing changes until you do.</p>
         </div>
       </Card>
     </div>
@@ -271,7 +271,7 @@ function PhaseNeedsTab({ s }) {
           {(needs.data || []).length === 0 && <p className="text-sm text-muted">Enter a BOM first (Bill of materials tab).</p>}
         </div>
       )}
-      <p className="mt-2 text-[11px] text-muted">To change what a phase needs, edit the BOM — the hub can optimize it with the LLM on the Bill-of-materials tab.</p>
+      <p className="mt-2 text-[11px] text-muted">To change what a phase needs, edit the BOM - the hub can optimize it with the LLM on the Bill-of-materials tab.</p>
     </Card>
   );
 }

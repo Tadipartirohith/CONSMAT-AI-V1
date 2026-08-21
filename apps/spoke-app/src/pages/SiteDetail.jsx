@@ -32,7 +32,7 @@ export default function SiteDetail() {
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3">
-        <Link to="/sites" className="text-sm text-muted hover:text-white">← Sites</Link>
+        <Link to="/sites" className="text-sm text-muted hover:text-white">Back to Sites</Link>
         <h1 className="font-head text-2xl font-extrabold text-white">{s.code}</h1>
         <Badge tone={s.status === "completed" ? "ok" : s.status === "active" ? "accent" : "muted"}>{s.status}</Badge>
         <div className="ml-auto">
@@ -52,7 +52,7 @@ export default function SiteDetail() {
         <Card title="Phase date changes awaiting your approval">
           {pending.map((c) => (
             <div key={c.id} className="flex flex-wrap items-center gap-3 border-b border-border/50 py-2 text-sm">
-              <span className="text-white/80">Phase {c.phase_seq} ({PHASE_NAMES[c.phase_seq]}): end {c.old_end || "?"} → <b>{c.new_end}</b></span>
+              <span className="text-white/80">Phase {c.phase_seq} ({PHASE_NAMES[c.phase_seq]}): end {c.old_end || "?"} to <b>{c.new_end}</b></span>
               <span className="text-muted">by {c.requested_by || c.requested_by_role}</span>
               <div className="ml-auto flex gap-2">
                 <Button size="sm" onClick={() => act(() => site.decideChange(c.id, true), "Approved")} disabled={busy}>Approve</Button>
@@ -78,7 +78,7 @@ export default function SiteDetail() {
         </Card>
       </div>
 
-      <Card title="Dispatches (hub → site)"
+      <Card title="Dispatches (hub to site)"
         right={hasShorts && <Button size="sm" onClick={() => act(() => site.backfill(id), "Backfill")} disabled={busy}>Backfill shortfalls</Button>}>
         {s.dispatches.length === 0 ? <p className="text-sm text-muted">No dispatches yet.</p> : (
           <div className="space-y-2">
@@ -145,7 +145,7 @@ function BomCard({ siteId, lines, editable, onSaved }) {
     try {
       const r = await proc.bomExtract(file);
       setRows((r.lines || []).map((l) => ({ product_id: l.product_id || "", material_id: l.material_id || "", product_name: l.product_name || l.raw || "", phase_seq: l.phase_seq || 0, total_qty: l.total_qty || 0 })));
-      setInfo(`${r.summary} — review & map any unmatched, set phases, then Save.`);
+      setInfo(`${r.summary} - review & map any unmatched, set phases, then Save.`);
     } catch (e) { setErr(e.message); } finally { setBusy(false); e.target.value = ""; }
   };
 
@@ -184,7 +184,7 @@ function BomCard({ siteId, lines, editable, onSaved }) {
             <Button size="sm" variant="ghost" onClick={() => del(i)}>✕</Button>
           </div>
         ))}
-        {rows.length === 0 && <p className="text-xs text-muted">Add products, or upload a BOM doc — the LLM extracts and maps it.</p>}
+        {rows.length === 0 && <p className="text-xs text-muted">Add products, or upload a BOM doc - the LLM extracts and maps it.</p>}
         <div className="flex items-center gap-2 pt-1">
           <Select value={pid} onChange={(e) => setPid(e.target.value)}>
             <option value="">select product…</option>
@@ -218,7 +218,7 @@ function PhaseRow({ phase: p, busy, onComplete, onDates }) {
         {p.status === "in_progress" && <Button size="sm" onClick={onComplete} disabled={busy}>Complete</Button>}
       </div>
       <div className="mt-1 pl-8 text-[11px] text-muted">
-        {p.planned_start || "no start"} → {p.planned_end || "no end"}
+        {p.planned_start || "no start"} to {p.planned_end || "no end"}
       </div>
       {editing && (
         <div className="mt-2 flex flex-wrap items-center gap-2 pl-8">

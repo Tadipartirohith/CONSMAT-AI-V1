@@ -57,14 +57,14 @@ def _post(path: str, body: dict, *, insufficient_ref: str = "") -> dict:
 
 
 def post_outbound(material_id: str, qty: float, ref_id: str) -> dict:
-    """Dispatch material-level stock hub → site (legacy path)."""
+    """Dispatch material-level stock hub to site (legacy path)."""
     return _post("/inventory/outbound",
                  {"material_id": material_id, "qty": qty, "ref_type": "dispatch", "ref_id": ref_id},
                  insufficient_ref=material_id)
 
 
 def post_product_outbound(product_id: str, qty: float, ref_id: str, *, from_reservation: bool = False) -> dict:
-    """Dispatch brand-level stock hub → site. Raises InsufficientStock on 409."""
+    """Dispatch brand-level stock hub to site. Raises InsufficientStock on 409."""
     return _post("/inventory/product-outbound",
                  {"product_id": product_id, "qty": qty, "ref_type": "dispatch", "ref_id": ref_id,
                   "from_reservation": from_reservation},

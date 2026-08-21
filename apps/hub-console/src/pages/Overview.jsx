@@ -1,6 +1,8 @@
 import { Fragment, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { inv, proc, site, inr, PHASE_NAMES } from "../api.js";
 import { Card, Stat, Table, Td, Badge, Button, useAsync } from "../components/ui.jsx";
+import { siteHealth } from "./Projects.jsx";
 
 const TONE = {
   green: { dot: "#22c55e", label: "on track" },
@@ -8,22 +10,7 @@ const TONE = {
   orange: { dot: "#f59e0b", label: "delayed" },
   red: { dot: "#ef4444", label: "blocked" },
 };
-
-const daysBetween = (a, b) => Math.round((a - b) / 86400000);
-
-// RAG health from delays (phase vs planned end) and delivery (material shortfalls).
-function siteHealth(s, today) {
-  if (s.status === "completed") return { tone: "green", reason: "completed" };
-  const shorts = (s.dispatches || []).flatMap((d) => d.lines.filter((l) => l.status === "short"));
-  const cur = (s.phases || []).find((p) => p.status === "in_progress");
-  const end = cur?.planned_end ? new Date(cur.planned_end) : null;
-  const overdue = end ? daysBetween(today, end) : null; // >0 = past end date
-  if (shorts.length || (overdue != null && overdue > 3)) return { tone: "red", reason: shorts.length ? `${shorts.length} material(s) short` : `${overdue}d overdue` };
-  if (overdue != null && overdue >= 0) return { tone: "orange", reason: `phase ${cur.phase_seq} past due` };
-  if (s.status === "active" && (end == null)) return { tone: "yellow", reason: "no phase dates set" };
-  if (overdue != null && overdue >= -3) return { tone: "yellow", reason: `phase ends in ${-overdue}d` };
-  return { tone: "green", reason: "on schedule" };
-}
+const ORDER = ["green", "yellow", "orange", "red"];
 
 export default function Overview() {
   const stock = useAsync(() => inv.stock());
@@ -57,48 +44,179 @@ export default function Overview() {
         <Stat label="Procurement orders" value={orders.data?.length ?? "n/a"} sub={`${vendors.data?.length ?? 0} vendors`} />
       </div>
 
-      <Card title="Project health" right={<Button size="sm" variant="ghost" onClick={sites.reload}>Refresh</Button>}>
-        {total === 0 ? <p className="text-sm text-muted">No projects yet.</p> : (
-          <>
-            <div className="mb-3 flex h-2.5 w-full overflow-hidden rounded">
-              {["green", "yellow", "orange", "red"].map((t) => counts[t] ? (
-                <div key={t} title={`${counts[t]} ${TONE[t].label}`} style={{ width: `${(counts[t] / total) * 100}%`, background: TONE[t].dot }} />
-              ) : null)}
-            </div>
-            <div className="mb-3 flex flex-wrap gap-4 text-xs">
-              {["green", "yellow", "orange", "red"].map((t) => (
-                <span key={t} className="flex items-center gap-1.5">
-                  <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: TONE[t].dot }} />
-                  <span className="text-white/80">{counts[t] || 0}</span>
-                  <span className="text-muted">{TONE[t].label}</span>
-                </span>
-              ))}
-            </div>
-            <Table head={["Project", "Status", "Phase", "Health"]}>
-              {health.map(({ s, h }) => {
-                const cur = (s.phases || []).find((p) => p.status === "in_progress");
-                return (
-                  <tr key={s.id} className="border-b border-border/50">
-                    <Td><a className="text-accent hover:underline" href={`/projects/${s.id}`}>{s.label || s.code}</a></Td>
-                    <Td><Badge tone={s.status === "completed" ? "ok" : s.status === "active" ? "accent" : "muted"}>{s.status}</Badge></Td>
-                    <Td className="text-muted">{cur ? `${cur.phase_seq}. ${PHASE_NAMES[cur.phase_seq]}` : "-"}</Td>
-                    <Td>
-                      <span className="flex items-center gap-1.5">
-                        <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: TONE[h.tone].dot }} />
-                        <span className="text-white/80">{TONE[h.tone].label}</span>
-                        <span className="text-[11px] text-muted">· {h.reason}</span>
-                      </span>
-                    </Td>
-                  </tr>
-                );
-              })}
-            </Table>
-          </>
-        )}
-      </Card>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card title="Project health" right={<Button size="sm" variant="ghost" onClick={sites.reload}>Refresh</Button>}>
+          <HealthDonut counts={counts} total={total} />
+        </Card>
+        <Card title="Stock buffer watch" right={<Button size="sm" variant="ghost" onClick={() => window.location.reload()}>Refresh</Button>}>
+          <StockBuffer />
+        </Card>
+      </div>
 
       <NetworkShortfalls sites={sites} consumers={consumers.data || []} spokes={spokes.data || []} />
+
+      <EventsFeed />
     </div>
+  );
+}
+
+/* ---- Project-health donut: hover a segment to read its count, click to open those projects ---- */
+function HealthDonut({ counts, total }) {
+  const nav = useNavigate();
+  const [hover, setHover] = useState(null);
+  if (total === 0) return <p className="text-sm text-muted">No projects yet.</p>;
+
+  const segs = ORDER.filter((t) => counts[t]).map((t) => ({ key: t, value: counts[t], color: TONE[t].dot, label: TONE[t].label }));
+  const R = 62, SW = 22, C = 2 * Math.PI * R;
+  let acc = 0;
+  const center = hover ? { big: `${hover.value}/${total}`, small: hover.label } : { big: total, small: total === 1 ? "project" : "projects" };
+
+  return (
+    <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-6">
+      <div className="relative h-[168px] w-[168px] shrink-0">
+        <svg viewBox="0 0 168 168" className="h-full w-full">
+          <g transform="rotate(-90 84 84)">
+            <circle cx="84" cy="84" r={R} fill="none" stroke="#1f2937" strokeWidth={SW} />
+            {segs.map((seg) => {
+              const len = (seg.value / total) * C;
+              const el = (
+                <circle key={seg.key} cx="84" cy="84" r={R} fill="none" stroke={seg.color} strokeWidth={SW}
+                  strokeDasharray={`${len} ${C - len}`} strokeDashoffset={-acc}
+                  opacity={hover && hover.key !== seg.key ? 0.28 : 1}
+                  className="cursor-pointer transition-opacity"
+                  onMouseEnter={() => setHover(seg)} onMouseLeave={() => setHover(null)}
+                  onClick={() => nav(`/projects?health=${seg.key}`)} />
+              );
+              acc += len;
+              return el;
+            })}
+          </g>
+        </svg>
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+          <span className="font-head text-3xl font-extrabold text-white">{center.big}</span>
+          <span className="text-[11px] text-muted">{center.small}</span>
+        </div>
+      </div>
+      <div className="flex-1 space-y-1.5">
+        {ORDER.map((t) => (
+          <button key={t} onClick={() => counts[t] && nav(`/projects?health=${t}`)}
+            onMouseEnter={() => counts[t] && setHover({ key: t, value: counts[t], label: TONE[t].label })}
+            onMouseLeave={() => setHover(null)}
+            className={`flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm ${counts[t] ? "hover:bg-white/5" : "opacity-40"}`}>
+            <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: TONE[t].dot }} />
+            <span className="text-white/80">{counts[t] || 0}</span>
+            <span className="text-muted">{TONE[t].label}</span>
+            {counts[t] > 0 && <span className="ml-auto text-[11px] text-accent">view</span>}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---- Stock buffer watch: out / low / future-need against the 3x-reserved buffer ---- */
+const RATIO_BAND = (onHand, reserved) => {
+  if (reserved <= 0) return "ok";
+  const r = onHand / reserved;
+  if (r < 1) return "out";        // can't even cover committed demand
+  if (r < 1.5) return "low";      // under 1.5x
+  if (r < 3) return "watch";      // under the 3x target
+  return "ok";
+};
+const BAND = {
+  out: { color: "#ef4444", label: "Out of stock" },
+  low: { color: "#f59e0b", label: "Low buffer" },
+  watch: { color: "#eab308", label: "Below 3x target" },
+};
+
+function StockBuffer() {
+  const low = useAsync(() => inv.lowStock());
+  const products = useAsync(() => inv.products());
+  const nav = useNavigate();
+  const [pick, setPick] = useState(null);
+
+  const nameMap = Object.fromEntries((products.data || []).map((p) => [p.id, p.name]));
+  const items = (low.data || []).map((r) => {
+    const band = RATIO_BAND(r.on_hand, r.reserved);
+    const target = r.reserved * 3;
+    return { ...r, band, target, pct: target > 0 ? Math.min(100, (r.on_hand / target) * 100) : 0,
+             name: nameMap[r.product_id] || r.product_id };
+  }).sort((a, b) => (a.on_hand / (a.reserved || 1)) - (b.on_hand / (b.reserved || 1)));
+
+  const groups = { out: [], low: [], watch: [] };
+  for (const it of items) (groups[it.band] || groups.watch).push(it);
+  const shown = pick ? groups[pick] : items;
+
+  if (low.loading) return <p className="text-sm text-muted">Loading…</p>;
+  if (items.length === 0) return <p className="text-sm text-emerald-400">Every product holds a healthy buffer (3x committed demand).</p>;
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-3 gap-2">
+        {["out", "low", "watch"].map((b) => (
+          <button key={b} onClick={() => setPick(pick === b ? null : b)}
+            className={`border px-2 py-2 text-left ${pick === b ? "border-accent bg-accent/5" : "border-border bg-panel2"}`}>
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: BAND[b].color }} />
+              <span className="font-head text-xl font-bold text-white">{groups[b].length}</span>
+            </div>
+            <p className="mt-0.5 text-[11px] text-muted">{BAND[b].label}</p>
+          </button>
+        ))}
+      </div>
+      {pick && <p className="text-[11px] text-muted">Showing {BAND[pick].label.toLowerCase()} - click the tile again to show all.</p>}
+      <div className="space-y-2">
+        {shown.map((it) => (
+          <button key={it.product_id} onClick={() => nav(`/inventory?material=${it.material_id}`)}
+            className="block w-full text-left">
+            <div className="flex items-center justify-between text-xs">
+              <span className="truncate text-white/85">{it.name}</span>
+              <span className="ml-2 shrink-0 font-mono text-muted">{it.on_hand} / {it.target} <span className="text-[10px]">(3x)</span></span>
+            </div>
+            <div className="mt-1 h-2 w-full overflow-hidden rounded bg-panel2">
+              <div className="h-full rounded" style={{ width: `${Math.max(4, it.pct)}%`, background: BAND[it.band]?.color || "#eab308" }} />
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---- Network events feed (dispatch, phase, delivery notifications across all sites) ---- */
+function EventsFeed() {
+  const events = useAsync(() => site.notifications());
+  const [kind, setKind] = useState("");
+  const rows = (events.data || []).filter((n) => !kind || n.kind === kind).slice(0, 20);
+  const kinds = [...new Set((events.data || []).map((n) => n.kind))];
+  const ICON = { dispatched: "🚚", dispatch_pending: "⏳", received: "📦", started: "🏗️",
+                 phase_done: "✅", project_done: "🎉", confirm_reminder: "🔔", low_stock: "⚠️" };
+
+  return (
+    <Card title="Network events" right={<Button size="sm" variant="ghost" onClick={events.reload}>Refresh</Button>}>
+      {kinds.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          <button onClick={() => setKind("")} className={`rounded px-2 py-0.5 text-[11px] ${!kind ? "bg-accent/15 text-accent" : "bg-panel2 text-muted"}`}>all</button>
+          {kinds.map((k) => (
+            <button key={k} onClick={() => setKind(k)} className={`rounded px-2 py-0.5 text-[11px] ${kind === k ? "bg-accent/15 text-accent" : "bg-panel2 text-muted"}`}>{k}</button>
+          ))}
+        </div>
+      )}
+      {rows.length === 0 ? <p className="text-sm text-muted">No events yet.</p> : (
+        <div className="space-y-1.5">
+          {rows.map((n) => (
+            <div key={n.id} className="flex items-start gap-2 border-b border-border/50 pb-1.5 text-sm">
+              <span className="text-base">{ICON[n.kind] || "🔔"}</span>
+              <div className="min-w-0 flex-1">
+                <span className="text-white/85">{n.message}</span>
+                {n.site_id ? <Link to={`/projects/${n.site_id}`} className="ml-2 text-[11px] text-accent hover:underline">SITE-{n.site_id}</Link> : null}
+              </div>
+              {n.created_at && <span className="shrink-0 text-[11px] text-muted">{new Date(n.created_at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }
 
@@ -110,7 +228,6 @@ function NetworkShortfalls({ sites, consumers, spokes }) {
   const consumerMap = Object.fromEntries(consumers.map((c) => [c.id, c]));
   const spokeMap = Object.fromEntries(spokes.map((s) => [s.id, s]));
 
-  // group short lines by site
   const bySite = [];
   for (const s of sites.data || []) {
     const shorts = (s.dispatches || []).flatMap((d) => d.lines.filter((l) => l.status === "short").map((l) => ({ ...l, phase_seq: d.phase_seq })));
@@ -128,7 +245,8 @@ function NetworkShortfalls({ sites, consumers, spokes }) {
       const res = await site.backfillAll();
       const done = res.sites.reduce((n, s) => n + s.backfilled.length, 0);
       const left = res.sites.reduce((n, s) => n + s.still_short.length, 0);
-      setMsg({ ok: true, text: `Re-dispatched ${done} line(s)${left ? `, ${left} still short (need more stock)` : ""}.` });
+      // Still-short is a warning (need more stock), so surface it in red, not green.
+      setMsg({ ok: left === 0, text: `Re-dispatched ${done} line(s)${left ? `, ${left} still short (need more stock)` : ""}.` });
       sites.reload();
     } catch (e) { setMsg({ ok: false, text: e.message }); } finally { setBusy(false); }
   };
@@ -146,7 +264,7 @@ function NetworkShortfalls({ sites, consumers, spokes }) {
             {bySite.map(({ site: s, shorts, spoke, phaseSeq }) => (
               <Fragment key={s.id}>
                 <tr className="border-b border-border/50">
-                  <Td><a className="text-accent hover:underline" href={`/projects/${s.id}`}>{s.label || s.code}</a></Td>
+                  <Td><Link className="text-accent hover:underline" to={`/projects/${s.id}`}>{s.label || s.code}</Link></Td>
                   <Td className="text-muted">{spoke?.name || "-"}</Td>
                   <Td className="text-muted">{s.location || "-"}</Td>
                   <Td className="text-muted">{phaseSeq ? `${phaseSeq}. ${PHASE_NAMES[phaseSeq]}` : "-"}</Td>

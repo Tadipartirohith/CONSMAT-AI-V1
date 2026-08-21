@@ -35,7 +35,7 @@ export default function Sites() {
                 <Td>{s.location || "-"}</Td>
                 <Td mono>{s.area_sqft} × {s.floors}f</Td>
                 <Td><Badge tone={s.status === "completed" ? "ok" : s.status === "active" ? "accent" : "muted"}>{s.status}</Badge></Td>
-                <Td><Link className="text-accent hover:underline" to={`/sites/${s.id}`}>open →</Link></Td>
+                <Td><Link className="text-accent hover:underline" to={`/sites/${s.id}`}>open </Link></Td>
               </tr>
             ))}
             {sites.data?.length === 0 && <tr><Td className="text-muted">No sites yet.</Td></tr>}

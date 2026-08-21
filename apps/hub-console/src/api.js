@@ -9,7 +9,7 @@ async function req(base, path, opts = {}) {
     ...opts,
   });
   if (res.status === 401) {
-    logout(); // token missing/expired → back to login
+    logout(); // token missing/expired to back to login
     throw new Error("Session expired");
   }
   if (!res.ok) {

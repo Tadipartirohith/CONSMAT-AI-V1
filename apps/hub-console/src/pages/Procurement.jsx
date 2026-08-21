@@ -36,7 +36,7 @@ export default function Procurement() {
 
   const receive = async (id) => {
     setBusy(true); setMsg(null);
-    try { const o = await proc.receive(id); setMsg({ ok: true, text: `${o.code} → ${o.status}.` }); orders.reload(); }
+    try { const o = await proc.receive(id); setMsg({ ok: true, text: `${o.code} to ${o.status}.` }); orders.reload(); }
     catch (e) { setMsg({ ok: false, text: e.message }); } finally { setBusy(false); }
   };
 
@@ -47,7 +47,7 @@ export default function Procurement() {
       {msg && <p className={`text-xs ${msg.ok === false ? "text-red-400" : msg.ok ? "text-emerald-400" : "text-red-400"}`}>{msg.text || msg}</p>}
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="Demand → cheapest-source plan">
+        <Card title="Demand to cheapest-source plan">
           <div className="space-y-2">
             {rows.length === 0 && <p className="text-xs text-muted">Search and add products to procure.</p>}
             {rows.map((r, i) => (

@@ -184,7 +184,7 @@ def start_site(site_id: int, db: Session = Depends(get_db)):
 
 @router.post("/sites/{site_id}/phases/{seq}/complete", dependencies=[Depends(FIELD)])
 def complete_phase(site_id: int, seq: int, db: Session = Depends(get_db)):
-    """Civil engineer: mark a phase complete → triggers JIT dispatch of the next phase."""
+    """Civil engineer: mark a phase complete to triggers JIT dispatch of the next phase."""
     return _run(service.complete_phase, db=db, site_id=site_id, seq=seq)
 
 
