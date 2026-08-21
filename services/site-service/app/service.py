@@ -705,12 +705,39 @@ def confirm_receipt(db: Session, dispatch_id: int, actor_role: str, actor_org: s
     return d
 
 
-def run_scheduler_tick(db: Session, *, today=None, notice_days: int = 3, dispatch_days: int = 2) -> dict:
+def run_scheduler_tick(db: Session, *, today=None, notice_days: int = 3, dispatch_days: int = 2,
+                       confirm_reminder_days: int | None = None) -> dict:
     """JIT scheduler: for each active site, warn the field team ~3 days before the current phase's end
-    date and pre-dispatch the next phase's materials ~1 day later, so construction is never halted."""
-    from datetime import date as _date
+    date and pre-dispatch the next phase's materials ~1 day later, so construction is never halted.
+    Also nudges the field team when a delivered shipment stays unconfirmed for too long."""
+    from datetime import date as _date, datetime as _dt, timezone as _tz
     today = today or _date.today()
+    if confirm_reminder_days is None:
+        confirm_reminder_days = settings.confirm_reminder_days
     actions: list[dict] = []
+
+    # Nudge: shipments delivered but not confirmed by the customer for > N days.
+    now = _dt.now(_tz.utc)
+    for d in db.execute(select(models.Dispatch).where(
+            models.Dispatch.status == models.DSP_DISPATCHED)).scalars():
+        if d.created_at is None:
+            continue
+        age = (now - d.created_at).days
+        if age < confirm_reminder_days:
+            continue
+        already = db.execute(select(models.Notification).where(
+            models.Notification.site_id == d.site_id,
+            models.Notification.phase_seq == d.phase_seq,
+            models.Notification.kind == "confirm_reminder")).first()
+        if already:
+            continue
+        site = db.get(models.Site, d.site_id)
+        _notify(db, site, "confirm_reminder",
+                f"Phase {d.phase_seq} ({_PHASE_NAME.get(d.phase_seq, '')}) materials were delivered "
+                f"{age} day(s) ago but the customer hasn't confirmed receipt. Please follow up.",
+                phase_seq=d.phase_seq, audience="field")
+        actions.append({"site": site.code, "kind": "confirm_reminder", "phase": d.phase_seq})
+
     for site in db.execute(select(models.Site).where(models.Site.status == "active")).scalars():
         cur = next((p for p in site.phases if p.status == models.PH_IN_PROGRESS), None)
         if cur is None or cur.planned_end is None:

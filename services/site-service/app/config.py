@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     # JIT dispatch scheduler: warn 3 days before a phase ends and pre-dispatch the next phase.
     scheduler_enabled: bool = True
     scheduler_interval_seconds: int = 60
+    # Nudge the field team when a delivered shipment stays unconfirmed for this many days.
+    confirm_reminder_days: int = 3
 
 
 settings = Settings()
