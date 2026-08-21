@@ -1,7 +1,7 @@
 """Procurement engine, Hub LLM analysis, and procurement orders."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from .. import llm, orders, pricing_client, procurement_engine, schemas, service
@@ -104,6 +104,38 @@ _BOM_OPT_SCHEMA = (
     "BOM from the catalog per the instruction. The hub user reviews and edits your suggestion, so make it "
     "concrete and grounded in the catalog. Output JSON only."
 )
+
+
+_BOM_EXTRACT_SCHEMA = (
+    "You extract a construction Bill of Materials from a raw document and map each item to the hub's "
+    "product catalog. You are given the document text and the catalog (branded SKUs under materials). "
+    "Output STRICT JSON only: {\"summary\": string, \"lines\": [{\"product_id\": string, "
+    "\"product_name\": string, \"material_id\": string, \"total_qty\": number, \"phase_seq\": number, "
+    "\"matched\": boolean, \"raw\": string}]}.\n"
+    "Rules: for each material line in the document, pick the best-matching catalog product and use its "
+    "product_id/material_id (matched=true). If nothing matches well, set product_id='' and matched=false "
+    "and keep the document's wording in product_name and raw so the user can add the product. total_qty "
+    "is the quantity from the document (whole-project). phase_seq: if the document assigns the item to a "
+    "construction phase (1-9), use it; otherwise 0. Do not invent items not in the document. Output JSON only."
+)
+
+
+@router.post("/procurement/bom-extract")
+async def bom_extract(file: UploadFile = File(...)):
+    """Parse an uploaded BOM (pdf/docx/txt) and let the Hub LLM extract + map lines to catalog products."""
+    from .. import catalog_client, doc_parse
+    data = await file.read()
+    text = doc_parse.extract_text(file.filename or "", data)[:8000]
+    if not text.strip():
+        return {"summary": "Could not read any text from the document.", "lines": []}
+    try:
+        catalog = [{k: p.get(k) for k in ("id", "name", "brand", "material_id", "grade")}
+                   for p in catalog_client.list_products()]
+    except Exception:  # noqa: BLE001
+        catalog = []
+    import json as _json
+    result = llm.complete_json(_BOM_EXTRACT_SCHEMA, _json.dumps({"document": text, "catalog": catalog}))
+    return result or {"summary": "Hub LLM unavailable — configure AI_PROVIDER.", "lines": []}
 
 
 @router.post("/procurement/bom-optimize", dependencies=[Depends(HUB_WRITE)])

@@ -130,6 +130,7 @@ class BOMLine(Base):
     material_id: Mapped[str] = mapped_column(String(40), nullable=False)
     product_id: Mapped[str] = mapped_column(String(64), default="")     # brand SKU when CE/spoke enters it
     product_name: Mapped[str] = mapped_column(String(200), default="")
+    phase_seq: Mapped[int] = mapped_column(Integer, default=0)  # 0 = whole-project (auto-slice); 1-9 = explicit phase
     total_qty: Mapped[Decimal] = mapped_column(Numeric(16, 3), nullable=False)
     site: Mapped["Site"] = relationship(back_populates="bom_lines")
 

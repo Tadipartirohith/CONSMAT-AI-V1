@@ -90,6 +90,7 @@ class BOMLineOut(BaseModel):
     material_id: str
     product_id: str = ""
     product_name: str = ""
+    phase_seq: int = 0
     total_qty: float
 
 
@@ -97,6 +98,7 @@ class BOMLineIn(BaseModel):
     material_id: str = Field(min_length=1)
     product_id: str = ""
     product_name: str = ""
+    phase_seq: int = 0            # 0 = whole-project (auto-slice); 1-9 = explicit phase
     total_qty: float = Field(gt=0)
 
 

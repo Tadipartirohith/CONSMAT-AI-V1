@@ -57,6 +57,13 @@ export const proc = {
   scout: (material_id) => req("proc", "/procurement/scout", body({ material_id })),
   externalOffers: (m) => req("proc", `/external-offers${m ? `?material_id=${m}` : ""}`),
   bomOptimize: (b) => req("proc", "/procurement/bom-optimize", body(b)),
+  bomExtract: async (file) => {
+    const fd = new FormData(); fd.append("file", file);
+    const res = await fetch("/proc/procurement/bom-extract", { method: "POST", headers: { ...authHeader() }, body: fd });
+    if (res.status === 401) { logout(); throw new Error("Session expired"); }
+    if (!res.ok) { let d = res.statusText; try { d = (await res.json()).detail || d; } catch {} throw new Error(typeof d === "string" ? d : JSON.stringify(d)); }
+    return res.json();
+  },
   priceDrops: () => req("proc", "/market/price-drops"),
   marketScan: (category) => req("proc", "/market/scan", body({ category: category || "" })),
   alerts: () => req("proc", "/market/alerts"),

@@ -282,15 +282,30 @@ FIELD_APPROVERS = ("spokesperson", "hub_supervisor", "hub_manager", "admin")
 
 
 def _bom_line_dicts(site: models.Site) -> list[dict]:
-    return [{"product_id": b.product_id, "material_id": b.material_id,
-             "product_name": b.product_name, "total_qty": float(b.total_qty)} for b in site.bom_lines]
+    return [{"product_id": b.product_id, "material_id": b.material_id, "product_name": b.product_name,
+             "phase_seq": int(b.phase_seq or 0), "total_qty": float(b.total_qty)} for b in site.bom_lines]
+
+
+def _phase_dispatch_lines(lines: list[dict], seq: int) -> list[dict]:
+    """Products a phase needs = explicit per-phase lines (phase_seq == seq) + the weight-sliced portion
+    of any whole-project lines (phase_seq == 0)."""
+    out: list[dict] = []
+    for ln in lines:
+        if ln.get("phase_seq") and int(ln["phase_seq"]) == seq:
+            q = float(ln.get("total_qty") or 0)
+            if q > 0 and ln.get("product_id"):
+                out.append({"product_id": ln["product_id"], "material_id": ln["material_id"],
+                            "product_name": ln.get("product_name", ""), "qty": q})
+    auto = [ln for ln in lines if not ln.get("phase_seq")]
+    out += bom.product_phase_slice(auto, seq)
+    return out
 
 
 def _reserve_totals(lines: list[dict]) -> dict[str, float]:
-    """Total quantity that will actually be dispatched per product (sum of the 9 phase slices)."""
+    """Total quantity that will actually be dispatched per product (sum across the 9 phases)."""
     agg: dict[str, float] = {}
     for seq, _n, _r in bom.PHASES:
-        for item in bom.product_phase_slice(lines, seq):
+        for item in _phase_dispatch_lines(lines, seq):
             if item["product_id"]:
                 agg[item["product_id"]] = agg.get(item["product_id"], 0.0) + item["qty"]
     return agg
@@ -324,7 +339,7 @@ def set_bom(db: Session, site_id: int, lines: list[dict]) -> models.Site:
     for ln in lines:
         db.add(models.BOMLine(site_id=site.id, material_id=ln["material_id"],
                               product_id=ln.get("product_id", ""), product_name=ln.get("product_name", ""),
-                              total_qty=_dec(ln["total_qty"])))
+                              phase_seq=int(ln.get("phase_seq") or 0), total_qty=_dec(ln["total_qty"])))
     existing = {p.phase_seq for p in site.phases}
     for seq, _n, _r in bom.PHASES:
         if seq not in existing:
@@ -352,7 +367,7 @@ def phase_needs(db: Session, site_id: int) -> list[dict]:
     for seq, name, _rpf in bom.PHASES:
         out.append({
             "phase_seq": seq, "name": name, "status": phase_status.get(seq, models.PH_PENDING),
-            "lines": bom.product_phase_slice(lines, seq),
+            "lines": _phase_dispatch_lines(lines, seq),
         })
     return out
 
@@ -369,7 +384,7 @@ def _phase(site: models.Site, seq: int) -> models.PhaseProgress | None:
 
 def _dispatch_phase(db: Session, site: models.Site, seq: int) -> models.Dispatch:
     """Compute the phase's product slice and pull it from hub inventory (brand-level outbound)."""
-    slice_ = bom.product_phase_slice(_bom_line_dicts(site), seq)
+    slice_ = _phase_dispatch_lines(_bom_line_dicts(site), seq)
     dispatch = models.Dispatch(site_id=site.id, phase_seq=seq, status=models.DSP_DISPATCHED)
     db.add(dispatch)
     db.flush()

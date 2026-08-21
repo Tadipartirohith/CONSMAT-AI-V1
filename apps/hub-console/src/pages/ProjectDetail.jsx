@@ -121,7 +121,7 @@ function Overview({ s, notifs }) {
 
 function BomTab({ s, onSaved }) {
   const products = useAsync(() => inv.products());
-  const [rows, setRows] = useState(() => s.bom_lines.map((b) => ({ product_id: b.product_id, material_id: b.material_id, product_name: b.product_name || b.material_id, total_qty: b.total_qty })));
+  const [rows, setRows] = useState(() => s.bom_lines.map((b) => ({ product_id: b.product_id, material_id: b.material_id, product_name: b.product_name || b.material_id, phase_seq: b.phase_seq || 0, total_qty: b.total_qty })));
   const [pid, setPid] = useState("");
   const [qty, setQty] = useState("");
   const [msg, setMsg] = useState(null);
@@ -132,17 +132,28 @@ function BomTab({ s, onSaved }) {
   const [prompt, setPrompt] = useState("");
   const [sug, setSug] = useState(null);
   const [llmBusy, setLlmBusy] = useState(false);
+  const [extractMsg, setExtractMsg] = useState(null);
 
   const add = () => {
     const p = (products.data || []).find((x) => x.id === pid);
     if (!p || !qty) return;
-    setRows([...rows, { product_id: p.id, material_id: p.material_id, product_name: p.name, total_qty: Number(qty) }]);
+    setRows([...rows, { product_id: p.id, material_id: p.material_id, product_name: p.name, phase_seq: 0, total_qty: Number(qty) }]);
     setPid(""); setQty("");
   };
   const save = async () => {
     setBusy(true); setMsg(null);
-    try { await site.setBom(s.id, rows.map((r) => ({ material_id: r.material_id, product_id: r.product_id, product_name: r.product_name, total_qty: Number(r.total_qty) }))); setMsg({ ok: true, text: "BOM saved." }); onSaved(); }
+    try { await site.setBom(s.id, rows.filter((r) => r.product_id).map((r) => ({ material_id: r.material_id, product_id: r.product_id, product_name: r.product_name, phase_seq: Number(r.phase_seq) || 0, total_qty: Number(r.total_qty) }))); setMsg({ ok: true, text: "BOM saved." }); onSaved(); }
     catch (e) { setMsg({ ok: false, text: e.message }); } finally { setBusy(false); }
+  };
+  const uploadDoc = async (e) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    setBusy(true); setExtractMsg("Reading document…");
+    try {
+      const r = await proc.bomExtract(file);
+      const extracted = (r.lines || []).map((l) => ({ product_id: l.product_id || "", material_id: l.material_id || "", product_name: l.product_name || l.raw || "", phase_seq: l.phase_seq || 0, total_qty: l.total_qty || 0, matched: l.matched }));
+      setRows(extracted);
+      setExtractMsg(`${r.summary} (${extracted.filter((x) => x.product_id).length}/${extracted.length} mapped — review, fix unmatched, then Save)`);
+    } catch (e) { setExtractMsg(e.message); } finally { setBusy(false); e.target.value = ""; }
   };
   const optimize = async () => {
     setLlmBusy(true); setSug(null);
@@ -154,23 +165,36 @@ function BomTab({ s, onSaved }) {
   };
   const applySuggestion = () => {
     if (!sug?.lines) return;
-    setRows(sug.lines.map((l) => ({ product_id: l.product_id, material_id: l.material_id, product_name: l.product_name, total_qty: l.total_qty })));
+    setRows(sug.lines.map((l) => ({ product_id: l.product_id, material_id: l.material_id, product_name: l.product_name, phase_seq: l.phase_seq || 0, total_qty: l.total_qty })));
     setSug(null);
   };
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <Card title={editable ? "Bill of materials (hub can edit)" : "Bill of materials (locked after start)"}>
+      <Card title={editable ? "Bill of materials — enter, upload or optimize" : "Bill of materials (locked after start)"}
+        right={editable && <label className="cursor-pointer text-[11px] text-accent hover:underline">Upload doc (pdf/docx)<input type="file" accept=".pdf,.docx,.txt,.csv" className="hidden" onChange={uploadDoc} /></label>}>
         {msg && <p className={`mb-2 text-xs ${msg.ok ? "text-emerald-400" : "text-red-400"}`}>{msg.text}</p>}
+        {extractMsg && <p className="mb-2 text-xs text-[#f59e0b]">{extractMsg}</p>}
         <div className="space-y-2">
           {rows.map((r, i) => (
             <div key={i} className="flex items-center gap-2 text-sm">
-              <span className="flex-1 truncate text-white/80" title={r.product_name}>{r.product_name}</span>
-              <div className="w-24"><Input type="number" step="any" value={r.total_qty} disabled={!editable} onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, total_qty: e.target.value } : x))} /></div>
+              {r.product_id
+                ? <span className="flex-1 truncate text-white/80" title={r.product_name}>{r.product_name}</span>
+                : editable
+                  ? <Select value="" onChange={(e) => { const p = (products.data || []).find((x) => x.id === e.target.value); if (p) setRows(rows.map((x, j) => j === i ? { ...x, product_id: p.id, material_id: p.material_id, product_name: p.name } : x)); }}>
+                      <option value="">map “{r.product_name}”…</option>
+                      {(products.data || []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </Select>
+                  : <span className="flex-1 truncate text-[#f59e0b]">{r.product_name} (unmatched)</span>}
+              <Select value={r.phase_seq} disabled={!editable} onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, phase_seq: Number(e.target.value) } : x))}>
+                <option value={0}>auto (all phases)</option>
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => <option key={n} value={n}>P{n}. {PHASE_NAMES[n]}</option>)}
+              </Select>
+              <div className="w-20"><Input type="number" step="any" value={r.total_qty} disabled={!editable} onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, total_qty: e.target.value } : x))} /></div>
               {editable && <Button size="sm" variant="ghost" onClick={() => setRows(rows.filter((_, j) => j !== i))}>✕</Button>}
             </div>
           ))}
-          {rows.length === 0 && <p className="text-xs text-muted">No BOM yet.</p>}
+          {rows.length === 0 && <p className="text-xs text-muted">No BOM yet — add products, upload a doc, or ask the LLM.</p>}
           {editable && (
             <>
               <div className="flex items-center gap-2 pt-1">
@@ -181,7 +205,8 @@ function BomTab({ s, onSaved }) {
                 <div className="w-24"><Input type="number" step="any" placeholder="qty" value={qty} onChange={(e) => setQty(e.target.value)} /></div>
                 <Button size="sm" onClick={add}>Add</Button>
               </div>
-              <Button onClick={save} disabled={busy || rows.length === 0}>Save BOM</Button>
+              <Button onClick={save} disabled={busy || rows.filter((r) => r.product_id).length === 0}>Save BOM</Button>
+              <p className="text-[11px] text-muted">Set a phase per line (or “auto” to let the weight matrix slice it across phases).</p>
             </>
           )}
         </div>
