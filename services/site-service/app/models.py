@@ -27,6 +27,7 @@ PH_DONE = "done"
 DSP_DISPATCHED = "dispatched"
 DSP_PARTIAL = "partial"
 DSP_PENDING = "pending"      # nothing could be fulfilled (stockout → procurement needed)
+DSP_RECEIVED = "received"    # customer confirmed receipt
 
 # phase-date change-request statuses (CE edits to a phase end date need spoke/manager approval)
 PDC_PENDING = "pending"
@@ -194,6 +195,7 @@ class Dispatch(Base):
     site_id: Mapped[int] = mapped_column(ForeignKey("sites.id"), index=True)
     phase_seq: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(String(16), default=DSP_DISPATCHED)
+    received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     site: Mapped["Site"] = relationship(back_populates="dispatches")
     lines: Mapped[list["DispatchLine"]] = relationship(back_populates="dispatch", cascade="all, delete-orphan")

@@ -217,6 +217,19 @@ def read_notification(notif_id: int, db: Session = Depends(get_db)):
     return _run(service.mark_notification_read, db=db, notif_id=notif_id)
 
 
+@router.post("/notifications/read-all")
+def read_all_notifications(consumer_id: str, db: Session = Depends(get_db)):
+    """Mark all of a customer's own project notifications read."""
+    return service.mark_all_read(db, consumer_id)
+
+
+@router.post("/dispatches/{dispatch_id}/confirm", response_model=schemas.DispatchOut)
+def confirm_receipt(dispatch_id: int, user: dict = Depends(current_user), db: Session = Depends(get_db)):
+    """Customer (or hub staff) confirms a delivery arrived -> dispatch status becomes 'received'."""
+    return _run(service.confirm_receipt, db=db, dispatch_id=dispatch_id,
+                actor_role=user.get("role", ""), actor_org=user.get("org_ref", ""))
+
+
 @router.post("/scheduler/tick", dependencies=[Depends(BACKFILL)])
 def scheduler_tick(db: Session = Depends(get_db)):
     """Manually run one JIT scheduler pass (the same logic runs automatically in the background)."""

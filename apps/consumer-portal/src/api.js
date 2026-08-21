@@ -26,6 +26,8 @@ export const site = {
   sites: () => req("/site", "/sites"),
   siteDetail: (id) => req("/site", `/sites/${id}`),
   notifications: (consumerId) => req("/site", `/notifications?consumer_id=${encodeURIComponent(consumerId)}`),
+  markAllRead: (consumerId) => req("/site", `/notifications/read-all?consumer_id=${encodeURIComponent(consumerId)}`, body({})),
+  confirmReceipt: (dispatchId) => req("/site", `/dispatches/${dispatchId}/confirm`, body({})),
 };
 
 export const price = {

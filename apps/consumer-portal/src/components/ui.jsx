@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
 
-export function Card({ title, children, className = "" }) {
+export function Card({ title, right, children, className = "" }) {
   return (
     <div className={`border border-border bg-panel ${className}`}>
-      {title && <div className="border-b border-border px-4 py-2.5"><h3 className="text-sm font-semibold text-white">{title}</h3></div>}
+      {title && <div className="flex items-center justify-between border-b border-border px-4 py-2.5"><h3 className="text-sm font-semibold text-white">{title}</h3>{right}</div>}
       <div className="p-4">{children}</div>
     </div>
   );

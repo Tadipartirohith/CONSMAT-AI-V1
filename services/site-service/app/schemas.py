@@ -167,6 +167,7 @@ class DispatchOut(BaseModel):
     code: str
     phase_seq: int
     status: str
+    received_at: datetime | None = None
     created_at: datetime | None = None
     lines: list[DispatchLineOut] = []
 

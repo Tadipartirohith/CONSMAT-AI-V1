@@ -665,6 +665,46 @@ def mark_notification_read(db: Session, notif_id: int) -> models.Notification:
     return n
 
 
+def mark_all_read(db: Session, consumer_id: str) -> dict:
+    """Mark all of a customer's own project notifications read."""
+    site_ids = [s for s in db.execute(
+        select(models.Site.id).where(models.Site.consumer_id == consumer_id)).scalars()]
+    rows = db.execute(select(models.Notification).where(
+        models.Notification.site_id.in_(site_ids or [-1]),
+        models.Notification.read.is_(False),
+        models.Notification.audience.in_(("all", "consumer")))).scalars()
+    n = 0
+    for row in rows:
+        row.read = True
+        n += 1
+    db.commit()
+    return {"marked": n}
+
+
+def confirm_receipt(db: Session, dispatch_id: int, actor_role: str, actor_org: str) -> models.Dispatch:
+    """Customer (or hub staff) confirms a delivery arrived; feeds back into the dispatch status."""
+    d = db.get(models.Dispatch, dispatch_id)
+    if d is None:
+        raise SiteError(f"Unknown dispatch: {dispatch_id}")
+    site = db.get(models.Site, d.site_id)
+    is_owner = actor_role == "consumer" and site is not None and site.consumer_id == actor_org
+    is_staff = actor_role in ("spokesperson", "architect", "civil_engineer",
+                              "hub_supervisor", "hub_manager", "admin")
+    if not (is_owner or is_staff):
+        raise SiteError("Only the customer or hub staff can confirm receipt")
+    if d.status not in (models.DSP_DISPATCHED, models.DSP_RECEIVED):
+        raise SiteError("Only a fully-delivered shipment can be confirmed (shortfalls are still pending)")
+    if d.received_at is None:
+        d.received_at = db.execute(select(func.now())).scalar()
+        d.status = models.DSP_RECEIVED
+        _notify(db, site, "received",
+                f"Customer confirmed receipt of Phase {d.phase_seq} "
+                f"({_PHASE_NAME.get(d.phase_seq, '')}) materials.", phase_seq=d.phase_seq, audience="all")
+    db.commit()
+    db.refresh(d)
+    return d
+
+
 def run_scheduler_tick(db: Session, *, today=None, notice_days: int = 3, dispatch_days: int = 2) -> dict:
     """JIT scheduler: for each active site, warn the field team ~3 days before the current phase's end
     date and pre-dispatch the next phase's materials ~1 day later, so construction is never halted."""

@@ -4,8 +4,8 @@ import { site, price, pay, progressOf, PHASE_NAMES, inr } from "../api.js";
 import { Card, Badge, Progress, useAsync } from "../components/ui.jsx";
 
 const EVENT = {
-  started: { icon: "🏗️", tone: "accent" }, dispatched: { icon: "🚚", tone: "ok" },
-  phase_done: { icon: "✅", tone: "ok" }, project_done: { icon: "🎉", tone: "ok" },
+  started: { icon: "🏗️" }, dispatched: { icon: "🚚" }, phase_done: { icon: "✅" },
+  project_done: { icon: "🎉" }, received: { icon: "📦" },
 };
 
 export default function Project({ me }) {
@@ -37,6 +37,11 @@ export default function Project({ me }) {
       : nextPhase ? `${PHASE_NAMES[nextPhase.phase_seq]} materials${etaDate ? ` — expected around ${fmt(etaDate)}` : " — date being scheduled"}`
         : "All materials for the current plan are on their way.";
 
+  const confirmReceipt = async (dispatchId) => {
+    try { await site.confirmReceipt(dispatchId); detail.reload(); events.reload(); }
+    catch (e) { /* surfaced via reload */ }
+  };
+
   return (
     <div className="space-y-5">
       <Link to="/" className="text-sm text-muted hover:text-white">← My projects</Link>
@@ -63,28 +68,7 @@ export default function Project({ me }) {
 
       {s.bom_lines.length > 0 && <PayPanel site={s} me={me} />}
 
-      <Card title="Updates">
-        {(() => {
-          const mine = (events.data || []).filter((n) => n.site_id === Number(id));
-          if (mine.length === 0) return <p className="text-sm text-muted">No updates yet. You'll see delivery and phase updates here.</p>;
-          return (
-            <div className="space-y-2">
-              {mine.slice(0, 12).map((n) => {
-                const e = EVENT[n.kind] || { icon: "🔔", tone: "muted" };
-                return (
-                  <div key={n.id} className="flex items-start gap-2 border-b border-border/50 pb-2 text-sm">
-                    <span className="text-base">{e.icon}</span>
-                    <div>
-                      <span className="text-white/90">{n.message}</span>
-                      {n.created_at && <span className="ml-2 text-[11px] text-muted">{new Date(n.created_at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })()}
-      </Card>
+      <UpdatesFeed events={events} siteId={Number(id)} me={me} />
 
       <Card title="Construction timeline">
         <ol className="space-y-2">
@@ -112,6 +96,10 @@ export default function Project({ me }) {
                   {nextPhase && p.phase_seq === nextPhase.phase_seq && delivered.length === 0 && (
                     <p className="mt-0.5 text-xs text-accent">🚚 Materials expected {etaDate ? `around ${fmt(etaDate)}` : "soon"}</p>
                   )}
+                  {d && d.status === "received" && <p className="mt-0.5 text-xs text-emerald-400">📦 Receipt confirmed{d.received_at ? ` · ${fmt(new Date(d.received_at))}` : ""}</p>}
+                  {d && d.status === "dispatched" && awaiting.length === 0 && delivered.length > 0 && (
+                    <button onClick={() => confirmReceipt(d.id)} className="mt-1 border border-accent px-2.5 py-1 text-[11px] font-semibold text-accent hover:bg-accent/10">Confirm receipt</button>
+                  )}
                 </div>
               </li>
             );
@@ -119,6 +107,35 @@ export default function Project({ me }) {
         </ol>
       </Card>
     </div>
+  );
+}
+
+function UpdatesFeed({ events, siteId, me }) {
+  const [busy, setBusy] = useState(false);
+  const mine = (events.data || []).filter((n) => n.site_id === siteId);
+  const unread = mine.filter((n) => !n.read).length;
+  const markAll = async () => { setBusy(true); try { await site.markAllRead(me); events.reload(); } finally { setBusy(false); } };
+  return (
+    <Card title={`Updates${unread ? ` · ${unread} new` : ""}`}
+      right={unread > 0 && <button onClick={markAll} disabled={busy} className="text-[11px] text-accent hover:underline">Mark all read</button>}>
+      {mine.length === 0 ? <p className="text-sm text-muted">No updates yet. You'll see delivery and phase updates here.</p> : (
+        <div className="space-y-1.5">
+          {mine.slice(0, 15).map((n) => {
+            const e = EVENT[n.kind] || { icon: "🔔" };
+            return (
+              <div key={n.id} className={`flex items-start gap-2 rounded border-b border-border/50 pb-1.5 pl-1 text-sm ${n.read ? "" : "bg-accent/5"}`}>
+                <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.read ? "bg-transparent" : "bg-accent"}`} />
+                <span className="text-base">{e.icon}</span>
+                <div>
+                  <span className={n.read ? "text-white/70" : "text-white/90"}>{n.message}</span>
+                  {n.created_at && <span className="ml-2 text-[11px] text-muted">{new Date(n.created_at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
   );
 }
 
