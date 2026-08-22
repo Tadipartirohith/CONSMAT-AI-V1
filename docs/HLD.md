@@ -277,6 +277,9 @@ Team & access portal with a role hierarchy — admins add spokes/regions and man
 manage ops, members belong to a spoke team (D25); the hub-console carries a project-health donut, a
 stock-buffer widget, URL-driven navigation/filters, and procure-from-inventory (D26); the Hub LLM
 surfaces open-market alternatives for unavailable items and the architect owns the design spec (D27).
+Customers carry an NBFC flag captured at onboarding and cascaded to admin (D28); project payments are
+held in escrow and released to the supplier proportionally as deliveries are confirmed (D29); and the
+catalog spans 20 categories / ~125 product lines (D30).
 
 **Deferred / optional:** real payment-provider API calls (extension points in `payment-service`),
 email/push delivery of notifications (in-app only in v1), and finer product questions in

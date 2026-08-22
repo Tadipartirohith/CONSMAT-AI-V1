@@ -116,8 +116,10 @@ dispatched, low_stock}` (D20); `dispatch.status ∈ {dispatched, partial, pendin
 (9 rows, `seq, name, repeats_per_floor`). *(SPOKE/SPOKE_AREA unchanged from §2.5 v1.0.)*
 
 ### 2.6 payment
-- **payments** — `id`, `ref` (e.g. `SITE-1`), `consumer_id`, `amount`, `currency`, `provider`,
-  `provider_ref`, `status ∈ {pending, paid, failed, refunded}`, `created_at`, `paid_at`; `code = PAY-{id}`.
+- **payments** — `id`, `ref` (e.g. `SITE-1`), `consumer_id`, `amount`, `released_amount`, `currency`,
+  `provider`, `provider_ref`, `status ∈ {pending, paid, failed, refunded, held, released}`, `created_at`,
+  `paid_at`, `released_at`; `code = PAY-{id}`. **Escrow:** a project payment is captured but `held`, and
+  released in fractions (`released_amount` rises to `amount` → `released`) as deliveries are confirmed.
 
 ---
 
@@ -206,7 +208,8 @@ All paths under `/api/v1`. Auth column: *any* = any authenticated user; otherwis
 | Method | Path | Auth |
 |--------|------|------|
 | GET | `/payments/config` · `/payments` · `/payments/{id}` | any |
-| POST | `/payments` · `/payments/{id}/confirm` | consumer, hub_manager, hub_supervisor, spokesperson |
+| POST | `/payments` (escrow by default) · `/payments/{id}/confirm` | consumer, hub_manager, hub_supervisor, spokesperson |
+| POST | `/payments/release` (release held escrow by fraction) | `service` (site-service on delivery confirm) + hub/field |
 
 *(admin bypasses all role checks.)*
 
@@ -287,7 +290,8 @@ a `PHASE_NAMES` map and the notifications/approval flows.
 
 ## 9. Configuration
 
-- **Catalog & BOM** — materials + `per_sqft` and 15 branded products seeded in inventory; 9 phases + weight matrix in site (`bom.py`); construction-type multipliers in code. Stock is **not** seeded (it comes from received POs).
+- **Catalog & BOM** — 20 material categories + ~125 branded products seeded in inventory (structural 5 carry `per_sqft` for the auto-plan; finishing/MEP/interior categories use `per_sqft=0` and dispatch via an explicit BOM phase); 9 phases + weight matrix in site (`bom.py`); construction-type multipliers in code. Stock is **not** seeded (it comes from received POs).
+- **Consumer** — carries `is_nbfc` (captured at spoke onboarding), cascaded to the admin Projects view + spoke customer list.
 - **Pricing** — margin rules seeded (global 12%, per-tier 18/12/9/10, cement+individual 20%); product margins are set by the manager at runtime.
 - **Scheduler** — `SCHEDULER_ENABLED` (default true) + `SCHEDULER_INTERVAL_SECONDS` (default 60) for the site-service JIT thread.
 - **Web scout** — `SCOUT_PROVIDER` (auto/tavily/web/llm/stub) + `SCOUT_API_KEY` (e.g. Tavily) in `infra/.env`.
