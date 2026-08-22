@@ -24,12 +24,36 @@ def test_mock_provider_settles_immediately():
     assert result["provider_ref"].startswith("mock_")
 
 
-def test_create_payment_paid(db):
-    pay = service.create_payment(db, ref="SITE-1", consumer_id="c_demo", amount=396976)
+def test_create_payment_direct_paid(db):
+    # escrow=False keeps the legacy direct-capture behaviour (status 'paid')
+    pay = service.create_payment(db, ref="SITE-1", consumer_id="c_demo", amount=396976, escrow=False)
     assert pay.status == "paid"
     assert pay.code == "PAY-1"
     assert pay.currency == "INR"
     assert pay.paid_at is not None
+
+
+def test_create_payment_escrow_holds(db):
+    # default: funds captured but held in escrow until deliveries are confirmed
+    pay = service.create_payment(db, ref="SITE-1", consumer_id="c_demo", amount=100000)
+    assert pay.status == models.HELD
+    assert float(pay.released_amount) == 0
+    assert pay.paid_at is not None  # captured
+
+
+def test_escrow_release_is_progressive(db):
+    pay = service.create_payment(db, ref="SITE-9", consumer_id="c_demo", amount=90000)
+    # release a third, then all
+    r = service.release_for_ref(db, "SITE-9", 1 / 3)
+    assert r["payments_updated"] == 1
+    db.refresh(pay)
+    assert pay.status == models.HELD
+    assert round(float(pay.released_amount)) == 30000
+    service.release_for_ref(db, "SITE-9", 1.0)
+    db.refresh(pay)
+    assert pay.status == models.RELEASED
+    assert float(pay.released_amount) == 90000
+    assert pay.released_at is not None
 
 
 def test_amount_must_be_positive(db):

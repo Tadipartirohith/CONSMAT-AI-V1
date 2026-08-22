@@ -11,6 +11,8 @@ from ..db import get_db
 
 # A payer (consumer) or hub/field staff may initiate a payment; reads for any authenticated user.
 PAYER = require_role("consumer", "hub_manager", "hub_supervisor", "spokesperson")
+# Escrow release is triggered by the site-service (role=service) on delivery confirmation, or by hub/field staff.
+RELEASE = require_role("service", "hub_manager", "hub_supervisor", "spokesperson", "civil_engineer", "architect")
 router = APIRouter(tags=["payments"], dependencies=[Depends(current_user)])
 
 
@@ -32,7 +34,13 @@ def config():
 @router.post("/payments", response_model=schemas.PaymentOut, status_code=201, dependencies=[Depends(PAYER)])
 def create_payment(body: schemas.PaymentIn, db: Session = Depends(get_db)):
     return _run(service.create_payment, db=db, ref=body.ref, consumer_id=body.consumer_id,
-                amount=body.amount, currency=body.currency, note=body.note)
+                amount=body.amount, currency=body.currency, note=body.note, escrow=body.escrow)
+
+
+@router.post("/payments/release", dependencies=[Depends(RELEASE)])
+def release_escrow(body: schemas.ReleaseIn, db: Session = Depends(get_db)):
+    """Release held escrow for a project ref up to `fraction` (deliveries confirmed at the site)."""
+    return service.release_for_ref(db, body.ref, body.fraction)
 
 
 @router.post("/payments/{payment_id}/confirm", response_model=schemas.PaymentOut, dependencies=[Depends(PAYER)])

@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     inventory_url: str = "http://localhost:8001"
     # identity-service base URL: onboarding creates a consumer login here.
     identity_url: str = "http://localhost:8005"
+    # payment-service base URL: delivery confirmation releases the project's held escrow here.
+    payment_url: str = "http://localhost:8006"
     demo_password: str = "consmat123"  # temp password issued to a newly onboarded consumer
     # JIT dispatch scheduler: warn 3 days before a phase ends and pre-dispatch the next phase.
     scheduler_enabled: bool = True

@@ -88,6 +88,8 @@ class Consumer(Base):
     tier: Mapped[str] = mapped_column(String(20), default="individual")
     phone: Mapped[str] = mapped_column(String(32), default="")
     email: Mapped[str] = mapped_column(String(160), default="")   # customer login id (identity user)
+    # Whether this customer is financed via an NBFC (captured at spoke onboarding, surfaced to admin).
+    is_nbfc: Mapped[bool] = mapped_column(Boolean, default=False)
     spoke_id: Mapped[str] = mapped_column(ForeignKey("spokes.id"), index=True)
     spoke: Mapped["Spoke"] = relationship(back_populates="consumers")
     sites: Mapped[list["Site"]] = relationship(back_populates="consumer")

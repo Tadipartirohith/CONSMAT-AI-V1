@@ -88,7 +88,7 @@ def spoke_dashboard(spoke_id: str, db: Session = Depends(get_db)):
 @router.post("/consumers", response_model=schemas.ConsumerOut, status_code=201, dependencies=[Depends(FIELD)])
 def create_consumer(body: schemas.ConsumerIn, db: Session = Depends(get_db)):
     return _run(service.create_consumer, db=db, name=body.name, tier=body.tier,
-                spoke_id=body.spoke_id, phone=body.phone)
+                spoke_id=body.spoke_id, phone=body.phone, is_nbfc=body.is_nbfc)
 
 
 @router.get("/consumers", response_model=list[schemas.ConsumerOut])
@@ -99,17 +99,18 @@ def list_consumers(db: Session = Depends(get_db)):
 @router.patch("/consumers/{consumer_id}", response_model=schemas.ConsumerOut, dependencies=[Depends(FIELD)])
 def update_consumer(consumer_id: str, body: schemas.ConsumerUpdate, db: Session = Depends(get_db)):
     return _run(service.update_consumer, db=db, consumer_id=consumer_id,
-                tier=body.tier, phone=body.phone)
+                tier=body.tier, phone=body.phone, is_nbfc=body.is_nbfc)
 
 
 @router.post("/intake", status_code=201, dependencies=[Depends(FIELD)])
 def intake(body: schemas.IntakeIn, db: Session = Depends(get_db)):
     """Consumer intake: classify (tier) and auto-assign the serving spoke by geofence (location)."""
     result = _run(service.intake, db=db, name=body.name, tier=body.tier,
-                  location=body.location, phone=body.phone, email=body.email)
+                  location=body.location, phone=body.phone, email=body.email, is_nbfc=body.is_nbfc)
     c, s = result["consumer"], result["spoke"]
     return {
-        "consumer": {"id": c.id, "name": c.name, "tier": c.tier, "phone": c.phone, "spoke_id": c.spoke_id},
+        "consumer": {"id": c.id, "name": c.name, "tier": c.tier, "phone": c.phone,
+                     "spoke_id": c.spoke_id, "is_nbfc": c.is_nbfc},
         "assigned_spoke": {"id": s.id, "name": s.name},
         "login": result.get("login"),
     }

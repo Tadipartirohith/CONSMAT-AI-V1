@@ -52,11 +52,13 @@ class IntakeIn(BaseModel):
     location: str = Field(min_length=1)
     phone: str = ""
     email: str = ""
+    is_nbfc: bool = False
 
 
 class ConsumerUpdate(BaseModel):
     tier: str | None = None
     phone: str | None = None
+    is_nbfc: bool | None = None
 
 
 class ConsumerIn(BaseModel):
@@ -64,6 +66,7 @@ class ConsumerIn(BaseModel):
     tier: str = "individual"
     spoke_id: str
     phone: str = ""
+    is_nbfc: bool = False
 
 
 class ConsumerOut(BaseModel):
@@ -73,6 +76,7 @@ class ConsumerOut(BaseModel):
     tier: str
     phone: str
     email: str = ""
+    is_nbfc: bool = False
     spoke_id: str
 
 

@@ -128,21 +128,22 @@ def decide_area_request(db: Session, req_id: int, approve: bool, actor_role: str
 
 
 def create_consumer(db: Session, name: str, tier: str, spoke_id: str, phone: str = "",
-                    email: str = "") -> models.Consumer:
+                    email: str = "", is_nbfc: bool = False) -> models.Consumer:
     if tier not in models.CONSUMER_TIERS:
         raise SiteError(f"tier must be one of {models.CONSUMER_TIERS}")
     if db.get(models.Spoke, spoke_id) is None:
         raise SiteError(f"Unknown spoke: {spoke_id}")
     cid = _unique_id(db, models.Consumer, _slug(name, "c"))
     c = models.Consumer(id=cid, name=name.strip(), tier=tier, spoke_id=spoke_id, phone=phone,
-                        email=email.strip().lower())
+                        email=email.strip().lower(), is_nbfc=bool(is_nbfc))
     db.add(c)
     db.commit()
     db.refresh(c)
     return c
 
 
-def intake(db: Session, name: str, tier: str, location: str, phone: str = "", email: str = "") -> dict:
+def intake(db: Session, name: str, tier: str, location: str, phone: str = "", email: str = "",
+           is_nbfc: bool = False) -> dict:
     """Onboarding: classify the consumer (tier), auto-assign the serving spoke by geofence (location),
     and provision a `consumer` login (the customer's own email if given) so they can track their
     project. Fails if no active spoke covers the location."""
@@ -150,7 +151,7 @@ def intake(db: Session, name: str, tier: str, location: str, phone: str = "", em
     if spoke is None:
         raise SiteError(f"No spoke covers '{location}'. Add coverage to a spoke or assign manually.")
     login_email = (email or "").strip().lower()
-    consumer = create_consumer(db, name, tier, spoke.id, phone, email=login_email)
+    consumer = create_consumer(db, name, tier, spoke.id, phone, email=login_email, is_nbfc=is_nbfc)
     if not login_email:
         login_email = f"{consumer.id}@consmat.com"
         consumer.email = login_email
@@ -165,7 +166,7 @@ def intake(db: Session, name: str, tier: str, location: str, phone: str = "", em
 
 
 def update_consumer(db: Session, consumer_id: str, *, tier: str | None = None,
-                    phone: str | None = None) -> models.Consumer:
+                    phone: str | None = None, is_nbfc: bool | None = None) -> models.Consumer:
     c = db.get(models.Consumer, consumer_id)
     if c is None:
         raise SiteError(f"Unknown consumer: {consumer_id}")
@@ -175,6 +176,8 @@ def update_consumer(db: Session, consumer_id: str, *, tier: str | None = None,
         c.tier = tier
     if phone is not None:
         c.phone = phone
+    if is_nbfc is not None:
+        c.is_nbfc = bool(is_nbfc)
     db.commit()
     db.refresh(c)
     return c
@@ -703,7 +706,25 @@ def confirm_receipt(db: Session, dispatch_id: int, actor_role: str, actor_name: 
                 f"{f' by {actor_name}' if actor_name else ''}.", phase_seq=d.phase_seq, audience="all")
     db.commit()
     db.refresh(d)
+    _release_escrow_for_site(db, site)
     return d
+
+
+def _release_escrow_for_site(db: Session, site: models.Site) -> None:
+    """Escrow: release the delivered fraction of the project's held payment. Best-effort - a payment
+    outage must never block a delivery confirmation. Fraction = confirmed deliveries / planned phases."""
+    if site is None:
+        return
+    total_phases = len(site.phases) or 0
+    if total_phases == 0:
+        return
+    confirmed = sum(1 for x in site.dispatches if x.status == models.DSP_RECEIVED)
+    fraction = min(1.0, confirmed / total_phases)
+    try:
+        from . import payment_client
+        payment_client.release_escrow(site.code, fraction)
+    except Exception as e:  # noqa: BLE001, escrow release is best-effort
+        print(f"[escrow] release failed for {site.code}: {type(e).__name__}: {e}", flush=True)
 
 
 def run_scheduler_tick(db: Session, *, today=None, notice_days: int = 3, dispatch_days: int = 2,

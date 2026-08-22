@@ -32,17 +32,24 @@ export default function Payments() {
       <div className="grid gap-4 lg:grid-cols-3">
         <Card title="Payments" className="lg:col-span-2" right={<Button size="sm" variant="ghost" onClick={list.reload}>Refresh</Button>}>
           {list.error ? <p className="text-sm text-red-400">{list.error}</p> : (
-            <Table head={["Payment", "For", "Payer", "Amount", "Provider", "Status"]}>
-              {(list.data || []).map((p) => (
+            <Table head={["Payment", "For", "Payer", "Amount", "Escrow released", "Provider", "Status"]}>
+              {(list.data || []).map((p) => {
+                const tone = p.status === "paid" || p.status === "released" ? "ok"
+                  : p.status === "held" ? "accent" : p.status === "pending" ? "warn" : "bad";
+                const relPct = p.amount ? Math.round(((p.released_amount || 0) / p.amount) * 100) : 0;
+                const escrow = p.status === "held" || p.status === "released";
+                return (
                 <tr key={p.id} className="border-b border-border/50">
                   <Td mono>{p.code}</Td>
                   <Td>{p.ref || "-"}</Td>
                   <Td className="text-muted">{p.consumer_id || "-"}</Td>
                   <Td mono>{inr(p.amount)}</Td>
+                  <Td mono className="text-muted">{escrow ? `${inr(p.released_amount || 0)} · ${relPct}%` : "-"}</Td>
                   <Td>{p.provider}</Td>
-                  <Td><Badge tone={p.status === "paid" ? "ok" : p.status === "pending" ? "warn" : "bad"}>{p.status}</Badge></Td>
+                  <Td><Badge tone={tone}>{p.status}</Badge></Td>
                 </tr>
-              ))}
+                );
+              })}
               {list.data?.length === 0 && <tr><Td className="text-muted">No payments yet.</Td></tr>}
             </Table>
           )}

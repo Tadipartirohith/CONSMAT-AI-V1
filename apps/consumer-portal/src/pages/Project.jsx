@@ -141,7 +141,9 @@ function PayPanel({ site: s, me }) {
   const [err, setErr] = useState(null);
 
   const total = quote.data?.total;
-  const paid = (payments.data || []).find((p) => p.status === "paid");
+  const payment = (payments.data || []).find((p) => ["held", "released", "paid"].includes(p.status));
+  const released = payment?.status === "released";
+  const relPct = payment && payment.amount ? Math.round((payment.released_amount / payment.amount) * 100) : 0;
 
   const doPay = async () => {
     setBusy(true);
@@ -164,9 +166,9 @@ function PayPanel({ site: s, me }) {
           <p className="font-mono text-xl font-bold text-white">{total != null ? inr(total) : "…"}</p>
         </div>
         <div className="ml-auto">
-          {paid ? (
+          {payment ? (
             <span className="inline-flex items-center gap-2 text-sm text-emerald-400">
-              ✓ Paid <Badge tone="ok">{paid.code}</Badge>
+              {released ? "✓ Released" : "🔒 In escrow"} <Badge tone={released ? "ok" : "accent"}>{payment.code}</Badge>
             </span>
           ) : (
             <button onClick={doPay} disabled={busy || total == null}
@@ -176,9 +178,20 @@ function PayPanel({ site: s, me }) {
           )}
         </div>
       </div>
+      {payment && !released && (
+        <div className="mt-3">
+          <div className="mb-1 flex justify-between text-[11px] text-muted">
+            <span>Funds held safely in escrow, released to the supplier only as deliveries are confirmed.</span>
+            <span className="font-mono">{relPct}% released</span>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded bg-white/10">
+            <div className="h-full rounded bg-accent" style={{ width: `${relPct}%` }} />
+          </div>
+        </div>
+      )}
       {quote.error && <p className="mt-2 text-xs text-red-400">Could not price project: {quote.error}</p>}
       {err && <p className="mt-2 text-xs text-red-400">{err}</p>}
-      {paid && <p className="mt-2 text-xs text-muted">Thank you, your project payment is confirmed.</p>}
+      {released && <p className="mt-2 text-xs text-muted">All deliveries confirmed - your escrow has been fully released.</p>}
     </Card>
   );
 }

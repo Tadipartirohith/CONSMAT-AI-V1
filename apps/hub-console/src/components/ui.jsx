@@ -78,7 +78,7 @@ export function Td({ children, mono, className = "" }) {
   return <td className={`px-3 py-2 ${mono ? "font-mono" : ""} ${className}`}>{children}</td>;
 }
 
-export function Badge({ children, tone = "muted" }) {
+export function Badge({ children, tone = "muted", className = "" }) {
   const tones = {
     muted: "bg-white/5 text-muted",
     ok: "bg-emerald-500/15 text-emerald-400",
@@ -86,7 +86,7 @@ export function Badge({ children, tone = "muted" }) {
     bad: "bg-red-500/15 text-red-400",
     accent: "bg-accent/15 text-accent",
   };
-  return <span className={`rounded px-2 py-0.5 text-[10px] font-semibold uppercase ${tones[tone]}`}>{children}</span>;
+  return <span className={`rounded px-2 py-0.5 text-[10px] font-semibold uppercase ${tones[tone]} ${className}`}>{children}</span>;
 }
 
 // tiny data hook

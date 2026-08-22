@@ -197,7 +197,10 @@ function ProjectsTable({ sites, f, today, consumerMap, spokeMap, areaOf, title, 
           const awaitingAck = (s.dispatches || []).filter((d) => d.status === "dispatched").length;
           return (
             <tr key={s.id} className="border-b border-border/50">
-              <Td><Link to={`/projects/${s.id}`} className="font-medium text-accent hover:underline">{s.label || s.code}</Link></Td>
+              <Td>
+                <Link to={`/projects/${s.id}`} className="font-medium text-accent hover:underline">{s.label || s.code}</Link>
+                {consumerMap[s.consumer_id]?.is_nbfc && <Badge tone="warn" className="ml-2">NBFC</Badge>}
+              </Td>
               <Td className="text-muted">{spokeMap[areaOf(s)]?.name || areaOf(s)}</Td>
               <Td className="text-muted">{s.location || "-"}</Td>
               <Td><Badge tone={s.status === "completed" ? "ok" : s.status === "active" ? "accent" : "muted"}>{s.status}</Badge></Td>
