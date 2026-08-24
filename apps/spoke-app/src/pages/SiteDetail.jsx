@@ -353,10 +353,9 @@ function SuggestPanel({ sugg, onApply, onClose }) {
         <button onClick={onClose} className="text-[11px] text-muted hover:text-white">dismiss</button>
       </div>
       {sugg.summary && <p className="mb-2 text-sm text-white/80">{sugg.summary}</p>}
-      {(sugg.lines || []).length === 0 ? (
-        <p className="text-xs text-muted">No suggestions (the Hub LLM may be on the stub - set AI_PROVIDER / AI_API_KEY in infra/.env).</p>
-      ) : (
+      {(sugg.lines || []).length > 0 && (
         <>
+          <p className="mb-1 text-[10px] uppercase tracking-wider text-muted">Catalog alternatives (Hub LLM)</p>
           <div className="max-h-44 overflow-auto">
             <Table head={["Suggested product", "Qty", "Why"]}>
               {sugg.lines.map((l, i) => (
@@ -370,6 +369,25 @@ function SuggestPanel({ sugg, onApply, onClose }) {
           </div>
           <div className="mt-2"><Button size="sm" onClick={onApply}>Apply to BOQ</Button></div>
         </>
+      )}
+      {sugg.market && Object.keys(sugg.market).length > 0 && (
+        <div className="mt-3 border-t border-border/60 pt-2">
+          <p className="mb-1 text-[10px] uppercase tracking-wider text-muted">Live open-market alternatives (web scout)</p>
+          {Object.entries(sugg.market).map(([mid, offers]) => (
+            <div key={mid} className="mb-1.5">
+              <p className="text-[11px] text-white/60">{mid}</p>
+              {offers.map((o, i) => (
+                <div key={i} className="flex items-center justify-between gap-2 text-xs">
+                  <span className="min-w-0 flex-1 truncate text-white/80">{o.seller || "market"} · {o.product}</span>
+                  <span className="shrink-0 font-mono text-white/70">₹{Math.round(o.price)}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+      {(sugg.lines || []).length === 0 && (!sugg.market || Object.keys(sugg.market).length === 0) && (
+        <p className="text-xs text-muted">No alternatives found for these items.</p>
       )}
     </div>
   );

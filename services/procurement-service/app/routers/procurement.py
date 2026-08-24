@@ -150,13 +150,29 @@ BOM_SUGGEST = require_role("spokesperson", "civil_engineer", "architect", "hub_s
 
 
 @router.post("/procurement/bom-optimize", dependencies=[Depends(BOM_SUGGEST)])
-def bom_optimize(body: schemas.BomOptimizeIn):
-    """Hub LLM: suggest an optimized product BOM / cheaper alternatives from the catalog (advisory)."""
+def bom_optimize(body: schemas.BomOptimizeIn, refresh: bool = False, db: Session = Depends(get_db)):
+    """Find BOM alternatives: the Hub LLM suggests cheaper/alternative catalog products, and the
+    price-scout (SCOUT_API_KEY / Tavily) adds live open-market offers per material (advisory)."""
     import json as _json
     result = llm.complete_json(_BOM_OPT_SCHEMA, _json.dumps({
         "instruction": body.prompt, "current_bom": body.current_bom, "catalog": body.catalog,
-    }))
-    return result or {"summary": "Hub LLM unavailable - configure AI_PROVIDER.", "lines": []}
+    })) or {"summary": "Hub LLM unavailable - configure AI_PROVIDER.", "lines": []}
+    # Live open-market alternatives via the scout (reuses SCOUT_API_KEY / Tavily) for each material.
+    mats = {l.get("material_id") for l in (body.current_bom or []) if isinstance(l, dict) and l.get("material_id")}
+    market = {}
+    for mid in mats:
+        offers = service.list_external_offers(db, mid)
+        if refresh or not offers:
+            try:
+                service.run_scout(db, mid, mid)
+            except Exception as e:  # noqa: BLE001, scouting is best-effort
+                print(f"[bom-optimize] scout failed for {mid}: {type(e).__name__}: {e}", flush=True)
+            offers = service.list_external_offers(db, mid)
+        if offers:
+            market[mid] = [{"seller": o.seller, "product": o.product_name, "price": float(o.price),
+                            "url": o.url, "source": o.source, "confidence": o.confidence} for o in offers[:5]]
+    result["market"] = market
+    return result
 
 
 # Spoke stock-order requests: the spoke requests, the hub approves (setting vendor + rate) -> PO.
