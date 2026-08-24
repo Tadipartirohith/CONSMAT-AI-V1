@@ -42,6 +42,7 @@ export const site = {
   sites: () => req("site", "/sites"),
   siteDetail: (id) => req("site", `/sites/${id}`),
   createSite: (b) => req("site", "/sites", body(b)),
+  updateSite: (id, b) => req("site", `/sites/${id}`, { method: "PATCH", body: JSON.stringify(b) }),
   plan: (id) => req("site", `/sites/${id}/plan`, { method: "POST" }),
   setBom: (id, lines) => req("site", `/sites/${id}/bom`, body({ lines })),
   setPhaseDates: (id, seq, b) => req("site", `/sites/${id}/phases/${seq}/dates`, body(b)),

@@ -128,22 +128,21 @@ def decide_area_request(db: Session, req_id: int, approve: bool, actor_role: str
 
 
 def create_consumer(db: Session, name: str, tier: str, spoke_id: str, phone: str = "",
-                    email: str = "", is_nbfc: bool = False) -> models.Consumer:
+                    email: str = "") -> models.Consumer:
     if tier not in models.CONSUMER_TIERS:
         raise SiteError(f"tier must be one of {models.CONSUMER_TIERS}")
     if db.get(models.Spoke, spoke_id) is None:
         raise SiteError(f"Unknown spoke: {spoke_id}")
     cid = _unique_id(db, models.Consumer, _slug(name, "c"))
     c = models.Consumer(id=cid, name=name.strip(), tier=tier, spoke_id=spoke_id, phone=phone,
-                        email=email.strip().lower(), is_nbfc=bool(is_nbfc))
+                        email=email.strip().lower())
     db.add(c)
     db.commit()
     db.refresh(c)
     return c
 
 
-def intake(db: Session, name: str, tier: str, location: str, phone: str = "", email: str = "",
-           is_nbfc: bool = False) -> dict:
+def intake(db: Session, name: str, tier: str, location: str, phone: str = "", email: str = "") -> dict:
     """Onboarding: classify the consumer (tier), auto-assign the serving spoke by geofence (location),
     and provision a `consumer` login (the customer's own email if given) so they can track their
     project. Fails if no active spoke covers the location."""
@@ -151,7 +150,7 @@ def intake(db: Session, name: str, tier: str, location: str, phone: str = "", em
     if spoke is None:
         raise SiteError(f"No spoke covers '{location}'. Add coverage to a spoke or assign manually.")
     login_email = (email or "").strip().lower()
-    consumer = create_consumer(db, name, tier, spoke.id, phone, email=login_email, is_nbfc=is_nbfc)
+    consumer = create_consumer(db, name, tier, spoke.id, phone, email=login_email)
     if not login_email:
         login_email = f"{consumer.id}@consmat.com"
         consumer.email = login_email
@@ -166,7 +165,7 @@ def intake(db: Session, name: str, tier: str, location: str, phone: str = "", em
 
 
 def update_consumer(db: Session, consumer_id: str, *, tier: str | None = None,
-                    phone: str | None = None, is_nbfc: bool | None = None) -> models.Consumer:
+                    phone: str | None = None) -> models.Consumer:
     c = db.get(models.Consumer, consumer_id)
     if c is None:
         raise SiteError(f"Unknown consumer: {consumer_id}")
@@ -176,23 +175,40 @@ def update_consumer(db: Session, consumer_id: str, *, tier: str | None = None,
         c.tier = tier
     if phone is not None:
         c.phone = phone
-    if is_nbfc is not None:
-        c.is_nbfc = bool(is_nbfc)
     db.commit()
     db.refresh(c)
     return c
 
 
 def create_site(db: Session, consumer_id: str, *, label: str = "", location: str = "",
-                area_sqft: float, floors: int = 1, construction_type: str = "standard") -> models.Site:
+                area_sqft: float, floors: int = 1, construction_type: str = "standard",
+                project_type: str = "") -> models.Site:
     if db.get(models.Consumer, consumer_id) is None:
         raise SiteError(f"Unknown consumer: {consumer_id}")
     if area_sqft <= 0:
         raise SiteError("area_sqft must be positive")
+    if project_type and project_type not in models.PROJECT_TYPES:
+        raise SiteError(f"project_type must be one of {models.PROJECT_TYPES}")
     site = models.Site(consumer_id=consumer_id, label=label, location=location,
                        area_sqft=_dec(area_sqft), floors=max(1, floors),
-                       construction_type=construction_type)
+                       construction_type=construction_type, project_type=project_type or "")
     db.add(site)
+    db.commit()
+    db.refresh(site)
+    return site
+
+
+def update_site(db: Session, site_id: int, *, project_type: str | None = None,
+                stage: str | None = None) -> models.Site:
+    site = db.get(models.Site, site_id)
+    if site is None:
+        raise SiteError(f"Unknown site: SITE-{site_id}")
+    if project_type is not None:
+        if project_type not in models.PROJECT_TYPES:
+            raise SiteError(f"project_type must be one of {models.PROJECT_TYPES}")
+        site.project_type = project_type
+    if stage is not None:
+        site.stage = stage
     db.commit()
     db.refresh(site)
     return site

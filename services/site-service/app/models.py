@@ -41,6 +41,23 @@ AR_REJECTED = "rejected"
 AR_ADD = "add"
 AR_REMOVE = "remove"
 
+# project financing type (chosen per project at/after onboarding; replaces the old consumer NBFC flag)
+PROJECT_TYPES = ("captive", "client")
+
+# project lifecycle stage (pre-delivery gate; distinct from the construction `status`)
+STAGE_ONBOARDED = "onboarded"
+STAGE_DESIGN = "design_uploaded"
+STAGE_BOQ_REVIEW = "boq_review"
+STAGE_BOQ_APPROVED = "boq_approved"
+STAGE_BUDGETED = "budgeted"
+STAGE_FINANCING = "financing"
+STAGE_FINANCE_APPROVED = "finance_approved"
+STAGE_AWAITING_PAYMENT = "awaiting_payment"
+STAGE_PAID = "paid"
+STAGE_SCHEDULING = "scheduling"
+STAGE_ACTIVE = "active"
+STAGE_COMPLETED = "completed"
+
 
 class Spoke(Base):
     __tablename__ = "spokes"
@@ -88,8 +105,6 @@ class Consumer(Base):
     tier: Mapped[str] = mapped_column(String(20), default="individual")
     phone: Mapped[str] = mapped_column(String(32), default="")
     email: Mapped[str] = mapped_column(String(160), default="")   # customer login id (identity user)
-    # Whether this customer is financed via an NBFC (captured at spoke onboarding, surfaced to admin).
-    is_nbfc: Mapped[bool] = mapped_column(Boolean, default=False)
     spoke_id: Mapped[str] = mapped_column(ForeignKey("spokes.id"), index=True)
     spoke: Mapped["Spoke"] = relationship(back_populates="consumers")
     sites: Mapped[list["Site"]] = relationship(back_populates="consumer")
@@ -105,6 +120,11 @@ class Site(Base):
     floors: Mapped[int] = mapped_column(Integer, default=1)
     construction_type: Mapped[str] = mapped_column(String(20), default="standard")
     status: Mapped[str] = mapped_column(String(16), default="planning")  # planning|planned|active|completed
+    # Financing type + pre-delivery lifecycle (drives the delivery trigger: captive=finance, client=payment).
+    project_type: Mapped[str] = mapped_column(String(12), default="")  # captive | client
+    stage: Mapped[str] = mapped_column(String(24), default=STAGE_ONBOARDED)
+    budget: Mapped[Decimal | None] = mapped_column(Numeric(16, 2), nullable=True)  # hub-issued
+    payment_received: Mapped[bool] = mapped_column(Boolean, default=False)  # client-project delivery gate
     total_area: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

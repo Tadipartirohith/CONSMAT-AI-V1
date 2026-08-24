@@ -10,13 +10,13 @@ export default function Intake() {
   const [err, setErr] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  const [form, setForm] = useState({ name: "", tier: "individual", location: "", phone: "", email: "", is_nbfc: false });
+  const [form, setForm] = useState({ name: "", tier: "individual", location: "", phone: "", email: "" });
   const submit = async (e) => {
     e.preventDefault(); setErr(null); setResult(null); setBusy(true);
     try {
       const r = await site.intake(form);
       setResult(r);
-      setForm({ name: "", tier: "individual", location: "", phone: "", email: "", is_nbfc: false });
+      setForm({ name: "", tier: "individual", location: "", phone: "", email: "" });
       consumers.reload();
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
@@ -40,10 +40,7 @@ export default function Intake() {
             <Field label="Location (site area)"><Input value={form.location} required placeholder="e.g. Medchal" onChange={(e) => setForm({ ...form, location: e.target.value })} /></Field>
             <Field label="Email (customer login)"><Input type="email" value={form.email} placeholder="customer@email.com - blank = auto id" onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
             <Field label="Phone"><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
-            <label className="flex items-center gap-2 text-sm text-white/80">
-              <input type="checkbox" checked={form.is_nbfc} onChange={(e) => setForm({ ...form, is_nbfc: e.target.checked })} />
-              Financed via an NBFC
-            </label>
+            <p className="text-[11px] text-muted">Captive vs client is chosen per project when you create the site.</p>
             <Button type="submit" disabled={busy}>{busy ? "Onboarding…" : "Onboard customer"}</Button>
             {err && <p className="text-xs text-red-400">{err}</p>}
             {result && (
@@ -61,13 +58,12 @@ export default function Intake() {
         </Card>
 
         <Card title="Customers" className="lg:col-span-2" right={<Button size="sm" variant="ghost" onClick={consumers.reload}>Refresh</Button>}>
-          <Table head={["Builder ID", "Name", "Tier", "Financing", "Login", "Phone"]}>
+          <Table head={["Builder ID", "Name", "Tier", "Login", "Phone"]}>
             {(consumers.data || []).map((c) => (
               <tr key={c.id} className="border-b border-border/50">
                 <Td mono className="text-muted">{c.id}</Td>
                 <Td>{c.name}</Td>
                 <Td><Badge tone="accent">{c.tier}</Badge></Td>
-                <Td>{c.is_nbfc ? <Badge tone="warn">NBFC</Badge> : <span className="text-[11px] text-muted">Direct</span>}</Td>
                 <Td mono className="text-muted">{c.email || `${c.id}@consmat.com`}</Td>
                 <Td>{c.phone || "-"}</Td>
               </tr>

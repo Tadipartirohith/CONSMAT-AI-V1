@@ -199,7 +199,7 @@ function ProjectsTable({ sites, f, today, consumerMap, spokeMap, areaOf, title, 
             <tr key={s.id} className="border-b border-border/50">
               <Td>
                 <Link to={`/projects/${s.id}`} className="font-medium text-accent hover:underline">{s.label || s.code}</Link>
-                {consumerMap[s.consumer_id]?.is_nbfc && <Badge tone="warn" className="ml-2">NBFC</Badge>}
+                {s.project_type && <Badge tone={s.project_type === "captive" ? "accent" : "ok"} className="ml-2">{s.project_type}</Badge>}
               </Td>
               <Td className="text-muted">{spokeMap[areaOf(s)]?.name || areaOf(s)}</Td>
               <Td className="text-muted">{s.location || "-"}</Td>

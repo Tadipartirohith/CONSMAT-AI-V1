@@ -60,7 +60,16 @@ export default function SiteDetail() {
         <Link to="/sites" className="text-sm text-muted hover:text-white">Back to Sites</Link>
         <h1 className="font-head text-2xl font-extrabold text-white">{s.code}</h1>
         <Badge tone={s.status === "completed" ? "ok" : s.status === "active" ? "accent" : "muted"}>{s.status}</Badge>
-        <div className="ml-auto">
+        {s.project_type && <Badge tone={s.project_type === "captive" ? "accent" : "ok"}>{s.project_type}</Badge>}
+        <span className="text-[11px] text-muted">{(s.stage || "onboarded").replace(/_/g, " ")}</span>
+        <div className="ml-auto flex items-center gap-2">
+          {!s.project_type && (
+            <Select value="" onChange={(e) => e.target.value && act(() => site.updateSite(id, { project_type: e.target.value }), "Project type set")}>
+              <option value="">set project type…</option>
+              <option value="captive">captive</option>
+              <option value="client">client</option>
+            </Select>
+          )}
           {notStarted && <Button onClick={() => act(() => site.start(id), "Started")} disabled={busy}>Start construction</Button>}
         </div>
       </div>

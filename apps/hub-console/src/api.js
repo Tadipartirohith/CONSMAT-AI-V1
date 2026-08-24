@@ -96,12 +96,13 @@ export const team = {
 export const ROLE_LABEL = {
   admin: "Admin", hub_manager: "Hub manager", hub_supervisor: "Hub supervisor",
   spokesperson: "Spokesperson", architect: "Architect", civil_engineer: "Civil engineer",
-  vendor: "Vendor", consumer: "Consumer", service: "Service",
+  finance: "Finance", vendor: "Vendor", consumer: "Consumer", service: "Service",
 };
 
 export const site = {
   sites: () => req("site", "/sites"),
   siteDetail: (id) => req("site", `/sites/${id}`),
+  updateSite: (id, b) => req("site", `/sites/${id}`, { method: "PATCH", body: JSON.stringify(b) }),
   consumers: () => req("site", "/consumers"),
   spokes: () => req("site", "/spokes"),
   createSpoke: (b) => req("site", "/spokes", body(b)),

@@ -88,7 +88,7 @@ def spoke_dashboard(spoke_id: str, db: Session = Depends(get_db)):
 @router.post("/consumers", response_model=schemas.ConsumerOut, status_code=201, dependencies=[Depends(FIELD)])
 def create_consumer(body: schemas.ConsumerIn, db: Session = Depends(get_db)):
     return _run(service.create_consumer, db=db, name=body.name, tier=body.tier,
-                spoke_id=body.spoke_id, phone=body.phone, is_nbfc=body.is_nbfc)
+                spoke_id=body.spoke_id, phone=body.phone)
 
 
 @router.get("/consumers", response_model=list[schemas.ConsumerOut])
@@ -99,18 +99,17 @@ def list_consumers(db: Session = Depends(get_db)):
 @router.patch("/consumers/{consumer_id}", response_model=schemas.ConsumerOut, dependencies=[Depends(FIELD)])
 def update_consumer(consumer_id: str, body: schemas.ConsumerUpdate, db: Session = Depends(get_db)):
     return _run(service.update_consumer, db=db, consumer_id=consumer_id,
-                tier=body.tier, phone=body.phone, is_nbfc=body.is_nbfc)
+                tier=body.tier, phone=body.phone)
 
 
 @router.post("/intake", status_code=201, dependencies=[Depends(FIELD)])
 def intake(body: schemas.IntakeIn, db: Session = Depends(get_db)):
     """Consumer intake: classify (tier) and auto-assign the serving spoke by geofence (location)."""
     result = _run(service.intake, db=db, name=body.name, tier=body.tier,
-                  location=body.location, phone=body.phone, email=body.email, is_nbfc=body.is_nbfc)
+                  location=body.location, phone=body.phone, email=body.email)
     c, s = result["consumer"], result["spoke"]
     return {
-        "consumer": {"id": c.id, "name": c.name, "tier": c.tier, "phone": c.phone,
-                     "spoke_id": c.spoke_id, "is_nbfc": c.is_nbfc},
+        "consumer": {"id": c.id, "name": c.name, "tier": c.tier, "phone": c.phone, "spoke_id": c.spoke_id},
         "assigned_spoke": {"id": s.id, "name": s.name},
         "login": result.get("login"),
     }
@@ -121,7 +120,14 @@ def intake(body: schemas.IntakeIn, db: Session = Depends(get_db)):
 def create_site(body: schemas.SiteIn, db: Session = Depends(get_db)):
     return _run(service.create_site, db=db, consumer_id=body.consumer_id, label=body.label,
                 location=body.location, area_sqft=body.area_sqft, floors=body.floors,
-                construction_type=body.construction_type)
+                construction_type=body.construction_type, project_type=body.project_type)
+
+
+@router.patch("/sites/{site_id}", response_model=schemas.SiteOut, dependencies=[Depends(FIELD)])
+def update_site(site_id: int, body: schemas.SiteUpdate, db: Session = Depends(get_db)):
+    """Set/change a project's financing type (captive|client) or lifecycle stage."""
+    return _run(service.update_site, db=db, site_id=site_id, project_type=body.project_type,
+                stage=body.stage)
 
 
 @router.get("/sites", response_model=list[schemas.SiteOut])

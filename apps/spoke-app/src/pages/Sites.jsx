@@ -8,13 +8,14 @@ export default function Sites() {
   const consumers = useAsync(() => site.consumers());
   const [err, setErr] = useState(null);
 
-  const [f, setF] = useState({ consumer_id: "", label: "", location: "", area_sqft: "", floors: 1, construction_type: "standard" });
+  const [f, setF] = useState({ consumer_id: "", label: "", location: "", area_sqft: "", floors: 1, construction_type: "standard", project_type: "captive" });
   const submit = async (e) => {
     e.preventDefault(); setErr(null);
     try {
       await site.createSite({
         consumer_id: f.consumer_id, label: f.label, location: f.location,
         area_sqft: Number(f.area_sqft), floors: Number(f.floors), construction_type: f.construction_type,
+        project_type: f.project_type,
       });
       setF({ ...f, label: "", location: "", area_sqft: "" });
       sites.reload();
@@ -27,15 +28,16 @@ export default function Sites() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card title="Sites" className="lg:col-span-2" right={<Button size="sm" variant="ghost" onClick={sites.reload}>Refresh</Button>}>
-          <Table head={["Site", "Label", "Location", "Area", "Status", ""]}>
+          <Table head={["Site", "Label", "Location", "Area", "Type", "Stage", ""]}>
             {(sites.data || []).map((s) => (
               <tr key={s.id} className="border-b border-border/50">
-                <Td mono>{s.code}</Td>
+                <Td><Link className="font-medium text-accent hover:underline" to={`/sites/${s.id}`}>{s.code}</Link></Td>
                 <Td>{s.label || "-"}</Td>
                 <Td>{s.location || "-"}</Td>
                 <Td mono>{s.area_sqft} × {s.floors}f</Td>
-                <Td><Badge tone={s.status === "completed" ? "ok" : s.status === "active" ? "accent" : "muted"}>{s.status}</Badge></Td>
-                <Td><Link className="text-accent hover:underline" to={`/sites/${s.id}`}>open </Link></Td>
+                <Td>{s.project_type ? <Badge tone={s.project_type === "captive" ? "accent" : "ok"}>{s.project_type}</Badge> : <span className="text-[11px] text-muted">-</span>}</Td>
+                <Td className="text-muted text-[11px]">{(s.stage || "onboarded").replace(/_/g, " ")}</Td>
+                <Td><Link className="text-accent hover:underline" to={`/sites/${s.id}`}>open</Link></Td>
               </tr>
             ))}
             {sites.data?.length === 0 && <tr><Td className="text-muted">No sites yet.</Td></tr>}
@@ -59,6 +61,12 @@ export default function Sites() {
             <Field label="Construction type">
               <Select value={f.construction_type} onChange={(e) => setF({ ...f, construction_type: e.target.value })}>
                 {CTYPES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </Select>
+            </Field>
+            <Field label="Project type">
+              <Select value={f.project_type} onChange={(e) => setF({ ...f, project_type: e.target.value })}>
+                <option value="captive">Captive (financed in-house)</option>
+                <option value="client">Client (customer pays)</option>
               </Select>
             </Field>
             <Button type="submit">Create site</Button>

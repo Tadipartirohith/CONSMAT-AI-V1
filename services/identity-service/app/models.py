@@ -16,6 +16,7 @@ ROLES = (
     "spokesperson",
     "architect",
     "civil_engineer",
+    "finance",
     "consumer",
     "vendor",
 )

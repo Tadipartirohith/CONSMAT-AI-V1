@@ -25,12 +25,14 @@ ROLE_RANK = {
     "spokesperson": 40,
     "architect": 40,
     "civil_engineer": 40,
+    "finance": 40,
     "vendor": 20,
     "consumer": 10,
     "service": 0,
 }
 # Roles the Team portal manages (consumers/vendors/service are provisioned by their own flows).
-MANAGEABLE_ROLES = ("admin", "hub_manager", "hub_supervisor", "spokesperson", "architect", "civil_engineer")
+MANAGEABLE_ROLES = ("admin", "hub_manager", "hub_supervisor", "spokesperson", "architect",
+                    "civil_engineer", "finance")
 
 
 def role_rank(role: str) -> int:

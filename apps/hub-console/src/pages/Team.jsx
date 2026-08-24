@@ -3,7 +3,7 @@ import { team, site, ROLE_LABEL } from "../api.js";
 import { getUser } from "../auth.js";
 import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync } from "../components/ui.jsx";
 
-const FIELD_ROLES = ["spokesperson", "architect", "civil_engineer"];  // roles that belong to a spoke team
+const FIELD_ROLES = ["spokesperson", "architect", "civil_engineer", "finance"];  // roles that belong to a spoke team
 
 export default function Team() {
   const me = getUser();

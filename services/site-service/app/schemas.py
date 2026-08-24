@@ -52,13 +52,11 @@ class IntakeIn(BaseModel):
     location: str = Field(min_length=1)
     phone: str = ""
     email: str = ""
-    is_nbfc: bool = False
 
 
 class ConsumerUpdate(BaseModel):
     tier: str | None = None
     phone: str | None = None
-    is_nbfc: bool | None = None
 
 
 class ConsumerIn(BaseModel):
@@ -66,7 +64,6 @@ class ConsumerIn(BaseModel):
     tier: str = "individual"
     spoke_id: str
     phone: str = ""
-    is_nbfc: bool = False
 
 
 class ConsumerOut(BaseModel):
@@ -76,7 +73,6 @@ class ConsumerOut(BaseModel):
     tier: str
     phone: str
     email: str = ""
-    is_nbfc: bool = False
     spoke_id: str
 
 
@@ -87,6 +83,12 @@ class SiteIn(BaseModel):
     area_sqft: float = Field(gt=0)
     floors: int = Field(default=1, ge=1)
     construction_type: str = "standard"
+    project_type: str = Field(default="", pattern="^(captive|client|)$")
+
+
+class SiteUpdate(BaseModel):
+    project_type: str | None = Field(default=None, pattern="^(captive|client)$")
+    stage: str | None = None
 
 
 class BOMLineOut(BaseModel):
@@ -187,6 +189,10 @@ class SiteOut(BaseModel):
     floors: int
     construction_type: str
     status: str
+    project_type: str = ""
+    stage: str = ""
+    budget: float | None = None
+    payment_received: bool = False
     total_area: float
     bom_lines: list[BOMLineOut] = []
     phases: list[PhaseProgressOut] = []
