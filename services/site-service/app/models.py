@@ -55,6 +55,13 @@ BOQ_REJECTED = "rejected"
 BOQ_SUPERSEDED = "superseded"
 BOQ_DIFF_THRESHOLD = 5.0  # % resource difference above which a reconciled final BOQ is required
 
+# Project finance (the spoke's internal finance team secures funding from a preferred partner)
+FIN_PENDING = "pending"
+FIN_IN_PROGRESS = "in_progress"
+FIN_APPROVED = "approved"
+FIN_REJECTED = "rejected"
+FINANCE_STATUSES = (FIN_PENDING, FIN_IN_PROGRESS, FIN_APPROVED, FIN_REJECTED)
+
 # project lifecycle stage (pre-delivery gate; distinct from the construction `status`)
 STAGE_ONBOARDED = "onboarded"
 STAGE_DESIGN = "design_uploaded"
@@ -288,6 +295,32 @@ class BOQChangeRequest(Base):
     ce_acked: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class FinancePartner(Base):
+    """A preferred finance partner the internal finance team can route a project's funding to."""
+    __tablename__ = "finance_partners"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    kind: Mapped[str] = mapped_column(String(16), default="bank")  # bank | nbfc | internal
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    note: Mapped[str] = mapped_column(String(300), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ProjectFinance(Base):
+    """The finance record for a project (one per site): the internal finance team's progress securing
+    funding for a captive project from a preferred partner."""
+    __tablename__ = "project_finance"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    site_id: Mapped[int] = mapped_column(ForeignKey("sites.id"), unique=True, index=True)
+    status: Mapped[str] = mapped_column(String(16), default=FIN_PENDING)
+    partner_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    amount: Mapped[Decimal | None] = mapped_column(Numeric(16, 2), nullable=True)
+    remarks: Mapped[str] = mapped_column(String(400), default="")
+    handled_by: Mapped[str] = mapped_column(String(120), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class ProjectDocument(Base):

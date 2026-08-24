@@ -242,6 +242,41 @@ class BOQChangeOut(BaseModel):
     resolved_at: datetime | None = None
 
 
+class FinancePartnerIn(BaseModel):
+    name: str = Field(min_length=1)
+    kind: str = Field(default="bank", pattern="^(bank|nbfc|internal)$")
+    note: str = ""
+
+
+class FinancePartnerOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+    kind: str
+    active: bool
+    note: str
+
+
+class ProjectFinanceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    site_id: int
+    status: str
+    partner_id: int | None = None
+    amount: float | None = None
+    remarks: str
+    handled_by: str
+    created_at: datetime | None = None
+    decided_at: datetime | None = None
+
+
+class ProjectFinanceUpdate(BaseModel):
+    status: str | None = None
+    partner_id: int | None = None
+    amount: float | None = None
+    remarks: str | None = None
+
+
 class ProjectDocumentOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int

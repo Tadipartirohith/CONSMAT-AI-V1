@@ -4,6 +4,8 @@ import Dashboard from "./pages/Dashboard.jsx";
 import Intake from "./pages/Intake.jsx";
 import Sites from "./pages/Sites.jsx";
 import SiteDetail from "./pages/SiteDetail.jsx";
+import Finance from "./pages/Finance.jsx";
+import Inventory from "./pages/Inventory.jsx";
 import Login from "./pages/Login.jsx";
 import { getUser, logout } from "./auth.js";
 
@@ -11,6 +13,8 @@ const NAV = [
   { to: "/dashboard", label: "Coverage", icon: "🗺️" },
   { to: "/intake", label: "Onboarding", icon: "🤝" },
   { to: "/sites", label: "Sites", icon: "🏗️" },
+  { to: "/finance", label: "Finance", icon: "💰", roles: ["finance", "spokesperson", "hub_manager", "hub_supervisor"] },
+  { to: "/inventory", label: "Hub stock", icon: "📦" },
 ];
 
 export default function App() {
@@ -27,7 +31,7 @@ export default function App() {
           </div>
         </div>
         <nav className="p-2">
-          {NAV.map((n) => (
+          {NAV.filter((n) => !n.roles || n.roles.includes(user.role)).map((n) => (
             <NavLink key={n.to} to={n.to}
               className={({ isActive }) =>
                 `flex items-center gap-2.5 rounded px-3 py-2 text-sm transition-colors ${
@@ -51,6 +55,8 @@ export default function App() {
           <Route path="/intake" element={<Intake />} />
           <Route path="/sites" element={<Sites />} />
           <Route path="/sites/:id" element={<SiteDetail />} />
+          <Route path="/finance" element={<Finance />} />
+          <Route path="/inventory" element={<Inventory />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </main>

@@ -512,6 +512,119 @@ def _safe_stock_check(db: Session, site_id: int) -> None:
         print(f"[boq] stock-check failed for SITE-{site_id}: {type(e).__name__}: {e}", flush=True)
 
 
+# ---- Budget + finance ----
+
+def compute_budget(db: Session, site_id: int) -> dict:
+    """Price the project's operational BOM (approved BOQ) at the consumer's tier -> a budget total."""
+    from . import pricing_client
+    site = db.get(models.Site, site_id)
+    if site is None:
+        raise SiteError(f"Unknown site: SITE-{site_id}")
+    tier = site.consumer.tier if site.consumer else None
+    items: dict[str, float] = {}
+    for l in site.bom_lines:
+        if l.product_id:
+            items[l.product_id] = items.get(l.product_id, 0.0) + float(l.total_qty)
+    if not items:
+        raise SiteError("Approve a BOQ before computing the budget")
+    quote = pricing_client.quote_products(tier, [{"product_id": p, "qty": q} for p, q in items.items()])
+    return {"tier": tier, "total": quote.get("total", 0), "lines": quote.get("lines", [])}
+
+
+def issue_budget(db: Session, site_id: int, actor_name: str = "") -> models.Site:
+    """Hub prices the approved BOQ and issues the project budget."""
+    site = db.get(models.Site, site_id)
+    if site is None:
+        raise SiteError(f"Unknown site: SITE-{site_id}")
+    budget = compute_budget(db, site_id)
+    site.budget = _dec(budget["total"])
+    if site.stage in (models.STAGE_BOQ_APPROVED, models.STAGE_BOQ_REVIEW):
+        site.stage = models.STAGE_BUDGETED
+    _notify(db, site, "budget_issued",
+            f"Hub issued a project budget of Rs {budget['total']:.0f}"
+            f"{f' by {actor_name}' if actor_name else ''}.", audience="all")
+    db.commit()
+    db.refresh(site)
+    return site
+
+
+def list_finance_partners(db: Session, active_only: bool = False) -> list[models.FinancePartner]:
+    stmt = select(models.FinancePartner).order_by(models.FinancePartner.name)
+    if active_only:
+        stmt = stmt.where(models.FinancePartner.active.is_(True))
+    return list(db.execute(stmt).scalars())
+
+
+def create_finance_partner(db: Session, name: str, kind: str = "bank", note: str = "") -> models.FinancePartner:
+    if not name.strip():
+        raise SiteError("Partner name is required")
+    p = models.FinancePartner(name=name.strip(), kind=kind or "bank", note=note or "")
+    db.add(p)
+    db.commit()
+    db.refresh(p)
+    return p
+
+
+def deactivate_finance_partner(db: Session, partner_id: int) -> None:
+    p = db.get(models.FinancePartner, partner_id)
+    if p is not None:
+        p.active = False
+        db.commit()
+
+
+def get_or_create_project_finance(db: Session, site_id: int) -> models.ProjectFinance:
+    site = db.get(models.Site, site_id)
+    if site is None:
+        raise SiteError(f"Unknown site: SITE-{site_id}")
+    pf = db.execute(select(models.ProjectFinance).where(models.ProjectFinance.site_id == site_id)).scalars().first()
+    if pf is None:
+        pf = models.ProjectFinance(site_id=site_id, status=models.FIN_PENDING)
+        db.add(pf)
+        db.commit()
+        db.refresh(pf)
+    return pf
+
+
+def list_project_finance(db: Session, status: str | None = None) -> list[models.ProjectFinance]:
+    stmt = select(models.ProjectFinance).order_by(models.ProjectFinance.id.desc())
+    if status:
+        stmt = stmt.where(models.ProjectFinance.status == status)
+    return list(db.execute(stmt).scalars())
+
+
+def update_project_finance(db: Session, site_id: int, *, status: str | None = None,
+                           partner_id: int | None = None, amount: float | None = None,
+                           remarks: str | None = None, actor_name: str = "") -> models.ProjectFinance:
+    """Finance team updates the funding status/partner/amount for a project."""
+    pf = get_or_create_project_finance(db, site_id)
+    site = db.get(models.Site, site_id)
+    if status is not None:
+        if status not in models.FINANCE_STATUSES:
+            raise SiteError(f"status must be one of {models.FINANCE_STATUSES}")
+        pf.status = status
+    if partner_id is not None:
+        pf.partner_id = partner_id or None
+    if amount is not None:
+        pf.amount = _dec(amount)
+    if remarks is not None:
+        pf.remarks = remarks
+    pf.handled_by = actor_name or pf.handled_by
+    if pf.status == models.FIN_APPROVED:
+        pf.decided_at = db.execute(select(func.now())).scalar()
+        if site.stage in (models.STAGE_BUDGETED, models.STAGE_FINANCING, models.STAGE_BOQ_APPROVED):
+            site.stage = models.STAGE_FINANCE_APPROVED
+        _notify(db, site, "finance_approved",
+                f"Finance approved for this project{f' via partner' if pf.partner_id else ''}.", audience="all")
+    elif pf.status == models.FIN_REJECTED:
+        pf.decided_at = db.execute(select(func.now())).scalar()
+        _notify(db, site, "finance_rejected", "Finance was declined for this project.", audience="all")
+    elif pf.status == models.FIN_IN_PROGRESS and site.stage == models.STAGE_BUDGETED:
+        site.stage = models.STAGE_FINANCING
+    db.commit()
+    db.refresh(pf)
+    return pf
+
+
 def list_sites(db: Session) -> list[models.Site]:
     return list(db.execute(select(models.Site).order_by(models.Site.id.desc())).scalars())
 

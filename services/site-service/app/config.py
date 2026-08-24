@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     payment_url: str = "http://localhost:8006"
     # procurement-service base URL: the external second-BOQ estimator lives here.
     procurement_url: str = "http://localhost:8002"
+    # pricing-service base URL: price a finalized BOQ to compute the project budget.
+    pricing_url: str = "http://localhost:8004"
     demo_password: str = "consmat123"  # temp password issued to a newly onboarded consumer
     # JIT dispatch scheduler: warn 3 days before a phase ends and pre-dispatch the next phase.
     scheduler_enabled: bool = True

@@ -59,6 +59,12 @@ def quote(body: schemas.QuoteIn, db: Session = Depends(get_db)):
     return _run(service.quote, db=db, tier=body.tier, items=[i.model_dump() for i in body.items])
 
 
+@router.post("/quote-products")
+def quote_products(body: schemas.ProductQuoteIn, db: Session = Depends(get_db)):
+    """Priced quote for a set of branded products + quantities (used to budget a finalized BOQ)."""
+    return _run(service.quote_products, db=db, tier=body.tier, items=[i.model_dump() for i in body.items])
+
+
 @router.get("/selling-prices")
 def selling_prices(tier: str | None = None, db: Session = Depends(get_db)):
     """Map material_id -> unit selling price (consumed by procurement /analyze)."""

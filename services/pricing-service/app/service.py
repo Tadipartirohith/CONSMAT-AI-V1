@@ -134,6 +134,25 @@ def quote(db: Session, tier: str | None, items: list[dict]) -> dict:
     return {"tier": _norm(tier), "lines": lines, "total": round(total, 2)}
 
 
+def quote_products(db: Session, tier: str | None, items: list[dict]) -> dict:
+    """Priced quote for a set of {product_id, qty} (brand-level) - used to budget a finalized BOQ."""
+    lines, total = [], 0.0
+    for it in items:
+        pid = it.get("product_id")
+        if not pid:
+            continue
+        try:
+            p = price_product(db, pid, tier)
+        except Exception:  # noqa: BLE001, a missing/unpriced product contributes 0 rather than failing the budget
+            p = {"product_id": pid, "material_id": "", "tier": tier, "landed_cost": 0,
+                 "margin_pct": 0, "rule": "unpriced", "unit_price": 0}
+        qty = float(it.get("qty") or 0)
+        line_total = round(p["unit_price"] * qty, 2)
+        total += line_total
+        lines.append({**p, "qty": qty, "line_total": line_total})
+    return {"tier": _norm(tier), "lines": lines, "total": round(total, 2)}
+
+
 def selling_prices(db: Session, tier: str | None) -> dict[str, float]:
     """Map material_id -> unit selling price for every catalog material (feeds procurement /analyze)."""
     out = {}

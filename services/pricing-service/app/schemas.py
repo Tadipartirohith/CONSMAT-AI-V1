@@ -50,3 +50,13 @@ class QuoteItem(BaseModel):
 class QuoteIn(BaseModel):
     tier: str | None = None
     items: list[QuoteItem] = Field(min_length=1)
+
+
+class ProductQuoteItem(BaseModel):
+    product_id: str = Field(min_length=1)
+    qty: float = Field(gt=0)
+
+
+class ProductQuoteIn(BaseModel):
+    tier: str | None = None
+    items: list[ProductQuoteItem] = Field(min_length=1)

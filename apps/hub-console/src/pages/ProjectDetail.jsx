@@ -90,23 +90,58 @@ function BoqApprovalCard({ s, onChanged }) {
         </div>
       )}
       {latest && latest.status === "approved" && (
-        <div className="mt-3">
-          <p className="mb-1 text-[11px] uppercase tracking-wider text-muted">Hub stock for this BOQ</p>
-          {shortfalls.length === 0 ? <p className="text-sm text-emerald-400">All BOQ products are in stock.</p> : (
-            <Table head={["Product", "Required", "Available", "Status"]}>
-              {shortfalls.map((r) => (
-                <tr key={r.product_id} className="border-b border-border/50">
-                  <Td className="text-white/80">{r.product_name}</Td>
-                  <Td mono>{r.required}</Td>
-                  <Td mono>{r.available}</Td>
-                  <Td><Badge tone={r.status === "out" ? "bad" : "warn"}>{r.status === "out" ? "out of stock" : "low"}</Badge></Td>
-                </tr>
-              ))}
-            </Table>
-          )}
-        </div>
+        <>
+          <div className="mt-3">
+            <p className="mb-1 text-[11px] uppercase tracking-wider text-muted">Hub stock for this BOQ</p>
+            {shortfalls.length === 0 ? <p className="text-sm text-emerald-400">All BOQ products are in stock.</p> : (
+              <Table head={["Product", "Required", "Available", "Status"]}>
+                {shortfalls.map((r) => (
+                  <tr key={r.product_id} className="border-b border-border/50">
+                    <Td className="text-white/80">{r.product_name}</Td>
+                    <Td mono>{r.required}</Td>
+                    <Td mono>{r.available}</Td>
+                    <Td><Badge tone={r.status === "out" ? "bad" : "warn"}>{r.status === "out" ? "out of stock" : "low"}</Badge></Td>
+                  </tr>
+                ))}
+              </Table>
+            )}
+          </div>
+          <BudgetFinance s={s} onChanged={onChanged} />
+        </>
       )}
     </Card>
+  );
+}
+
+function BudgetFinance({ s, onChanged }) {
+  const fin = useAsync(() => site.projectFinance(s.id), [s.id]);
+  const partners = useAsync(() => site.financePartners(), []);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const issue = async () => {
+    setBusy(true); setMsg(null);
+    try { const r = await site.issueBudget(s.id); setMsg({ ok: true, text: `Budget issued: ${inr(r.budget)}` }); onChanged?.(); }
+    catch (e) { setMsg({ ok: false, text: e.message }); } finally { setBusy(false); }
+  };
+  const f = fin.data;
+  const partnerName = f?.partner_id ? (partners.data || []).find((p) => p.id === f.partner_id)?.name : null;
+  return (
+    <div className="mt-3 border-t border-border/60 pt-3">
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span className="text-[11px] uppercase tracking-wider text-muted">Budget</span>
+        {s.budget != null ? <span className="font-mono text-accent">{inr(s.budget)}</span> : <span className="text-muted">not issued</span>}
+        <Button size="sm" variant="ghost" onClick={issue} disabled={busy}>{s.budget != null ? "Re-issue" : "Issue budget"}</Button>
+        {s.project_type === "captive" && f && (
+          <>
+            <span className="ml-3 text-[11px] uppercase tracking-wider text-muted">Finance</span>
+            <Badge tone={f.status === "approved" ? "ok" : f.status === "rejected" ? "bad" : "warn"}>{f.status.replace("_", " ")}</Badge>
+            {partnerName && <span className="text-[11px] text-muted">{partnerName}</span>}
+            {f.amount != null && <span className="font-mono text-[11px] text-muted">{inr(f.amount)}</span>}
+          </>
+        )}
+      </div>
+      {msg && <p className={`mt-1 text-xs ${msg.ok ? "text-emerald-400" : "text-red-400"}`}>{msg.text}</p>}
+    </div>
   );
 }
 

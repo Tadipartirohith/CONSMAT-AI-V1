@@ -49,6 +49,11 @@ export const site = {
   boqStockCheck: (id) => req("site", `/sites/${id}/boq-stock-check`),
   boqChanges: (siteId) => req("site", `/boq-changes${siteId ? `?site_id=${siteId}` : ""}`),
   ackBoqChange: (reqId) => req("site", `/boq-changes/${reqId}/ack`, { method: "POST" }),
+  previewBudget: (id) => req("site", `/sites/${id}/budget`),
+  projectFinance: (id) => req("site", `/sites/${id}/finance`),
+  updateFinance: (id, b) => req("site", `/sites/${id}/finance`, { method: "PATCH", body: JSON.stringify(b) }),
+  financePartners: () => req("site", "/finance-partners"),
+  createFinancePartner: (b) => req("site", "/finance-partners", body(b)),
   documents: (id, kind) => req("site", `/sites/${id}/documents${kind ? `?kind=${kind}` : ""}`),
   uploadDocument: async (id, file, kind = "design", note = "") => {
     const fd = new FormData(); fd.append("file", file); fd.append("kind", kind); fd.append("note", note);
@@ -79,6 +84,8 @@ export const site = {
 
 export const inv = {
   stock: () => req("inv", "/inventory"),
+  productStock: (m) => req("inv", `/product-stock${m ? `?material_id=${m}` : ""}`),
+  materials: () => req("inv", "/materials"),
   products: (m) => req("inv", `/products${m ? `?material_id=${m}` : ""}`),
   searchProducts: (q) => req("inv", `/products/search?q=${encodeURIComponent(q)}`),
 };

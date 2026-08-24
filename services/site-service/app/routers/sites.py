@@ -224,6 +224,56 @@ def boq_stock_check(site_id: int, db: Session = Depends(get_db)):
     return _run(service.boq_stock_check, db=db, site_id=site_id)
 
 
+# ---- Budget + finance ----
+FIN = require_role("finance", "hub_supervisor", "hub_manager", "spokesperson")
+
+
+@router.get("/sites/{site_id}/budget")
+def preview_budget(site_id: int, db: Session = Depends(get_db)):
+    """Price the approved BOQ at the consumer's tier (budget preview)."""
+    return _run(service.compute_budget, db=db, site_id=site_id)
+
+
+@router.post("/sites/{site_id}/budget/issue", response_model=schemas.SiteOut, dependencies=[Depends(HUB)])
+def issue_budget(site_id: int, user: dict = Depends(current_user), db: Session = Depends(get_db)):
+    """Hub issues the project budget from the priced approved BOQ."""
+    return _run(service.issue_budget, db=db, site_id=site_id, actor_name=user.get("name", ""))
+
+
+@router.get("/finance-partners", response_model=list[schemas.FinancePartnerOut])
+def list_finance_partners(active_only: bool = False, db: Session = Depends(get_db)):
+    return service.list_finance_partners(db, active_only=active_only)
+
+
+@router.post("/finance-partners", response_model=schemas.FinancePartnerOut, status_code=201, dependencies=[Depends(FIN)])
+def create_finance_partner(body: schemas.FinancePartnerIn, db: Session = Depends(get_db)):
+    return _run(service.create_finance_partner, db=db, name=body.name, kind=body.kind, note=body.note)
+
+
+@router.delete("/finance-partners/{partner_id}", status_code=204, dependencies=[Depends(FIN)])
+def deactivate_finance_partner(partner_id: int, db: Session = Depends(get_db)):
+    service.deactivate_finance_partner(db, partner_id)
+
+
+@router.get("/finance", response_model=list[schemas.ProjectFinanceOut])
+def list_project_finance(status: str | None = None, db: Session = Depends(get_db)):
+    return service.list_project_finance(db, status=status)
+
+
+@router.get("/sites/{site_id}/finance", response_model=schemas.ProjectFinanceOut)
+def get_project_finance(site_id: int, db: Session = Depends(get_db)):
+    return _run(service.get_or_create_project_finance, db=db, site_id=site_id)
+
+
+@router.patch("/sites/{site_id}/finance", response_model=schemas.ProjectFinanceOut, dependencies=[Depends(FIN)])
+def update_project_finance(site_id: int, body: schemas.ProjectFinanceUpdate,
+                           user: dict = Depends(current_user), db: Session = Depends(get_db)):
+    """Finance team updates a project's funding status/partner/amount/remarks."""
+    return _run(service.update_project_finance, db=db, site_id=site_id, status=body.status,
+                partner_id=body.partner_id, amount=body.amount, remarks=body.remarks,
+                actor_name=user.get("name", ""))
+
+
 @router.get("/sites/{site_id}", response_model=schemas.SiteOut)
 def get_site(site_id: int, db: Session = Depends(get_db)):
     site = service.get_site(db, site_id)
