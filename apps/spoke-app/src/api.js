@@ -91,6 +91,8 @@ export const inv = {
 };
 
 export const proc = {
+  createOrderRequest: (b) => req("proc", "/procurement/order-requests", body(b)),
+  orderRequests: (status) => req("proc", `/procurement/order-requests${status ? `?status=${status}` : ""}`),
   bomExtract: async (file) => {
     const fd = new FormData(); fd.append("file", file);
     const res = await fetch("/proc/procurement/bom-extract", { method: "POST", headers: { ...authHeader() }, body: fd });

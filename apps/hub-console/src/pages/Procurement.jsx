@@ -46,6 +46,9 @@ export default function Procurement() {
       <h1 className="font-head text-2xl font-extrabold text-white">Procurement</h1>
       {msg && <p className={`text-xs ${msg.ok === false ? "text-red-400" : msg.ok ? "text-emerald-400" : "text-red-400"}`}>{msg.text || msg}</p>}
 
+      <SpokeOrderRequests vendors={vendors.data || []} onDone={orders.reload} />
+
+
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Demand to cheapest-source plan">
           <div className="space-y-2">
@@ -251,5 +254,62 @@ function NewProduct({ initialName = "", onDone }) {
       </div>
       {msg && <p className="text-[11px] text-red-400">{msg}</p>}
     </form>
+  );
+}
+
+function SpokeOrderRequests({ vendors, onDone }) {
+  const reqs = useAsync(() => proc.orderRequests("pending"));
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const [state, setState] = useState({});
+  const setV = (rid, vendor_id) => setState((s) => ({ ...s, [rid]: { ...(s[rid] || {}), vendor_id } }));
+  const setP = (rid, pid, cost) => setState((s) => ({ ...s, [rid]: { ...(s[rid] || {}), prices: { ...((s[rid] || {}).prices || {}), [pid]: cost } } }));
+  const decide = async (r, approve) => {
+    setBusy(true); setMsg(null);
+    try {
+      const st = state[r.id] || {};
+      const prices = Object.entries(st.prices || {}).map(([product_id, unit_cost]) => ({ product_id, unit_cost: Number(unit_cost) }));
+      await proc.decideOrderRequest(r.id, { approve, vendor_id: st.vendor_id || "", prices });
+      setMsg({ ok: true, text: approve ? `Approved ${r.code}, PO created.` : `Rejected ${r.code}.` });
+      reqs.reload(); onDone?.();
+    } catch (e) { setMsg({ ok: false, text: e.message }); } finally { setBusy(false); }
+  };
+  if ((reqs.data || []).length === 0) return null;
+  return (
+    <Card title={`Spoke order requests (${reqs.data.length})`} right={<Button size="sm" variant="ghost" onClick={reqs.reload}>Refresh</Button>}>
+      {msg && <p className={`mb-2 text-xs ${msg.ok ? "text-emerald-400" : "text-red-400"}`}>{msg.text}</p>}
+      <div className="space-y-3">
+        {reqs.data.map((r) => {
+          const st = state[r.id] || {};
+          return (
+            <div key={r.id} className="border border-border/60 bg-panel2 p-3">
+              <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
+                <span className="font-mono text-white">{r.code}</span>
+                {r.site_ref && <Badge tone="accent">{r.site_ref}</Badge>}
+                <span className="text-muted">by {r.requested_by || r.requested_by_role}</span>
+                {r.note && <span className="text-[11px] text-muted">"{r.note}"</span>}
+              </div>
+              <Table head={["Product", "Qty", "Rate (Rs/unit)"]}>
+                {r.lines.map((l) => (
+                  <tr key={l.product_id} className="border-b border-border/50">
+                    <Td className="text-white/80">{l.product_name}</Td>
+                    <Td mono>{l.qty}</Td>
+                    <Td><div className="w-28"><Input type="number" step="any" placeholder="rate" value={st.prices?.[l.product_id] ?? ""} onChange={(e) => setP(r.id, l.product_id, e.target.value)} /></div></Td>
+                  </tr>
+                ))}
+              </Table>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Select value={st.vendor_id || ""} onChange={(e) => setV(r.id, e.target.value)}>
+                  <option value="">pick vendor…</option>
+                  {vendors.filter((v) => !v.is_hub_self).map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                </Select>
+                <Button size="sm" onClick={() => decide(r, true)} disabled={busy || !st.vendor_id}>Approve &amp; create PO</Button>
+                <Button size="sm" variant="ghost" onClick={() => decide(r, false)} disabled={busy}>Reject</Button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
   );
 }

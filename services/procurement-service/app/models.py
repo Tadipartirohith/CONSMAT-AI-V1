@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -168,3 +168,44 @@ class ProcurementLine(Base):
     received: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     order: Mapped["ProcurementOrder"] = relationship(back_populates="lines")
+
+
+# Spoke stock-order requests (the spoke asks the hub to buy stock; the hub approves and sets vendor+rate)
+OR_PENDING = "pending"
+OR_APPROVED = "approved"
+OR_REJECTED = "rejected"
+
+
+class OrderRequest(Base):
+    """A spoke's request for the hub to procure stock. On approval the hub picks a vendor + rate and a
+    real purchase order is created (order_id)."""
+    __tablename__ = "order_requests"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    site_ref: Mapped[str] = mapped_column(String(32), default="")   # optional SITE-<id> this is for
+    note: Mapped[str] = mapped_column(String(400), default="")
+    status: Mapped[str] = mapped_column(String(16), default=OR_PENDING)
+    requested_by: Mapped[str] = mapped_column(String(120), default="")
+    requested_by_role: Mapped[str] = mapped_column(String(32), default="")
+    decided_by: Mapped[str] = mapped_column(String(120), default="")
+    order_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # created PO on approval
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    lines: Mapped[list["OrderRequestLine"]] = relationship(back_populates="request",
+                                                           cascade="all, delete-orphan")
+
+    @property
+    def code(self) -> str:
+        return f"REQ-{self.id}"
+
+
+class OrderRequestLine(Base):
+    __tablename__ = "order_request_lines"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    request_id: Mapped[int] = mapped_column(ForeignKey("order_requests.id"), index=True)
+    product_id: Mapped[str] = mapped_column(String(64), default="")
+    material_id: Mapped[str] = mapped_column(String(40), default="")
+    product_name: Mapped[str] = mapped_column(String(200), default="")
+    qty: Mapped[Decimal] = mapped_column(Numeric(16, 3), nullable=False)
+    request: Mapped["OrderRequest"] = relationship(back_populates="lines")

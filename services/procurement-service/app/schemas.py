@@ -114,6 +114,52 @@ class BoqEstimateIn(BaseModel):
     lines: list[BoqLineIn] = []
 
 
+class OrderReqLineIn(BaseModel):
+    product_id: str = Field(min_length=1)
+    qty: float = Field(gt=0)
+
+
+class OrderRequestIn(BaseModel):
+    site_ref: str = ""
+    note: str = ""
+    lines: list[OrderReqLineIn] = Field(min_length=1)
+
+
+class OrderReqLineOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    product_id: str
+    material_id: str
+    product_name: str
+    qty: float
+
+
+class OrderRequestOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    code: str
+    site_ref: str
+    note: str
+    status: str
+    requested_by: str
+    requested_by_role: str
+    decided_by: str
+    order_id: int | None = None
+    created_at: datetime | None = None
+    decided_at: datetime | None = None
+    lines: list[OrderReqLineOut] = []
+
+
+class PriceLineIn(BaseModel):
+    product_id: str = Field(min_length=1)
+    unit_cost: float = Field(ge=0)
+
+
+class OrderRequestDecideIn(BaseModel):
+    approve: bool
+    vendor_id: str = ""
+    prices: list[PriceLineIn] = []
+
+
 class PriceIn(BaseModel):
     product_id: str = Field(min_length=1)
     price: float = Field(ge=0)

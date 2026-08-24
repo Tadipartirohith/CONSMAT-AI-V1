@@ -359,3 +359,72 @@ def product_offers(db: Session, product_id: str) -> list[dict]:
          "city": v.city}
         for p, v in rows
     ]
+
+
+# ---- Spoke stock-order requests (spoke asks; hub approves + sets vendor/rate -> PO) ----
+
+def create_order_request(db: Session, *, requested_by: str, requested_by_role: str,
+                         site_ref: str = "", note: str = "", lines: list[dict]) -> models.OrderRequest:
+    if not lines:
+        raise ProcurementError("An order request needs at least one line")
+    req = models.OrderRequest(site_ref=site_ref or "", note=note or "",
+                              requested_by=requested_by, requested_by_role=requested_by_role)
+    for ln in lines:
+        pid = ln.get("product_id", "") or ""
+        qty = _dec(ln.get("qty", 0))
+        if not pid or qty <= 0:
+            continue
+        prod = None
+        try:
+            prod = catalog_client.get_product(pid)
+        except Exception:  # noqa: BLE001
+            prod = None
+        req.lines.append(models.OrderRequestLine(
+            product_id=pid, material_id=(prod or {}).get("material_id", ""),
+            product_name=(prod or {}).get("name", pid), qty=qty))
+    if not req.lines:
+        raise ProcurementError("No valid lines (need a product and a positive quantity)")
+    db.add(req)
+    db.commit()
+    db.refresh(req)
+    return req
+
+
+def list_order_requests(db: Session, status: str | None = None) -> list[models.OrderRequest]:
+    stmt = select(models.OrderRequest).order_by(models.OrderRequest.id.desc())
+    if status:
+        stmt = stmt.where(models.OrderRequest.status == status)
+    return list(db.execute(stmt).scalars())
+
+
+def decide_order_request(db: Session, req_id: int, approve: bool, *, vendor_id: str = "",
+                         prices: list[dict] | None = None, decided_by: str = "") -> models.OrderRequest:
+    """Hub decides a spoke's request. On approve the hub supplies a vendor + per-product unit cost and a
+    real purchase order is created and linked."""
+    from sqlalchemy import func
+    from . import orders
+    req = db.get(models.OrderRequest, req_id)
+    if req is None:
+        raise ProcurementError(f"Unknown order request: {req_id}")
+    if req.status != models.OR_PENDING:
+        raise ProcurementError("This request has already been decided")
+    req.decided_by = decided_by
+    req.decided_at = db.execute(select(func.now())).scalar()
+    if not approve:
+        req.status = models.OR_REJECTED
+        db.commit()
+        db.refresh(req)
+        return req
+    if not vendor_id:
+        raise ProcurementError("Approving an order needs a vendor")
+    pricemap = {p["product_id"]: float(p.get("unit_cost", 0)) for p in (prices or [])}
+    po_lines = [{"material_id": l.material_id, "product_id": l.product_id, "product_name": l.product_name,
+                 "vendor_id": vendor_id, "qty": float(l.qty), "unit_cost": pricemap.get(l.product_id, 0.0)}
+                for l in req.lines]
+    order = orders.create_order(db, po_lines,
+                                note=f"From {req.code}" + (f" for {req.site_ref}" if req.site_ref else ""))
+    req.order_id = order.id
+    req.status = models.OR_APPROVED
+    db.commit()
+    db.refresh(req)
+    return req

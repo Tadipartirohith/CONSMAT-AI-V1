@@ -155,6 +155,35 @@ def bom_optimize(body: schemas.BomOptimizeIn):
     return result or {"summary": "Hub LLM unavailable - configure AI_PROVIDER.", "lines": []}
 
 
+# Spoke stock-order requests: the spoke requests, the hub approves (setting vendor + rate) -> PO.
+REQUESTER = require_role("spokesperson", "civil_engineer", "architect", "finance")
+
+
+@router.post("/procurement/order-requests", response_model=schemas.OrderRequestOut, status_code=201,
+             dependencies=[Depends(REQUESTER)])
+def create_order_request(body: schemas.OrderRequestIn, user: dict = Depends(current_user),
+                         db: Session = Depends(get_db)):
+    """A spoke asks the hub to procure stock (optionally tied to a project); needs hub approval."""
+    return _run(service.create_order_request, db=db, requested_by=user.get("name", ""),
+                requested_by_role=user.get("role", ""), site_ref=body.site_ref, note=body.note,
+                lines=[l.model_dump() for l in body.lines])
+
+
+@router.get("/procurement/order-requests", response_model=list[schemas.OrderRequestOut])
+def list_order_requests(status: str | None = None, db: Session = Depends(get_db)):
+    return service.list_order_requests(db, status)
+
+
+@router.post("/procurement/order-requests/{req_id}/decide", response_model=schemas.OrderRequestOut,
+             dependencies=[Depends(HUB_WRITE)])
+def decide_order_request(req_id: int, body: schemas.OrderRequestDecideIn,
+                         user: dict = Depends(current_user), db: Session = Depends(get_db)):
+    """Hub approves (choosing a vendor + per-product rate -> creates a PO) or rejects the request."""
+    return _run(service.decide_order_request, db=db, req_id=req_id, approve=body.approve,
+                vendor_id=body.vendor_id, prices=[p.model_dump() for p in body.prices],
+                decided_by=user.get("name", ""))
+
+
 @router.post("/procurement/boq-estimate")
 def boq_estimate(body: schemas.BoqEstimateIn):
     """Second BOQ from the external estimator (stub by default), used to cross-check the CE's BOQ."""
