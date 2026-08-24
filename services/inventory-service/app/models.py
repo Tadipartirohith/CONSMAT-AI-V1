@@ -33,6 +33,8 @@ class Material(Base):
     id: Mapped[str] = mapped_column(String(40), primary_key=True)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     category: Mapped[str] = mapped_column(String(60), default="")
+    # Business vertical (ConSmat page-3 classification): S&F | B&B | S&S | P&P | MixG&FixG | Interiors
+    segment: Mapped[str] = mapped_column(String(16), default="")
     unit: Mapped[str] = mapped_column(String(20), nullable=False)
     grade: Mapped[str] = mapped_column(String(60), default="")
     per_sqft: Mapped[Decimal] = mapped_column(Numeric(12, 5), default=Decimal("0"))

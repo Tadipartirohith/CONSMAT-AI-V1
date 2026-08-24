@@ -11,6 +11,7 @@ class MaterialOut(BaseModel):
     id: str
     name: str
     category: str
+    segment: str = ""
     unit: str
     grade: str
     per_sqft: float

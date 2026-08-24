@@ -6,6 +6,17 @@ import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync } from "
 const ICON = { cement: "🧱", steel: "🔩", sand: "🏖️", aggregate: "🪨", bricks: "🟥" };
 const TONE = { green: "#22c55e", yellow: "#eab308", orange: "#f59e0b", red: "#ef4444" };
 
+// ConSmat page-3 business verticals (segments), in display order.
+const SEGMENTS = [
+  { id: "S&F", name: "Structure & Foundation", tag: "S&F", icon: "🏗️" },
+  { id: "B&B", name: "Bricks & Blocks", tag: "B&B", icon: "🧱" },
+  { id: "S&S", name: "Sheets & Shades", tag: "S&S", icon: "🪵" },
+  { id: "P&P", name: "Pipes & Plugs", tag: "P&P", icon: "🔌" },
+  { id: "MixG&FixG", name: "Mortars, Adhesives & Coatings", tag: "MixG & FixG", icon: "🧴" },
+  { id: "Interiors", name: "Interiors & Home", tag: "Interiors", icon: "🛋️" },
+  { id: "Other", name: "Other", tag: "", icon: "📦" },
+];
+
 // Status from the 3x-reserved buffer: >=3x green, 1.5-3x yellow, 1-1.5x orange, <1x red.
 function stockTone(s) {
   const rv = s ? Number(s.reserved) : 0;
@@ -55,18 +66,29 @@ export default function Inventory() {
 
       {!cat ? (
         <>
-          <p className="text-xs text-muted">Pick a category to see its brands, stock and status.</p>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            {(materials.data || []).map((m) => (
-              <button key={m.id} onClick={() => setCat(m.id)}
-                className="flex flex-col items-start gap-1 border border-border bg-panel p-4 text-left hover:border-accent">
-                <span className="text-2xl">{ICON[m.id] || "📦"}</span>
-                <span className="text-sm font-semibold text-white">{m.name}</span>
-                <span className="text-[11px] text-muted">{countByMat[m.id] || 0} brands</span>
-                {lowByMat[m.id] > 0 && <Badge tone="warn">{lowByMat[m.id]} low</Badge>}
-              </button>
-            ))}
-          </div>
+          <p className="text-xs text-muted">Materials grouped by business vertical (ConSmat classification). Pick a category to see its brands, stock and status.</p>
+          {SEGMENTS.map((seg) => {
+            const mats = (materials.data || []).filter((m) => (m.segment || "Other") === seg.id);
+            if (mats.length === 0) return null;
+            return (
+              <div key={seg.id}>
+                <h2 className="mb-2 mt-1 flex items-center gap-2 text-sm font-bold text-white">
+                  <span>{seg.icon}</span>{seg.name}<span className="text-[11px] font-normal text-muted">{seg.tag}</span>
+                </h2>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                  {mats.map((m) => (
+                    <button key={m.id} onClick={() => setCat(m.id)}
+                      className="flex flex-col items-start gap-1 border border-border bg-panel p-4 text-left hover:border-accent">
+                      <span className="text-2xl">{ICON[m.id] || seg.icon}</span>
+                      <span className="text-sm font-semibold text-white">{m.name}</span>
+                      <span className="text-[11px] text-muted">{countByMat[m.id] || 0} brands</span>
+                      {lowByMat[m.id] > 0 && <Badge tone="warn">{lowByMat[m.id]} low</Badge>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </>
       ) : (
         <CategoryView material={(materials.data || []).find((m) => m.id === cat)} products={products.data || []}
