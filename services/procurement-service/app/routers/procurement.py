@@ -145,9 +145,13 @@ async def bom_extract(file: UploadFile = File(...)):
     return result or {"summary": "Hub LLM unavailable - configure AI_PROVIDER.", "lines": []}
 
 
-@router.post("/procurement/bom-optimize", dependencies=[Depends(HUB_WRITE)])
+# BOM optimize / find-alternatives is advisory (read-only suggestion) - the field team can use it too.
+BOM_SUGGEST = require_role("spokesperson", "civil_engineer", "architect", "hub_supervisor", "hub_manager")
+
+
+@router.post("/procurement/bom-optimize", dependencies=[Depends(BOM_SUGGEST)])
 def bom_optimize(body: schemas.BomOptimizeIn):
-    """Hub LLM: suggest an optimized product BOM from the catalog per the user's instruction (advisory)."""
+    """Hub LLM: suggest an optimized product BOM / cheaper alternatives from the catalog (advisory)."""
     import json as _json
     result = llm.complete_json(_BOM_OPT_SCHEMA, _json.dumps({
         "instruction": body.prompt, "current_bom": body.current_bom, "catalog": body.catalog,

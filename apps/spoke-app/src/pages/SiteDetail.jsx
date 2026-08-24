@@ -242,6 +242,7 @@ function BomCard({ siteId, lines, editable, onSaved }) {
   const [err, setErr] = useState(null);
   const [info, setInfo] = useState(null);
   const [cmp, setCmp] = useState(null);
+  const [sugg, setSugg] = useState(null);
 
   const add = () => {
     const p = (products.data || []).find((x) => x.id === pid);
@@ -261,6 +262,20 @@ function BomCard({ siteId, lines, editable, onSaved }) {
     setBusy(true); setErr(null);
     try { await site.submitFinalBoq(siteId, cleanRows()); setCmp(null); onSaved("Final BOQ submitted for spoke + hub approval."); }
     catch (e) { setErr(e.message); } finally { setBusy(false); }
+  };
+  const findAlternatives = async () => {
+    setBusy(true); setErr(null); setSugg(null);
+    try {
+      const catalog = (products.data || []).map((p) => ({ id: p.id, name: p.name, brand: p.brand, material_id: p.material_id, grade: p.grade }));
+      const current_bom = cleanRows().map((r) => ({ product_id: r.product_id, product_name: r.product_name, material_id: r.material_id, total_qty: r.total_qty }));
+      const r = await proc.bomOptimize({ prompt: "Suggest cheaper or better alternative branded products for these BOM lines. Keep each material's quantity close to the current BOM.", current_bom, catalog });
+      setSugg(r);
+    } catch (e) { setErr(e.message); } finally { setBusy(false); }
+  };
+  const applySuggestions = () => {
+    if (!sugg?.lines?.length) return;
+    setRows(sugg.lines.map((l) => ({ product_id: l.product_id || "", material_id: l.material_id || "", product_name: l.product_name || "", phase_seq: 0, total_qty: l.total_qty || 0 })));
+    setSugg(null);
   };
   const uploadDoc = async (e) => {
     const file = e.target.files?.[0]; if (!file) return;
@@ -319,12 +334,44 @@ function BomCard({ siteId, lines, editable, onSaved }) {
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <Button onClick={submit} disabled={busy || cleanRows().length === 0}>Submit BOQ & compare</Button>
           <Button variant="ghost" onClick={submitFinal} disabled={busy || cleanRows().length === 0}>Submit as final BOQ</Button>
+          <Button variant="ghost" onClick={findAlternatives} disabled={busy || cleanRows().length === 0}>AI: find alternatives</Button>
           {err && <span className="text-xs text-red-400">{err}</span>}
         </div>
+        {sugg && <SuggestPanel sugg={sugg} onApply={applySuggestions} onClose={() => setSugg(null)} />}
         {cmp && <ComparePanel cmp={cmp} onFinal={submitFinal} busy={busy} />}
         <p className="text-[11px] text-muted">The CE builds the BOQ from the architect's design. Submitting compares it against the external app's BOQ; a difference over 5% needs a reconciled final BOQ. The final BOQ needs spoke + hub approval.</p>
       </div>
     </Card>
+  );
+}
+
+function SuggestPanel({ sugg, onApply, onClose }) {
+  return (
+    <div className="mt-2 border border-accent/30 bg-accent/5 p-3">
+      <div className="mb-1 flex items-center justify-between">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-accent">AI alternatives</p>
+        <button onClick={onClose} className="text-[11px] text-muted hover:text-white">dismiss</button>
+      </div>
+      {sugg.summary && <p className="mb-2 text-sm text-white/80">{sugg.summary}</p>}
+      {(sugg.lines || []).length === 0 ? (
+        <p className="text-xs text-muted">No suggestions (the Hub LLM may be on the stub - set AI_PROVIDER / AI_API_KEY in infra/.env).</p>
+      ) : (
+        <>
+          <div className="max-h-44 overflow-auto">
+            <Table head={["Suggested product", "Qty", "Why"]}>
+              {sugg.lines.map((l, i) => (
+                <tr key={i} className="border-b border-border/50">
+                  <Td className="text-white/80">{l.product_name || l.product_id}</Td>
+                  <Td mono>{l.total_qty}</Td>
+                  <Td className="text-[11px] text-muted">{l.reason || "-"}</Td>
+                </tr>
+              ))}
+            </Table>
+          </div>
+          <div className="mt-2"><Button size="sm" onClick={onApply}>Apply to BOQ</Button></div>
+        </>
+      )}
+    </div>
   );
 }
 
