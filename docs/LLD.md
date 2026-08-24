@@ -203,6 +203,18 @@ All paths under `/api/v1`. Auth column: *any* = any authenticated user; otherwis
 | POST | `/sites/{id}/phases/{seq}/dates` | field roles + hub_supervisor, hub_manager |
 | POST | `/phase-changes/{id}/decide` | spoke / hub_supervisor / hub_manager *(enforced in service)* |
 | POST | `/notifications/{id}/read` · `/scheduler/tick` · `/sites/{id}/backfill` · `/backfill` | any / field + hub staff |
+| PATCH | `/sites/{id}` (project_type/stage) | field roles |
+| POST/GET | `/sites/{id}/documents` (multipart) · GET `/sites/{id}/documents` · GET `/documents/{id}` (download) | field / any |
+| POST | `/sites/{id}/boq/submit` (CE BOQ + external compare) · `/sites/{id}/boq/final` | field roles |
+| GET | `/sites/{id}/boqs` · `/boq-pending` · `/sites/{id}/boq-stock-check` | any |
+| POST | `/boqs/{id}/approve` (spoke + hub two-gate) · `/sites/{id}/boq-change` (hub) · `/boq-changes/{id}/ack` (spoke+CE) | approvers / hub / field |
+| POST/GET | `/sites/{id}/budget/issue` (hub) · GET `/sites/{id}/budget` · GET/PATCH `/sites/{id}/finance` · GET/POST/DELETE `/finance-partners` · GET `/finance` | hub / finance+hub+spoke |
+
+**site models added (migrations 0009-0013):** `Site.project_type/stage/budget/payment_received`;
+`ProjectDocument` (design/BOQ files, blob); `ProjectBOQ`/`ProjectBOQLine`/`BOQChangeRequest` (dual BOQ +
+approval + change loop); `FinancePartner`/`ProjectFinance`; `PhaseDateChange.remarks/escalated`.
+site-service calls procurement (external BOQ estimator), pricing (budget quote), and payment
+(escrow release + `project_paid` gate) via service-token clients.
 
 ### 4.6 payment
 | Method | Path | Auth |
@@ -222,8 +234,9 @@ All paths under `/api/v1`. Auth column: *any* = any authenticated user; otherwis
   `JWT_SECRET`; `current_user` (401 if missing/invalid), `require_role(*roles)` (403; admin bypass).
 - **Service tokens:** `service_token()` mints a short-lived `{role: service}` JWT for internal calls.
 - **Roles:** `admin, hub_manager, hub_supervisor, hub_ops, spokesperson, architect, civil_engineer,
-  consumer, vendor` (+ `service`). `hub_ops` (D21) is an operator that can request vendor changes but
-  not approve them.
+  finance, consumer, vendor` (+ `service`). `hub_ops` (D21) is an operator that can request vendor
+  changes but not approve them. `finance` (D31) is a spoke-scoped role (org_ref = spoke) that works
+  project funding.
 
 | Area | Read | Write |
 |------|------|-------|
@@ -280,7 +293,7 @@ React 18 + Vite + Tailwind; each app: `src/api.js` (fetch wrapper attaching the 
 | App | Notable pages / actions |
 |-----|-------------------------|
 | hub-console | Overview (**project-health donut** + **stock-buffer widget** + **Network-events feed** + awaiting-materials/re-dispatch); **Projects** (area cards + **URL-driven cross-area filters**, phase-date & coverage approval queues, project-name links); Inventory (**per-brand stock grouped by category, available clamped ≥ 0 + over-committed flag, product inbound, Procure per product = vendor + open-market rates → PO**, ledger); Vendors (registry/prices/market, role-aware request → approve add/remove, web scout); Procurement (plan/analyze + LLM advice + auto web scout/order/receive); Pricing (per-product + material/tier rules); Payments; **Team & access** (RBAC: add spokes/regions, create/reassign/deactivate members within the role hierarchy) |
-| spoke-app | Coverage; Onboarding (classify + geofence); Sites; Site detail (**per-role guide — architect owns the BOM/design spec + phase schedule, CE executes, spokesperson owns coverage**; enter/edit product BOM, per-phase start/end dates, approve CE date changes, **confirm delivery**, notifications, start/complete phase/backfill) |
+| spoke-app | Coverage; Onboarding (classify + geofence); Sites (**captive/client type**); **Finance** (captive projects + preferred-partner registry, finance-role nav); **Hub stock** (read-only inventory); Site detail (**per-role guide**, **design-file upload**, **BOQ build -> external compare popup -> reconciled final -> spoke/hub approval + change-ack**, per-phase dates with **<1-week remarks**, approve CE date changes, confirm delivery, notifications, start/complete phase) |
 | consumer-portal | Projects, phase timeline + delivery status (**product names**), **Pay for project** (price BOM at tier → pay) |
 
 `hub-console` gains `getUser().role`-aware UI (operator vs approver). Both hub-console and spoke-app share

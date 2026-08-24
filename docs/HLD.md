@@ -277,9 +277,19 @@ Team & access portal with a role hierarchy — admins add spokes/regions and man
 manage ops, members belong to a spoke team (D25); the hub-console carries a project-health donut, a
 stock-buffer widget, URL-driven navigation/filters, and procure-from-inventory (D26); the Hub LLM
 surfaces open-market alternatives for unavailable items and the architect owns the design spec (D27).
-Customers carry an NBFC flag captured at onboarding and cascaded to admin (D28); project payments are
+project payments are
 held in escrow and released to the supplier proportionally as deliveries are confirmed (D29); and the
 catalog spans 20 categories / ~125 product lines (D30).
+
+A full **spoke project lifecycle** drives each project (D31-D36): a spoke team (architects, civil
+engineers, a new Finance role) runs projects typed **captive** or **client** (replacing the NBFC flag)
+through a stage machine - the architect uploads a design, the CE builds a BOQ that is cross-checked
+against a second BOQ from a pluggable external estimator (>5% forces a reconciled final BOQ), the final
+BOQ gets **spoke + hub** approval and becomes the reserved operational BOM with a stock check, the hub
+issues a **budget** priced from it, the internal **finance** team secures funding from a preferred
+partner, and the CE schedules phases. Deliveries then trigger by type: **captive** on finance approval
+(and all phase dates set), **client** on payment received; a CE end-date change that compresses the next
+phase to under a week is escalated for a remark + hub approval. The spoke also has read access to hub stock.
 
 **Deferred / optional:** real payment-provider API calls (extension points in `payment-service`),
 email/push delivery of notifications (in-app only in v1), and finer product questions in
