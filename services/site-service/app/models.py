@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import (Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String,
+from sqlalchemy import (Boolean, Date, DateTime, ForeignKey, Integer, LargeBinary, Numeric, String,
                         UniqueConstraint, func)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -225,6 +225,25 @@ class Dispatch(Base):
     @property
     def code(self) -> str:
         return f"DSP-{self.id}"
+
+
+class ProjectDocument(Base):
+    """A file attached to a project: architect design (CAD/pdf) or a BOQ document.
+
+    Binary lives in the DB (size-capped); moving to an object store is a later extension point.
+    """
+    __tablename__ = "project_documents"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    site_id: Mapped[int] = mapped_column(ForeignKey("sites.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(16), default="design")  # design|ce_boq|external_boq|final_boq|other
+    filename: Mapped[str] = mapped_column(String(255), default="")
+    content_type: Mapped[str] = mapped_column(String(120), default="")
+    size: Mapped[int] = mapped_column(Integer, default=0)
+    data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    uploaded_by_role: Mapped[str] = mapped_column(String(32), default="")
+    uploaded_by: Mapped[str] = mapped_column(String(120), default="")
+    note: Mapped[str] = mapped_column(String(300), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class DispatchLine(Base):

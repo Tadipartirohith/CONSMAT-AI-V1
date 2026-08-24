@@ -84,6 +84,8 @@ export default function SiteDetail() {
         <Info label="Type" value={s.construction_type} />
       </div>
 
+      <DesignFilesCard siteId={id} />
+
       {pending.length > 0 && (
         <Card title="Phase date changes awaiting your approval">
           {pending.map((c) => (
@@ -150,6 +152,40 @@ export default function SiteDetail() {
         {(notifs.data || []).filter((n) => n.site_id === Number(id)).length === 0 && <p className="text-sm text-muted">No notifications for this site yet.</p>}
       </Card>
     </div>
+  );
+}
+
+function DesignFilesCard({ siteId }) {
+  const docs = useAsync(() => site.documents(siteId, "design"), [siteId]);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  const upload = async (e) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    setBusy(true); setErr(null);
+    try { await site.uploadDocument(siteId, file, "design"); docs.reload(); }
+    catch (e) { setErr(e.message); } finally { setBusy(false); e.target.value = ""; }
+  };
+  return (
+    <Card title="Design files (architect)" right={
+      <label className="cursor-pointer text-[11px] text-accent hover:underline">
+        {busy ? "Uploading…" : "Upload design"}
+        <input type="file" className="hidden" onChange={upload} accept=".pdf,.dwg,.dxf,.png,.jpg,.jpeg,.zip" />
+      </label>}>
+      {err && <p className="mb-1 text-xs text-red-400">{err}</p>}
+      {(docs.data || []).length === 0 ? (
+        <p className="text-sm text-muted">No design uploaded yet. The architect uploads the CAD/design here; the CE builds the BOQ from it.</p>
+      ) : (
+        <div className="space-y-1.5">
+          {(docs.data || []).map((d) => (
+            <div key={d.id} className="flex items-center gap-2 border-b border-border/50 py-1.5 text-sm">
+              <span className="text-base">📐</span>
+              <button onClick={() => site.downloadDocument(d.id, d.filename)} className="text-accent hover:underline">{d.filename}</button>
+              <span className="text-[11px] text-muted">{(d.size / 1024).toFixed(0)} KB · {d.uploaded_by || d.uploaded_by_role}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }
 

@@ -199,6 +199,20 @@ class SiteOut(BaseModel):
     dispatches: list[DispatchOut] = []
 
 
+class ProjectDocumentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    site_id: int
+    kind: str
+    filename: str
+    content_type: str
+    size: int
+    uploaded_by_role: str
+    uploaded_by: str
+    note: str
+    created_at: datetime | None = None
+
+
 class PhaseRef(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     seq: int

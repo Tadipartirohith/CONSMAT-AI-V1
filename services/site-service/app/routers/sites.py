@@ -1,7 +1,7 @@
 """Field REST API: spokes, consumers, sites, plans, and phase-driven dispatch."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -133,6 +133,33 @@ def update_site(site_id: int, body: schemas.SiteUpdate, db: Session = Depends(ge
 @router.get("/sites", response_model=list[schemas.SiteOut])
 def list_sites(db: Session = Depends(get_db)):
     return service.list_sites(db)
+
+
+# ---- Project documents (design / BOQ files) ----
+@router.post("/sites/{site_id}/documents", response_model=schemas.ProjectDocumentOut,
+             status_code=201, dependencies=[Depends(FIELD)])
+async def upload_document(site_id: int, file: UploadFile = File(...), kind: str = Form("design"),
+                          note: str = Form(""), user: dict = Depends(current_user),
+                          db: Session = Depends(get_db)):
+    """Architect uploads a design (CAD/pdf), or a BOQ document, attached to the project."""
+    data = await file.read()
+    return _run(service.add_document, db=db, site_id=site_id, kind=kind, filename=file.filename or "file",
+                content_type=file.content_type or "", data=data,
+                uploaded_by_role=user.get("role", ""), uploaded_by=user.get("name", ""), note=note)
+
+
+@router.get("/sites/{site_id}/documents", response_model=list[schemas.ProjectDocumentOut])
+def list_documents(site_id: int, kind: str | None = None, db: Session = Depends(get_db)):
+    return service.list_documents(db, site_id, kind)
+
+
+@router.get("/documents/{doc_id}")
+def download_document(doc_id: int, db: Session = Depends(get_db)):
+    doc = service.get_document(db, doc_id)
+    if doc is None:
+        raise HTTPException(404, f"Unknown document: {doc_id}")
+    return Response(content=doc.data, media_type=doc.content_type or "application/octet-stream",
+                    headers={"Content-Disposition": f'attachment; filename="{doc.filename}"'})
 
 
 @router.get("/sites/{site_id}", response_model=schemas.SiteOut)

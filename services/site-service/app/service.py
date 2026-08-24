@@ -218,6 +218,48 @@ def get_site(db: Session, site_id: int) -> models.Site | None:
     return db.get(models.Site, site_id)
 
 
+# ---- Project documents (architect design / BOQ files) ----
+
+MAX_DOC_BYTES = 8 * 1024 * 1024  # 8 MB cap (binary lives in the DB; object store is a later extension)
+
+
+def add_document(db: Session, site_id: int, *, kind: str, filename: str, content_type: str,
+                 data: bytes, uploaded_by_role: str, uploaded_by: str, note: str = "") -> models.ProjectDocument:
+    site = db.get(models.Site, site_id)
+    if site is None:
+        raise SiteError(f"Unknown site: SITE-{site_id}")
+    if not data:
+        raise SiteError("Empty file")
+    if len(data) > MAX_DOC_BYTES:
+        raise SiteError("File too large (max 8 MB)")
+    kind = kind or "design"
+    doc = models.ProjectDocument(site_id=site_id, kind=kind, filename=filename or "file",
+                                 content_type=content_type or "application/octet-stream", size=len(data),
+                                 data=data, uploaded_by_role=uploaded_by_role, uploaded_by=uploaded_by,
+                                 note=note or "")
+    db.add(doc)
+    if kind == "design" and site.stage == models.STAGE_ONBOARDED:
+        site.stage = models.STAGE_DESIGN
+    ev = "design_uploaded" if kind == "design" else "document_uploaded"
+    _notify(db, site, ev, f"{kind.replace('_', ' ')} '{filename}' uploaded"
+            f"{f' by {uploaded_by}' if uploaded_by else ''}.", audience="all")
+    db.commit()
+    db.refresh(doc)
+    return doc
+
+
+def list_documents(db: Session, site_id: int, kind: str | None = None) -> list[models.ProjectDocument]:
+    stmt = select(models.ProjectDocument).where(models.ProjectDocument.site_id == site_id).order_by(
+        models.ProjectDocument.id.desc())
+    if kind:
+        stmt = stmt.where(models.ProjectDocument.kind == kind)
+    return list(db.execute(stmt).scalars())
+
+
+def get_document(db: Session, doc_id: int) -> models.ProjectDocument | None:
+    return db.get(models.ProjectDocument, doc_id)
+
+
 def list_sites(db: Session) -> list[models.Site]:
     return list(db.execute(select(models.Site).order_by(models.Site.id.desc())).scalars())
 

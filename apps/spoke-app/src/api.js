@@ -43,6 +43,22 @@ export const site = {
   siteDetail: (id) => req("site", `/sites/${id}`),
   createSite: (b) => req("site", "/sites", body(b)),
   updateSite: (id, b) => req("site", `/sites/${id}`, { method: "PATCH", body: JSON.stringify(b) }),
+  documents: (id, kind) => req("site", `/sites/${id}/documents${kind ? `?kind=${kind}` : ""}`),
+  uploadDocument: async (id, file, kind = "design", note = "") => {
+    const fd = new FormData(); fd.append("file", file); fd.append("kind", kind); fd.append("note", note);
+    const res = await fetch(`/site/sites/${id}/documents`, { method: "POST", headers: { ...authHeader() }, body: fd });
+    if (res.status === 401) { logout(); throw new Error("Session expired"); }
+    if (!res.ok) { let d = res.statusText; try { d = (await res.json()).detail || d; } catch {} throw new Error(typeof d === "string" ? d : JSON.stringify(d)); }
+    return res.json();
+  },
+  downloadDocument: async (docId, filename) => {
+    const res = await fetch(`/site/documents/${docId}`, { headers: { ...authHeader() } });
+    if (!res.ok) throw new Error("Download failed");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = filename || `document-${docId}`;
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  },
   plan: (id) => req("site", `/sites/${id}/plan`, { method: "POST" }),
   setBom: (id, lines) => req("site", `/sites/${id}/bom`, body({ lines })),
   setPhaseDates: (id, seq, b) => req("site", `/sites/${id}/phases/${seq}/dates`, body(b)),
