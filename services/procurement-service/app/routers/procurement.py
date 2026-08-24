@@ -204,6 +204,13 @@ def external_offers(material_id: str | None = None, db: Session = Depends(get_db
 
 # ---- Open-market watch: price drops + alerts ----
 
+@router.get("/market/index")
+def market_index(db: Session = Depends(get_db)):
+    """Per-material daily market movement + up/down/stable outlook (feeds the hub dashboard widgets)."""
+    from datetime import date
+    return service.market_index(db, date.today())
+
+
 @router.get("/market/price-drops")
 def price_drops(db: Session = Depends(get_db)):
     """Products whose hub avg cost is beaten by a cheaper open-market offer (same category)."""

@@ -10,7 +10,8 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint, func
+from sqlalchemy import (Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String,
+                        UniqueConstraint, func)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -209,3 +210,18 @@ class OrderRequestLine(Base):
     product_name: Mapped[str] = mapped_column(String(200), default="")
     qty: Mapped[Decimal] = mapped_column(Numeric(16, 3), nullable=False)
     request: Mapped["OrderRequest"] = relationship(back_populates="lines")
+
+
+class MarketSnapshot(Base):
+    """A daily open-market price point per material (avg of scouted offers / vendor prices).
+
+    Accumulated day by day; the hub dashboard reads these to show per-segment daily movement and a
+    simple up/down/stable outlook.
+    """
+    __tablename__ = "market_snapshots"
+    __table_args__ = (UniqueConstraint("material_id", "snap_date", name="uq_snap_mat_date"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    material_id: Mapped[str] = mapped_column(String(40), index=True, nullable=False)
+    snap_date: Mapped["Date"] = mapped_column(Date, index=True, nullable=False)
+    avg_price: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)

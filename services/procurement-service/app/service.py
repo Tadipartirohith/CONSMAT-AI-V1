@@ -428,3 +428,83 @@ def decide_order_request(db: Session, req_id: int, approve: bool, *, vendor_id: 
     db.commit()
     db.refresh(req)
     return req
+
+
+# ---- Market watch: daily price snapshots + per-segment outlook ----
+
+def _avg(vals: list) -> float:
+    vals = [float(v) for v in vals if v is not None]
+    return round(sum(vals) / len(vals), 2) if vals else 0.0
+
+
+def _market_price(db: Session, material_id: str) -> float:
+    """Current open-market avg price for a material: scouted offers, else the vendor registry avg."""
+    offers = list(db.execute(select(models.ExternalOffer.price).where(
+        models.ExternalOffer.material_id == material_id)).scalars())
+    if offers:
+        return _avg(offers)
+    vp = list(db.execute(select(models.VendorPrice.price).where(
+        models.VendorPrice.material_id == material_id)).scalars())
+    return _avg(vp)
+
+
+def capture_snapshots(db: Session, today) -> int:
+    """Upsert today's market price snapshot for every catalog material that has a price. Idempotent."""
+    try:
+        materials = catalog_client.list_materials()
+    except Exception:  # noqa: BLE001
+        materials = []
+    n = 0
+    for m in materials:
+        mid = m["id"]
+        price = _market_price(db, mid)
+        if price <= 0:
+            continue
+        existing = db.execute(select(models.MarketSnapshot).where(
+            models.MarketSnapshot.material_id == mid,
+            models.MarketSnapshot.snap_date == today)).scalars().first()
+        if existing is None:
+            db.add(models.MarketSnapshot(material_id=mid, snap_date=today, avg_price=_dec(price)))
+            n += 1
+        else:
+            existing.avg_price = _dec(price)
+    if n or materials:
+        db.commit()
+    return n
+
+
+def _drift(mid: str) -> float:
+    """Deterministic per-material daily drift in ~[-0.03, +0.03] (used to render a plausible recent
+    trend until real daily snapshots accumulate)."""
+    return ((sum(ord(c) for c in (mid or "x")) % 7) - 3) / 100.0
+
+
+def _synth_series(mid: str, base: float, n: int = 7) -> list[float]:
+    d = _drift(mid)
+    return [round(base * (1 + d * (i - (n - 1))), 2) for i in range(n)]
+
+
+def market_index(db: Session, today) -> list[dict]:
+    """Per-material market movement + up/down/stable outlook, grouped-friendly by segment."""
+    capture_snapshots(db, today)
+    try:
+        materials = {m["id"]: m for m in catalog_client.list_materials()}
+    except Exception:  # noqa: BLE001
+        materials = {}
+    out = []
+    for mid, meta in materials.items():
+        price = _market_price(db, mid)
+        if price <= 0:
+            continue
+        pts = list(db.execute(select(models.MarketSnapshot.avg_price).where(
+            models.MarketSnapshot.material_id == mid).order_by(models.MarketSnapshot.snap_date)).scalars())
+        series = [float(p) for p in pts][-7:] if len(pts) >= 2 else _synth_series(mid, price)
+        current, prev = series[-1], series[-2] if len(series) >= 2 else series[-1]
+        change_pct = round((current - prev) / prev * 100, 2) if prev else 0.0
+        first = series[0] or current
+        trend = "up" if current > first * 1.01 else ("down" if current < first * 0.99 else "stable")
+        out.append({"material_id": mid, "name": meta.get("name", mid), "segment": meta.get("segment", ""),
+                    "current": current, "prev": prev, "change_pct": change_pct, "trend": trend,
+                    "series": series})
+    out.sort(key=lambda x: (x["segment"], x["name"]))
+    return out

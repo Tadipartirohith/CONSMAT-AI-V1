@@ -36,6 +36,11 @@ def list_products() -> list[dict]:
     return _get("/products") or []
 
 
+def list_materials() -> list[dict]:
+    """All catalog materials (id, name, segment, category, unit, per_sqft)."""
+    return _get("/materials") or []
+
+
 def list_product_stock() -> list[dict]:
     """All brand-level stock positions (product_id, material_id, on_hand, reserved, avg_cost)."""
     return _get("/product-stock") or []

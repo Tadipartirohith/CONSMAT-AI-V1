@@ -64,6 +64,7 @@ export const proc = {
     if (!res.ok) { let d = res.statusText; try { d = (await res.json()).detail || d; } catch {} throw new Error(typeof d === "string" ? d : JSON.stringify(d)); }
     return res.json();
   },
+  marketIndex: () => req("proc", "/market/index"),
   orderRequests: (status) => req("proc", `/procurement/order-requests${status ? `?status=${status}` : ""}`),
   decideOrderRequest: (id, b) => req("proc", `/procurement/order-requests/${id}/decide`, body(b)),
   priceDrops: () => req("proc", "/market/price-drops"),

@@ -53,6 +53,8 @@ export default function Overview() {
         </Card>
       </div>
 
+      <MarketRow />
+
       <NetworkShortfalls sites={sites} consumers={consumers.data || []} spokes={spokes.data || []} />
 
       <EventsFeed />
@@ -179,6 +181,80 @@ function StockBuffer() {
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+/* ---- Market watch (daily per-material movement) + price outlook per segment ---- */
+const SEG_LABEL = {
+  "S&F": "Structure & Foundation", "B&B": "Bricks & Blocks", "S&S": "Sheets & Shades",
+  "P&P": "Pipes & Plugs", "MixG&FixG": "Mortars & Coatings", "Interiors": "Interiors & Home",
+};
+
+function Spark({ series, up }) {
+  if (!series || series.length < 2) return <span className="inline-block w-12" />;
+  const w = 48, h = 16, min = Math.min(...series), max = Math.max(...series), rng = (max - min) || 1;
+  const pts = series.map((v, i) => `${(i / (series.length - 1)) * w},${h - ((v - min) / rng) * h}`).join(" ");
+  return <svg width={w} height={h} className="shrink-0"><polyline points={pts} fill="none" stroke={up ? "#ef4444" : "#22c55e"} strokeWidth="1.5" /></svg>;
+}
+
+function MarketRow() {
+  const market = useAsync(() => proc.marketIndex());
+  const data = (market.data || []).filter((d) => d.current > 0);
+  const bySeg = {};
+  data.forEach((d) => (bySeg[d.segment || "Other"] ||= []).push(d));
+  const outlook = Object.entries(bySeg).map(([seg, items]) => {
+    const avg = Math.round((items.reduce((s, d) => s + d.change_pct, 0) / items.length) * 100) / 100;
+    return { seg, avg, dir: avg > 0.3 ? "up" : avg < -0.3 ? "down" : "stable", n: items.length };
+  }).sort((a, b) => b.avg - a.avg);
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <Card title="Market watch (daily)" right={<Button size="sm" variant="ghost" onClick={market.reload}>Refresh</Button>}>
+        {market.loading ? <p className="text-sm text-muted">Loading…</p> : data.length === 0 ? (
+          <p className="text-sm text-muted">No market prices yet. Run an open-market scan under Market.</p>
+        ) : (
+          <div className="max-h-80 space-y-3 overflow-auto">
+            {Object.entries(bySeg).map(([seg, items]) => (
+              <div key={seg}>
+                <p className="mb-1 text-[10px] uppercase tracking-wider text-muted">{SEG_LABEL[seg] || seg}</p>
+                <div className="space-y-1">
+                  {items.map((d) => (
+                    <div key={d.material_id} className="flex items-center gap-2 text-sm">
+                      <span className="min-w-0 flex-1 truncate text-white/80">{d.name}</span>
+                      <Spark series={d.series} up={d.change_pct >= 0} />
+                      <span className="w-16 text-right font-mono text-white/70">{inr(d.current)}</span>
+                      <span className={`w-14 text-right font-mono text-xs ${d.change_pct > 0 ? "text-red-400" : d.change_pct < 0 ? "text-emerald-400" : "text-muted"}`}>
+                        {d.change_pct > 0 ? "▲" : d.change_pct < 0 ? "▼" : ""}{Math.abs(d.change_pct)}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      <Card title="Price outlook">
+        <p className="mb-2 text-[11px] text-muted">Will our materials go up or down? Recent open-market trend per vertical (rising = costlier for us).</p>
+        {outlook.length === 0 ? <p className="text-sm text-muted">No market data yet.</p> : (
+          <div className="space-y-1.5">
+            {outlook.map((r) => (
+              <div key={r.seg} className="flex items-center gap-2 text-sm">
+                <span className="flex-1 text-white/80">{SEG_LABEL[r.seg] || r.seg}</span>
+                <span className="text-[11px] text-muted">{r.n} items</span>
+                <Badge tone={r.dir === "up" ? "bad" : r.dir === "down" ? "ok" : "muted"}>
+                  {r.dir === "up" ? "▲ rising" : r.dir === "down" ? "▼ falling" : "stable"}
+                </Badge>
+                <span className={`w-16 text-right font-mono text-xs ${r.avg > 0 ? "text-red-400" : r.avg < 0 ? "text-emerald-400" : "text-muted"}`}>
+                  {r.avg > 0 ? "+" : ""}{r.avg}%
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
     </div>
   );
 }
