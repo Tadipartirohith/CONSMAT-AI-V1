@@ -93,6 +93,8 @@ export default function SiteDetail() {
           {pending.map((c) => (
             <div key={c.id} className="flex flex-wrap items-center gap-3 border-b border-border/50 py-2 text-sm">
               <span className="text-white/80">Phase {c.phase_seq} ({PHASE_NAMES[c.phase_seq]}): end {c.old_end || "?"} to <b>{c.new_end}</b></span>
+              {c.escalated && <Badge tone="bad">escalated · needs hub</Badge>}
+              {c.remarks && <span className="text-[11px] text-[#f59e0b]">"{c.remarks}"</span>}
               <span className="text-muted">by {c.requested_by || c.requested_by_role}</span>
               <div className="ml-auto flex gap-2">
                 <Button size="sm" onClick={() => act(() => site.decideChange(c.id, true), "Approved")} disabled={busy}>Approve</Button>
@@ -361,6 +363,7 @@ function ComparePanel({ cmp, onFinal, busy }) {
 function PhaseRow({ phase: p, busy, onComplete, onDates }) {
   const [start, setStart] = useState(p.planned_start || "");
   const [end, setEnd] = useState(p.planned_end || "");
+  const [remarks, setRemarks] = useState("");
   const [editing, setEditing] = useState(false);
 
   return (
@@ -379,7 +382,8 @@ function PhaseRow({ phase: p, busy, onComplete, onDates }) {
         <div className="mt-2 flex flex-wrap items-center gap-2 pl-8">
           <label className="text-[11px] text-muted">Start <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} /></label>
           <label className="text-[11px] text-muted">End <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} /></label>
-          <Button size="sm" onClick={() => { onDates({ start: start || null, end: end || null }); setEditing(false); }} disabled={busy}>Save</Button>
+          <Input value={remarks} placeholder="remarks (needed if compressing to <1 week)" onChange={(e) => setRemarks(e.target.value)} />
+          <Button size="sm" onClick={() => { onDates({ start: start || null, end: end || null, remarks }); setEditing(false); }} disabled={busy}>Save</Button>
         </div>
       )}
     </div>

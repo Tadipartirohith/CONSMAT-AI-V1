@@ -899,6 +899,34 @@ def backfill_all(db: Session) -> dict:
     return {"sites": results}
 
 
+def delivery_ready(db: Session, site: models.Site) -> tuple[bool, str]:
+    """Whether phase-wise deliveries may run for a project.
+
+    captive: the internal finance must be approved and every phase must have start+end dates.
+    client:  a customer payment must have been received.
+    Once construction is active/completed the gate is open (subsequent phases flow freely).
+    """
+    if site.status in ("active", "completed"):
+        return True, ""
+    if not site.project_type:
+        return False, "Select a project type (captive/client) first"
+    if site.project_type == "captive":
+        pf = db.execute(select(models.ProjectFinance).where(models.ProjectFinance.site_id == site.id)).scalars().first()
+        if pf is None or pf.status != models.FIN_APPROVED:
+            return False, "Finance is not approved yet for this captive project"
+        if any(p.planned_start is None or p.planned_end is None for p in site.phases):
+            return False, "Set a start and end date for every phase before deliveries can begin"
+        return True, ""
+    # client project: deliveries trigger on payment received
+    if not site.payment_received:
+        from . import payment_client
+        if payment_client.project_paid(site.code):
+            site.payment_received = True  # cache; committed by the caller
+        else:
+            return False, "Awaiting the customer's payment before deliveries begin"
+    return True, ""
+
+
 def _ensure_phase_dispatched(db: Session, site: models.Site, seq: int) -> models.Dispatch | None:
     """Dispatch a phase's materials once (idempotent). The scheduler may pre-dispatch before the CE
     completes the prior phase; this guard stops a second dispatch on completion. Emits a consumer-
@@ -906,6 +934,9 @@ def _ensure_phase_dispatched(db: Session, site: models.Site, seq: int) -> models
     ph = _phase(site, seq)
     if ph is None or ph.dispatched:
         return None
+    ready, _reason = delivery_ready(db, site)
+    if not ready:
+        return None  # gated: finance not approved (captive) / payment not received (client)
     dispatch = _dispatch_phase(db, site, seq)
     ph.dispatched = True
     shorts = [l.product_name or l.material_id for l in dispatch.lines if l.status == "short"]
@@ -923,11 +954,15 @@ def start_site(db: Session, site_id: int) -> models.Dispatch:
         raise SiteError(f"Unknown site: SITE-{site_id}")
     if not site.bom_lines:
         raise SiteError("Enter a Bill of Materials before starting the site")
+    ready, reason = delivery_ready(db, site)
+    if not ready:
+        raise SiteError(reason)
     p1 = _phase(site, 1)
     if p1 is None or p1.status != models.PH_PENDING:
         raise SiteError("Site already started")
     p1.status = models.PH_IN_PROGRESS
     site.status = "active"
+    site.stage = models.STAGE_ACTIVE
     _notify(db, site, "started", "Construction has started. Phase 1 materials are on the way.", audience="all")
     dispatch = _ensure_phase_dispatched(db, site, 1)
     db.commit()
@@ -976,13 +1011,17 @@ def complete_phase(db: Session, site_id: int, seq: int) -> dict:
 
 # ---- Phase schedule dates + change approval ----
 
+HUB_APPROVERS = ("hub_supervisor", "hub_manager", "admin")
+
+
 def set_phase_dates(db: Session, site_id: int, seq: int, start, end, actor_role: str,
-                    actor_name: str) -> dict:
+                    actor_name: str, remarks: str = "") -> dict:
     """CE/spoke sets a phase's planned start/end.
 
     Start applies directly. For the end date: the first entry applies directly; a later change by a
     civil engineer becomes a pending request needing spoke/manager approval, while a spoke/manager
-    change applies directly.
+    change applies directly. If a CE's change leaves the next phase starting less than a week away, it
+    is escalated: a remark is required and hub approval is needed (not the spoke alone).
     """
     site = db.get(models.Site, site_id)
     if site is None:
@@ -999,12 +1038,22 @@ def set_phase_dates(db: Session, site_id: int, seq: int, start, end, actor_role:
         if ph.planned_end is None or actor_role in FIELD_APPROVERS:
             ph.planned_end = end
         else:  # civil engineer changing an existing end date -> needs approval
+            nxt = _phase(site, seq + 1)
+            escalated = bool(nxt and nxt.planned_start and (nxt.planned_start - end).days < 7)
+            if escalated and not (remarks or "").strip():
+                raise SiteError("The next phase would start within a week - explain the change in remarks")
             chg = models.PhaseDateChange(
                 site_id=site.id, phase_seq=seq, old_end=ph.planned_end, new_end=end,
-                requested_by_role=actor_role, requested_by=actor_name)
+                requested_by_role=actor_role, requested_by=actor_name,
+                remarks=(remarks or "").strip(), escalated=escalated)
             db.add(chg)
             db.flush()
             pending_id = chg.id
+    # Advance to 'scheduling' once every phase has dates and the delivery precondition is met.
+    if pending_id is None and site.stage not in (models.STAGE_ACTIVE, models.STAGE_COMPLETED):
+        ready, _r = delivery_ready(db, site)
+        if ready:
+            site.stage = models.STAGE_SCHEDULING
     db.commit()
     db.refresh(ph)
     return {"phase_seq": seq, "planned_start": ph.planned_start, "planned_end": ph.planned_end,
@@ -1031,6 +1080,8 @@ def decide_phase_change(db: Session, change_id: int, approve: bool, actor_role: 
         raise SiteError(f"Unknown change request: {change_id}")
     if chg.status != models.PDC_PENDING:
         raise SiteError("This change has already been decided")
+    if chg.escalated and actor_role not in HUB_APPROVERS:
+        raise SiteError("This change compresses the schedule to under a week and needs hub approval")
     from sqlalchemy import func
     chg.decided_by_role = actor_role
     chg.decided_by = actor_name

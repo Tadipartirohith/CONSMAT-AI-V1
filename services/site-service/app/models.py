@@ -203,6 +203,10 @@ class PhaseDateChange(Base):
     old_end: Mapped[date | None] = mapped_column(Date, nullable=True)
     new_end: Mapped[date] = mapped_column(Date, nullable=False)
     status: Mapped[str] = mapped_column(String(16), default=PDC_PENDING)
+    # An escalated change compresses the gap before the next phase to under a week: needs a remark and
+    # hub-level approval (not the spoke alone).
+    remarks: Mapped[str] = mapped_column(String(400), default="")
+    escalated: Mapped[bool] = mapped_column(Boolean, default=False)
     requested_by_role: Mapped[str] = mapped_column(String(32), default="")
     requested_by: Mapped[str] = mapped_column(String(120), default="")
     decided_by_role: Mapped[str] = mapped_column(String(32), default="")

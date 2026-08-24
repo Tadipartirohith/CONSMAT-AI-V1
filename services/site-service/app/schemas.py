@@ -124,6 +124,7 @@ class PhaseProgressOut(BaseModel):
 class PhaseDatesIn(BaseModel):
     start: date | None = None
     end: date | None = None
+    remarks: str = ""
 
 
 class PhaseDateChangeOut(BaseModel):
@@ -134,6 +135,8 @@ class PhaseDateChangeOut(BaseModel):
     old_end: date | None = None
     new_end: date
     status: str
+    remarks: str = ""
+    escalated: bool = False
     requested_by_role: str
     requested_by: str
     decided_by: str

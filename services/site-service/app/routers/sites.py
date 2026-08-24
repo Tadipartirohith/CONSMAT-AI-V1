@@ -305,7 +305,8 @@ def set_phase_dates(site_id: int, seq: int, body: schemas.PhaseDatesIn,
                     user: dict = Depends(current_user), db: Session = Depends(get_db)):
     """Set/modify a phase's planned start & end. A civil engineer's end-date change needs approval."""
     return _run(service.set_phase_dates, db=db, site_id=site_id, seq=seq, start=body.start,
-                end=body.end, actor_role=user.get("role", ""), actor_name=user.get("name", ""))
+                end=body.end, actor_role=user.get("role", ""), actor_name=user.get("name", ""),
+                remarks=body.remarks)
 
 
 @router.get("/phase-changes", response_model=list[schemas.PhaseDateChangeOut])
