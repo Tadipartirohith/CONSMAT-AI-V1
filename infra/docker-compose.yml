@@ -83,6 +83,7 @@ services:
       INVENTORY_URL: http://inventory-service:8000
       IDENTITY_URL: http://identity-service:8000
       PAYMENT_URL: http://payment-service:8000
+      PROCUREMENT_URL: http://procurement-service:8000
       DEMO_PASSWORD: ${DEMO_PASSWORD:-consmat123}
     ports:
       - "127.0.0.1:${SITE_PORT:-8003}:8000"

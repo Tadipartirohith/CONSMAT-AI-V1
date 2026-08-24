@@ -44,6 +44,17 @@ AR_REMOVE = "remove"
 # project financing type (chosen per project at/after onboarding; replaces the old consumer NBFC flag)
 PROJECT_TYPES = ("captive", "client")
 
+# BOQ sources + statuses (CE BOQ vs an external app's BOQ, reconciled into a final BOQ that is approved)
+BOQ_CE = "ce"
+BOQ_EXTERNAL = "external"
+BOQ_FINAL = "final"
+BOQ_DRAFT = "draft"
+BOQ_SUBMITTED = "submitted"
+BOQ_APPROVED = "approved"
+BOQ_REJECTED = "rejected"
+BOQ_SUPERSEDED = "superseded"
+BOQ_DIFF_THRESHOLD = 5.0  # % resource difference above which a reconciled final BOQ is required
+
 # project lifecycle stage (pre-delivery gate; distinct from the construction `status`)
 STAGE_ONBOARDED = "onboarded"
 STAGE_DESIGN = "design_uploaded"
@@ -225,6 +236,58 @@ class Dispatch(Base):
     @property
     def code(self) -> str:
         return f"DSP-{self.id}"
+
+
+class ProjectBOQ(Base):
+    """A Bill of Quantities version for a project.
+
+    `source` is the CE's BOQ, the external app's BOQ, or the reconciled `final` BOQ. Only a `final` BOQ
+    goes through the spoke + hub approval gate; on full approval its lines become the site's operational
+    BOM (reserved against hub stock).
+    """
+    __tablename__ = "project_boqs"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    site_id: Mapped[int] = mapped_column(ForeignKey("sites.id"), index=True)
+    source: Mapped[str] = mapped_column(String(12), default=BOQ_CE)       # ce | external | final
+    status: Mapped[str] = mapped_column(String(12), default=BOQ_DRAFT)    # draft|submitted|approved|rejected|superseded
+    diff_pct: Mapped[Decimal | None] = mapped_column(Numeric(6, 2), nullable=True)  # vs the external BOQ
+    spoke_approved_by: Mapped[str] = mapped_column(String(120), default="")
+    hub_approved_by: Mapped[str] = mapped_column(String(120), default="")
+    note: Mapped[str] = mapped_column(String(300), default="")
+    created_by: Mapped[str] = mapped_column(String(120), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    lines: Mapped[list["ProjectBOQLine"]] = relationship(back_populates="boq", cascade="all, delete-orphan")
+
+    @property
+    def code(self) -> str:
+        return f"BOQ-{self.id}"
+
+
+class ProjectBOQLine(Base):
+    __tablename__ = "project_boq_lines"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    boq_id: Mapped[int] = mapped_column(ForeignKey("project_boqs.id"), index=True)
+    material_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    product_id: Mapped[str] = mapped_column(String(64), default="")
+    product_name: Mapped[str] = mapped_column(String(200), default="")
+    phase_seq: Mapped[int] = mapped_column(Integer, default=0)
+    total_qty: Mapped[Decimal] = mapped_column(Numeric(16, 3), nullable=False)
+    boq: Mapped["ProjectBOQ"] = relationship(back_populates="lines")
+
+
+class BOQChangeRequest(Base):
+    """A hub request to change an approved BOQ. Needs the spoke AND the CE to acknowledge."""
+    __tablename__ = "boq_change_requests"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    site_id: Mapped[int] = mapped_column(ForeignKey("sites.id"), index=True)
+    boq_id: Mapped[int] = mapped_column(Integer, default=0)
+    note: Mapped[str] = mapped_column(String(400), default="")
+    status: Mapped[str] = mapped_column(String(12), default="pending")  # pending|resolved|rejected
+    requested_by: Mapped[str] = mapped_column(String(120), default="")
+    spoke_acked: Mapped[bool] = mapped_column(Boolean, default=False)
+    ce_acked: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class ProjectDocument(Base):

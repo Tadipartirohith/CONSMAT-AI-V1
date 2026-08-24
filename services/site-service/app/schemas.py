@@ -199,6 +199,49 @@ class SiteOut(BaseModel):
     dispatches: list[DispatchOut] = []
 
 
+class ProjectBOQLineOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    material_id: str
+    product_id: str = ""
+    product_name: str = ""
+    phase_seq: int = 0
+    total_qty: float
+
+
+class ProjectBOQOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    code: str
+    site_id: int
+    source: str
+    status: str
+    diff_pct: float | None = None
+    spoke_approved_by: str = ""
+    hub_approved_by: str = ""
+    note: str = ""
+    created_by: str = ""
+    created_at: datetime | None = None
+    lines: list[ProjectBOQLineOut] = []
+
+
+class BOQChangeIn(BaseModel):
+    note: str = Field(min_length=1)
+
+
+class BOQChangeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    site_id: int
+    boq_id: int
+    note: str
+    status: str
+    requested_by: str
+    spoke_acked: bool
+    ce_acked: bool
+    created_at: datetime | None = None
+    resolved_at: datetime | None = None
+
+
 class ProjectDocumentOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int

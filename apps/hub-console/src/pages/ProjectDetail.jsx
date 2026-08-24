@@ -23,10 +23,15 @@ export default function ProjectDetail() {
         <Link to="/projects" className="text-sm text-muted hover:text-white">Back to Projects</Link>
         <h1 className="font-head text-2xl font-extrabold text-white">{s.label || s.code}</h1>
         <Badge tone={s.status === "completed" ? "ok" : s.status === "active" ? "accent" : "muted"}>{s.status}</Badge>
+        {s.project_type && <Badge tone={s.project_type === "captive" ? "accent" : "ok"}>{s.project_type}</Badge>}
+        <span className="text-[11px] text-muted">{(s.stage || "onboarded").replace(/_/g, " ")}</span>
+        {s.budget != null && <span className="text-[11px] text-accent">budget {inr(s.budget)}</span>}
         <span className="text-xs text-muted">{s.code} · {s.location} · {s.area_sqft} sqft × {s.floors} floor(s) · {s.construction_type}</span>
       </div>
 
       <ControlTower s={s} needs={needs.data || []} stock={pstock.data || []} />
+
+      <BoqApprovalCard s={s} onChanged={detail.reload} />
 
       <div className="flex gap-1 border-b border-border">
         {TABS.map((t) => (
@@ -39,6 +44,69 @@ export default function ProjectDetail() {
       {tab === "Bill of materials" && <BomTab s={s} onSaved={detail.reload} />}
       {tab === "Phase needs" && <PhaseNeedsTab s={s} />}
     </div>
+  );
+}
+
+function BoqApprovalCard({ s, onChanged }) {
+  const boqs = useAsync(() => site.boqs(s.id), [s.id]);
+  const stock = useAsync(() => site.boqStockCheck(s.id), [s.id, s.stage]);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const [note, setNote] = useState("");
+  const [showChange, setShowChange] = useState(false);
+  const latest = (boqs.data || []).find((b) => b.source === "final");
+  const shortfalls = (stock.data || []).filter((r) => r.status !== "ok");
+  const act = async (fn, ok) => {
+    setBusy(true); setMsg(null);
+    try { await fn(); setMsg({ ok: true, text: ok }); boqs.reload(); stock.reload(); onChanged?.(); }
+    catch (e) { setMsg({ ok: false, text: e.message }); } finally { setBusy(false); }
+  };
+
+  return (
+    <Card title="BOQ & approval" right={<Button size="sm" variant="ghost" onClick={() => { boqs.reload(); stock.reload(); }}>Refresh</Button>}>
+      {msg && <p className={`mb-2 text-xs ${msg.ok ? "text-emerald-400" : "text-red-400"}`}>{msg.text}</p>}
+      {!latest ? <p className="text-sm text-muted">No final BOQ submitted yet.</p> : (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="font-mono text-white">{latest.code}</span>
+            <Badge tone={latest.status === "approved" ? "ok" : latest.status === "submitted" ? "warn" : "muted"}>{latest.status}</Badge>
+            <Badge tone={latest.spoke_approved_by ? "ok" : "muted"}>spoke {latest.spoke_approved_by ? "✓" : "…"}</Badge>
+            <Badge tone={latest.hub_approved_by ? "ok" : "muted"}>hub {latest.hub_approved_by ? "✓" : "…"}</Badge>
+            {latest.diff_pct != null && <span className="text-[11px] text-muted">external diff {latest.diff_pct}%</span>}
+            <span className="text-[11px] text-muted">{latest.lines.length} lines</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {latest.status === "submitted" && !latest.hub_approved_by &&
+              <Button size="sm" onClick={() => act(() => site.approveBoq(latest.id), "Hub approval recorded.")} disabled={busy}>Approve (hub)</Button>}
+            <Button size="sm" variant="ghost" onClick={() => setShowChange(!showChange)}>{showChange ? "Cancel" : "Request change"}</Button>
+          </div>
+          {showChange && (
+            <div className="flex gap-2">
+              <Input value={note} placeholder="what should change?" onChange={(e) => setNote(e.target.value)} />
+              <Button size="sm" disabled={busy || !note.trim()}
+                onClick={() => { act(() => site.requestBoqChange(s.id, note), "Change requested (needs spoke + CE ack)."); setShowChange(false); setNote(""); }}>Send</Button>
+            </div>
+          )}
+        </div>
+      )}
+      {latest && latest.status === "approved" && (
+        <div className="mt-3">
+          <p className="mb-1 text-[11px] uppercase tracking-wider text-muted">Hub stock for this BOQ</p>
+          {shortfalls.length === 0 ? <p className="text-sm text-emerald-400">All BOQ products are in stock.</p> : (
+            <Table head={["Product", "Required", "Available", "Status"]}>
+              {shortfalls.map((r) => (
+                <tr key={r.product_id} className="border-b border-border/50">
+                  <Td className="text-white/80">{r.product_name}</Td>
+                  <Td mono>{r.required}</Td>
+                  <Td mono>{r.available}</Td>
+                  <Td><Badge tone={r.status === "out" ? "bad" : "warn"}>{r.status === "out" ? "out of stock" : "low"}</Badge></Td>
+                </tr>
+              ))}
+            </Table>
+          )}
+        </div>
+      )}
+    </Card>
   );
 }
 

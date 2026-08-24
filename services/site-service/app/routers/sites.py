@@ -162,6 +162,68 @@ def download_document(doc_id: int, db: Session = Depends(get_db)):
                     headers={"Content-Disposition": f'attachment; filename="{doc.filename}"'})
 
 
+# ---- BOQ: CE build + external compare + reconcile + approve + stock check ----
+BOQ_APPROVE = require_role("spokesperson", "hub_supervisor", "hub_manager")
+HUB = require_role("hub_supervisor", "hub_manager")
+
+
+@router.post("/sites/{site_id}/boq/submit", dependencies=[Depends(FIELD)])
+def submit_boq(site_id: int, body: schemas.SetBomIn, user: dict = Depends(current_user),
+               db: Session = Depends(get_db)):
+    """CE submits a BOQ; the external app returns a second BOQ and we compare (>5% => final BOQ needed)."""
+    return _run(service.submit_boq, db=db, site_id=site_id, lines=body.lines, actor_name=user.get("name", ""))
+
+
+@router.post("/sites/{site_id}/boq/final", response_model=schemas.ProjectBOQOut, dependencies=[Depends(FIELD)])
+def submit_final_boq(site_id: int, body: schemas.SetBomIn, user: dict = Depends(current_user),
+                     db: Session = Depends(get_db)):
+    """Submit the reconciled final BOQ for spoke + hub approval."""
+    return _run(service.submit_final_boq, db=db, site_id=site_id, lines=body.lines, actor_name=user.get("name", ""))
+
+
+@router.get("/sites/{site_id}/boqs", response_model=list[schemas.ProjectBOQOut])
+def list_boqs(site_id: int, db: Session = Depends(get_db)):
+    return service.list_boqs(db, site_id)
+
+
+@router.get("/boq-pending", response_model=list[schemas.ProjectBOQOut])
+def list_boq_pending(db: Session = Depends(get_db)):
+    """Final BOQs awaiting approval (hub review queue)."""
+    return service.list_boq_pending(db)
+
+
+@router.post("/boqs/{boq_id}/approve", response_model=schemas.ProjectBOQOut, dependencies=[Depends(BOQ_APPROVE)])
+def approve_boq(boq_id: int, user: dict = Depends(current_user), db: Session = Depends(get_db)):
+    """Record this actor's approval gate (spoke or hub). Both are required to finalize."""
+    return _run(service.approve_boq, db=db, boq_id=boq_id, actor_role=user.get("role", ""),
+                actor_name=user.get("name", ""))
+
+
+@router.post("/sites/{site_id}/boq-change", response_model=schemas.BOQChangeOut, dependencies=[Depends(HUB)])
+def request_boq_change(site_id: int, body: schemas.BOQChangeIn, user: dict = Depends(current_user),
+                       db: Session = Depends(get_db)):
+    """Hub asks for a BOQ change; needs the spoke and the CE to acknowledge."""
+    return _run(service.request_boq_change, db=db, site_id=site_id, note=body.note,
+                actor_name=user.get("name", ""))
+
+
+@router.get("/boq-changes", response_model=list[schemas.BOQChangeOut])
+def list_boq_changes(site_id: int | None = None, status: str | None = None, db: Session = Depends(get_db)):
+    return service.list_boq_changes(db, site_id=site_id, status=status)
+
+
+@router.post("/boq-changes/{req_id}/ack", response_model=schemas.BOQChangeOut, dependencies=[Depends(FIELD)])
+def ack_boq_change(req_id: int, user: dict = Depends(current_user), db: Session = Depends(get_db)):
+    return _run(service.ack_boq_change, db=db, req_id=req_id, actor_role=user.get("role", ""),
+                actor_name=user.get("name", ""))
+
+
+@router.get("/sites/{site_id}/boq-stock-check")
+def boq_stock_check(site_id: int, db: Session = Depends(get_db)):
+    """Approved-BOQ demand vs current hub stock (per product); flags low/out-of-stock."""
+    return _run(service.boq_stock_check, db=db, site_id=site_id)
+
+
 @router.get("/sites/{site_id}", response_model=schemas.SiteOut)
 def get_site(site_id: int, db: Session = Depends(get_db)):
     site = service.get_site(db, site_id)

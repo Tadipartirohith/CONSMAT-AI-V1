@@ -86,6 +86,8 @@ export default function SiteDetail() {
 
       <DesignFilesCard siteId={id} />
 
+      <BoqStatusCard siteId={id} onMsg={setMsg} reload={reloadAll} />
+
       {pending.length > 0 && (
         <Card title="Phase date changes awaiting your approval">
           {pending.map((c) => (
@@ -155,6 +157,46 @@ export default function SiteDetail() {
   );
 }
 
+function BoqStatusCard({ siteId, onMsg, reload }) {
+  const boqs = useAsync(() => site.boqs(siteId), [siteId]);
+  const changes = useAsync(() => site.boqChanges(siteId), [siteId]);
+  const [busy, setBusy] = useState(false);
+  const latest = (boqs.data || []).find((b) => b.source === "final");
+  const pendingChanges = (changes.data || []).filter((c) => c.status === "pending");
+  const ack = async (cid) => {
+    setBusy(true);
+    try { await site.ackBoqChange(cid); changes.reload(); boqs.reload(); reload?.(); }
+    catch (e) { onMsg?.({ ok: false, text: e.message }); } finally { setBusy(false); }
+  };
+  if (!latest && pendingChanges.length === 0) return null;
+  return (
+    <Card title="BOQ status" right={<Button size="sm" variant="ghost" onClick={() => { boqs.reload(); changes.reload(); }}>Refresh</Button>}>
+      {latest ? (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="font-mono text-white">{latest.code}</span>
+          <Badge tone={latest.status === "approved" ? "ok" : latest.status === "submitted" ? "warn" : "muted"}>{latest.status}</Badge>
+          <Badge tone={latest.spoke_approved_by ? "ok" : "muted"}>spoke {latest.spoke_approved_by ? "✓" : "…"}</Badge>
+          <Badge tone={latest.hub_approved_by ? "ok" : "muted"}>hub {latest.hub_approved_by ? "✓" : "…"}</Badge>
+          {latest.diff_pct != null && <span className="text-[11px] text-muted">external diff {latest.diff_pct}%</span>}
+        </div>
+      ) : <p className="text-sm text-muted">No final BOQ submitted yet.</p>}
+      {pendingChanges.length > 0 && (
+        <div className="mt-3 space-y-1.5">
+          <p className="text-[11px] uppercase tracking-wider text-[#f59e0b]">Hub change requests (need spoke + CE acknowledgement)</p>
+          {pendingChanges.map((c) => (
+            <div key={c.id} className="flex flex-wrap items-center gap-2 border border-[#f59e0b]/30 bg-panel2 px-2.5 py-1.5 text-sm">
+              <span className="flex-1 text-white/80">{c.note}</span>
+              <Badge tone={c.spoke_acked ? "ok" : "muted"}>spoke</Badge>
+              <Badge tone={c.ce_acked ? "ok" : "muted"}>CE</Badge>
+              <Button size="sm" onClick={() => ack(c.id)} disabled={busy}>Acknowledge</Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 function DesignFilesCard({ siteId }) {
   const docs = useAsync(() => site.documents(siteId, "design"), [siteId]);
   const [busy, setBusy] = useState(false);
@@ -197,6 +239,7 @@ function BomCard({ siteId, lines, editable, onSaved }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const [info, setInfo] = useState(null);
+  const [cmp, setCmp] = useState(null);
 
   const add = () => {
     const p = (products.data || []).find((x) => x.id === pid);
@@ -206,9 +249,15 @@ function BomCard({ siteId, lines, editable, onSaved }) {
   };
   const del = (i) => setRows(rows.filter((_, j) => j !== i));
   const setField = (i, k, v) => setRows(rows.map((x, j) => j === i ? { ...x, [k]: v } : x));
-  const save = async () => {
+  const cleanRows = () => rows.filter((r) => r.product_id).map((r) => ({ material_id: r.material_id, product_id: r.product_id, product_name: r.product_name, phase_seq: Number(r.phase_seq) || 0, total_qty: Number(r.total_qty) }));
+  const submit = async () => {
     setBusy(true); setErr(null);
-    try { await site.setBom(siteId, rows.filter((r) => r.product_id).map((r) => ({ material_id: r.material_id, product_id: r.product_id, product_name: r.product_name, phase_seq: Number(r.phase_seq) || 0, total_qty: Number(r.total_qty) }))); onSaved("Bill of materials saved."); }
+    try { const r = await site.submitBoq(siteId, cleanRows()); setCmp(r); setInfo(null); }
+    catch (e) { setErr(e.message); } finally { setBusy(false); }
+  };
+  const submitFinal = async () => {
+    setBusy(true); setErr(null);
+    try { await site.submitFinalBoq(siteId, cleanRows()); setCmp(null); onSaved("Final BOQ submitted for spoke + hub approval."); }
     catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
   const uploadDoc = async (e) => {
@@ -236,7 +285,7 @@ function BomCard({ siteId, lines, editable, onSaved }) {
   }
 
   return (
-    <Card title="Bill of materials · design spec (architect)"
+    <Card title="Bill of Quantities (BOQ)"
       right={<label className="cursor-pointer text-[11px] text-accent hover:underline">Upload doc<input type="file" accept=".pdf,.docx,.txt,.csv" className="hidden" onChange={uploadDoc} /></label>}>
       <div className="space-y-2">
         {info && <p className="text-[11px] text-[#f59e0b]">{info}</p>}
@@ -265,13 +314,47 @@ function BomCard({ siteId, lines, editable, onSaved }) {
           <div className="w-24"><Input type="number" step="any" placeholder="qty" value={qty} onChange={(e) => setQty(e.target.value)} /></div>
           <Button size="sm" onClick={add}>Add</Button>
         </div>
-        <div className="flex items-center gap-2 pt-1">
-          <Button onClick={save} disabled={busy || rows.filter((r) => r.product_id).length === 0}>Save BOM</Button>
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <Button onClick={submit} disabled={busy || cleanRows().length === 0}>Submit BOQ & compare</Button>
+          <Button variant="ghost" onClick={submitFinal} disabled={busy || cleanRows().length === 0}>Submit as final BOQ</Button>
           {err && <span className="text-xs text-red-400">{err}</span>}
         </div>
-        <p className="text-[11px] text-muted">Set a phase per line (“auto” lets the hub slice it across phases). Editable until construction starts.</p>
+        {cmp && <ComparePanel cmp={cmp} onFinal={submitFinal} busy={busy} />}
+        <p className="text-[11px] text-muted">The CE builds the BOQ from the architect's design. Submitting compares it against the external app's BOQ; a difference over 5% needs a reconciled final BOQ. The final BOQ needs spoke + hub approval.</p>
       </div>
     </Card>
+  );
+}
+
+function ComparePanel({ cmp, onFinal, busy }) {
+  const extMap = Object.fromEntries((cmp.external || []).map((l) => [l.product_id || l.material_id, l.total_qty]));
+  const over = cmp.needs_final;
+  return (
+    <div className={`mt-2 border p-3 ${over ? "border-red-500/40 bg-red-500/5" : "border-emerald-500/30 bg-emerald-500/5"}`}>
+      <p className={`text-sm font-semibold ${over ? "text-red-400" : "text-emerald-400"}`}>
+        {over ? `⚠ CE vs external BOQ differ by ${cmp.diff_pct}% (over ${cmp.threshold}%) - reconcile the quantities, then submit the final BOQ.`
+              : `✓ CE and external BOQ agree within ${cmp.threshold}% (max ${cmp.diff_pct}%). You can submit the final BOQ.`}
+      </p>
+      <p className="mb-1 mt-1 text-[10px] uppercase tracking-wider text-muted">CE vs external ({cmp.external_provider})</p>
+      <div className="max-h-40 overflow-auto">
+        <Table head={["Product", "CE qty", "External qty", "Δ%"]}>
+          {(cmp.ce_lines || []).map((l, i) => {
+            const key = l.product_id || l.material_id;
+            const ce = Number(l.total_qty), ext = Number(extMap[key] ?? 0);
+            const d = Math.max(ce, ext) ? Math.abs(ce - ext) / Math.max(ce, ext) * 100 : 0;
+            return (
+              <tr key={i} className="border-b border-border/50">
+                <Td className="text-white/80">{l.product_name || key}</Td>
+                <Td mono>{ce}</Td>
+                <Td mono>{ext}</Td>
+                <Td mono className={d > cmp.threshold ? "text-red-400" : "text-muted"}>{d.toFixed(1)}%</Td>
+              </tr>
+            );
+          })}
+        </Table>
+      </div>
+      <div className="mt-2"><Button size="sm" onClick={onFinal} disabled={busy}>Submit final BOQ</Button></div>
+    </div>
   );
 }
 

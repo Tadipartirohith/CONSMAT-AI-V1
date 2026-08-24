@@ -102,6 +102,18 @@ class BomOptimizeIn(BaseModel):
     catalog: list[dict] = []       # [{id, name, brand, material_id, grade}]
 
 
+class BoqLineIn(BaseModel):
+    product_id: str = ""
+    material_id: str = ""
+    product_name: str = ""
+    phase_seq: int = 0
+    total_qty: float = 0
+
+
+class BoqEstimateIn(BaseModel):
+    lines: list[BoqLineIn] = []
+
+
 class PriceIn(BaseModel):
     product_id: str = Field(min_length=1)
     price: float = Field(ge=0)

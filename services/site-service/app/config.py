@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     identity_url: str = "http://localhost:8005"
     # payment-service base URL: delivery confirmation releases the project's held escrow here.
     payment_url: str = "http://localhost:8006"
+    # procurement-service base URL: the external second-BOQ estimator lives here.
+    procurement_url: str = "http://localhost:8002"
     demo_password: str = "consmat123"  # temp password issued to a newly onboarded consumer
     # JIT dispatch scheduler: warn 3 days before a phase ends and pre-dispatch the next phase.
     scheduler_enabled: bool = True

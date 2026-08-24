@@ -43,6 +43,12 @@ export const site = {
   siteDetail: (id) => req("site", `/sites/${id}`),
   createSite: (b) => req("site", "/sites", body(b)),
   updateSite: (id, b) => req("site", `/sites/${id}`, { method: "PATCH", body: JSON.stringify(b) }),
+  submitBoq: (id, lines) => req("site", `/sites/${id}/boq/submit`, body({ lines })),
+  submitFinalBoq: (id, lines) => req("site", `/sites/${id}/boq/final`, body({ lines })),
+  boqs: (id) => req("site", `/sites/${id}/boqs`),
+  boqStockCheck: (id) => req("site", `/sites/${id}/boq-stock-check`),
+  boqChanges: (siteId) => req("site", `/boq-changes${siteId ? `?site_id=${siteId}` : ""}`),
+  ackBoqChange: (reqId) => req("site", `/boq-changes/${reqId}/ack`, { method: "POST" }),
   documents: (id, kind) => req("site", `/sites/${id}/documents${kind ? `?kind=${kind}` : ""}`),
   uploadDocument: async (id, file, kind = "design", note = "") => {
     const fd = new FormData(); fd.append("file", file); fd.append("kind", kind); fd.append("note", note);

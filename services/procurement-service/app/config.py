@@ -31,5 +31,10 @@ class Settings(BaseSettings):
     scout_refresh_enabled: bool = True
     scout_refresh_seconds: int = 14400
 
+    # External BOQ estimator (a second BOQ from another app, cross-checked against the CE's BOQ).
+    boq_provider: str = "stub"   # stub | external
+    boq_api_url: str = ""        # external app's estimate endpoint (extension point)
+    boq_api_key: str = ""
+
 
 settings = Settings()

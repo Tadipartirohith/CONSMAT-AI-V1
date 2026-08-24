@@ -155,6 +155,13 @@ def bom_optimize(body: schemas.BomOptimizeIn):
     return result or {"summary": "Hub LLM unavailable - configure AI_PROVIDER.", "lines": []}
 
 
+@router.post("/procurement/boq-estimate")
+def boq_estimate(body: schemas.BoqEstimateIn):
+    """Second BOQ from the external estimator (stub by default), used to cross-check the CE's BOQ."""
+    from .. import boq_estimator
+    return boq_estimator.estimate([l.model_dump() for l in body.lines])
+
+
 @router.post("/procurement/scout", dependencies=[Depends(HUB_WRITE)])
 def scout(body: schemas.ScoutIn, db: Session = Depends(get_db)):
     """Pull indicative external market prices for a material (advisory market intelligence)."""

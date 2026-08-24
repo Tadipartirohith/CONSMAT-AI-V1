@@ -25,6 +25,17 @@ def _auth() -> dict:
     return {"Authorization": f"Bearer {service_token()}"}
 
 
+def get_product_stock(product_id: str) -> dict | None:
+    """Return {on_hand, reserved, available, avg_cost} for a product, or None if unknown/unreachable."""
+    url = f"{_base()}/product-stock/{product_id}"
+    try:
+        req = urllib.request.Request(url, headers=_auth())
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except Exception:  # noqa: BLE001, stock lookup is best-effort
+        return None
+
+
 def get_materials() -> dict[str, float]:
     """Return {material_id: per_sqft} from the inventory-service catalog (Q11)."""
     url = f"{_base()}/materials"

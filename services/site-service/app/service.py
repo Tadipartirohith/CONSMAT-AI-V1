@@ -260,6 +260,257 @@ def get_document(db: Session, doc_id: int) -> models.ProjectDocument | None:
     return db.get(models.ProjectDocument, doc_id)
 
 
+# ---- BOQ: CE BOQ vs external BOQ, reconciliation, approval, stock check ----
+
+BOQ_SPOKE_APPROVERS = ("spokesperson", "admin")
+BOQ_HUB_APPROVERS = ("hub_supervisor", "hub_manager", "admin")
+
+
+def _boq_norm(lines) -> list[dict]:
+    out = []
+    for l in lines:
+        d = l if isinstance(l, dict) else l.model_dump()
+        pid = d.get("product_id", "") or ""
+        mid = d.get("material_id", "") or ""
+        if not (pid or mid):
+            continue
+        out.append({"material_id": mid, "product_id": pid, "product_name": d.get("product_name", "") or "",
+                    "phase_seq": int(d.get("phase_seq", 0) or 0), "total_qty": float(d.get("total_qty", 0) or 0)})
+    return out
+
+
+def compare_boqs(ce_lines: list[dict], ext_lines: list[dict]) -> float:
+    """Worst per-product resource difference (%) between two BOQs."""
+    def totals(lines):
+        m: dict[str, float] = {}
+        for l in lines:
+            k = l.get("product_id") or l.get("material_id")
+            m[k] = m.get(k, 0.0) + float(l.get("total_qty", 0) or 0)
+        return m
+    a, b = totals(ce_lines), totals(ext_lines)
+    worst = 0.0
+    for k in set(a) | set(b):
+        x, y = a.get(k, 0.0), b.get(k, 0.0)
+        denom = max(x, y) or 1.0
+        worst = max(worst, abs(x - y) / denom * 100.0)
+    return round(worst, 2)
+
+
+def submit_boq(db: Session, site_id: int, lines, actor_name: str = "") -> dict:
+    """Persist the CE BOQ, fetch the external app's BOQ, and compare them (>5% => final BOQ needed)."""
+    from . import procurement_client
+    site = db.get(models.Site, site_id)
+    if site is None:
+        raise SiteError(f"Unknown site: SITE-{site_id}")
+    norm = _boq_norm(lines)
+    if not norm:
+        raise SiteError("BOQ has no valid lines")
+    for b in db.execute(select(models.ProjectBOQ).where(
+            models.ProjectBOQ.site_id == site_id,
+            models.ProjectBOQ.source.in_([models.BOQ_CE, models.BOQ_EXTERNAL]),
+            models.ProjectBOQ.status == models.BOQ_DRAFT)).scalars():
+        b.status = models.BOQ_SUPERSEDED
+    ce = models.ProjectBOQ(site_id=site_id, source=models.BOQ_CE, status=models.BOQ_DRAFT,
+                           created_by=actor_name,
+                           lines=[models.ProjectBOQLine(**l) for l in norm])
+    db.add(ce)
+    ext_lines, provider = [], "unavailable"
+    try:
+        res = procurement_client.estimate_boq(norm)
+        ext_lines, provider = _boq_norm(res.get("lines", [])), res.get("provider", "stub")
+    except Exception as e:  # noqa: BLE001, estimator is best-effort
+        print(f"[boq] estimator failed: {type(e).__name__}: {e}", flush=True)
+    if ext_lines:
+        db.add(models.ProjectBOQ(site_id=site_id, source=models.BOQ_EXTERNAL, status=models.BOQ_DRAFT,
+                                 created_by=f"estimator:{provider}",
+                                 lines=[models.ProjectBOQLine(**l) for l in ext_lines]))
+    diff = compare_boqs(norm, ext_lines) if ext_lines else 0.0
+    ce.diff_pct = _dec(diff)
+    needs_final = diff > models.BOQ_DIFF_THRESHOLD
+    _notify(db, site, "boq_submitted", f"CE BOQ submitted ({len(norm)} line(s)).", audience="all")
+    if needs_final:
+        _notify(db, site, "boq_diff_flagged",
+                f"CE and external BOQ differ by {diff:.1f}% (over {models.BOQ_DIFF_THRESHOLD:.0f}%); "
+                "a reconciled final BOQ is required.", audience="all")
+    db.commit()
+    db.refresh(ce)
+    return {"ce_boq_id": ce.id, "ce_lines": norm, "external": ext_lines, "external_provider": provider,
+            "diff_pct": diff, "threshold": models.BOQ_DIFF_THRESHOLD, "needs_final": needs_final}
+
+
+def submit_final_boq(db: Session, site_id: int, lines, actor_name: str = "") -> models.ProjectBOQ:
+    site = db.get(models.Site, site_id)
+    if site is None:
+        raise SiteError(f"Unknown site: SITE-{site_id}")
+    if not site.project_type:
+        raise SiteError("Select a project type (captive/client) before submitting the final BOQ")
+    norm = _boq_norm(lines)
+    if not norm:
+        raise SiteError("Final BOQ has no valid lines")
+    for b in db.execute(select(models.ProjectBOQ).where(
+            models.ProjectBOQ.site_id == site_id, models.ProjectBOQ.source == models.BOQ_FINAL,
+            models.ProjectBOQ.status == models.BOQ_SUBMITTED)).scalars():
+        b.status = models.BOQ_SUPERSEDED
+    fin = models.ProjectBOQ(site_id=site_id, source=models.BOQ_FINAL, status=models.BOQ_SUBMITTED,
+                            created_by=actor_name, lines=[models.ProjectBOQLine(**l) for l in norm])
+    db.add(fin)
+    site.stage = models.STAGE_BOQ_REVIEW
+    _notify(db, site, "boq_final_submitted",
+            f"Final BOQ submitted for spoke + hub approval ({len(norm)} line(s)).", audience="all")
+    db.commit()
+    db.refresh(fin)
+    return fin
+
+
+def list_boqs(db: Session, site_id: int) -> list[models.ProjectBOQ]:
+    return list(db.execute(select(models.ProjectBOQ).where(models.ProjectBOQ.site_id == site_id)
+                           .order_by(models.ProjectBOQ.id.desc())).scalars())
+
+
+def list_boq_pending(db: Session) -> list[models.ProjectBOQ]:
+    """Final BOQs awaiting approval (the hub review queue)."""
+    return list(db.execute(select(models.ProjectBOQ).where(
+        models.ProjectBOQ.source == models.BOQ_FINAL,
+        models.ProjectBOQ.status == models.BOQ_SUBMITTED).order_by(models.ProjectBOQ.id.desc())).scalars())
+
+
+def approve_boq(db: Session, boq_id: int, actor_role: str, actor_name: str) -> models.ProjectBOQ:
+    """Two-gate approval: the spoke and a hub supervisor/manager (or admin). Both required."""
+    boq = db.get(models.ProjectBOQ, boq_id)
+    if boq is None or boq.source != models.BOQ_FINAL:
+        raise SiteError("Not a final BOQ")
+    if boq.status != models.BOQ_SUBMITTED:
+        raise SiteError("This BOQ is not awaiting approval")
+    name = actor_name or actor_role
+    before_spoke, before_hub = bool(boq.spoke_approved_by), bool(boq.hub_approved_by)
+    if actor_role == "admin":
+        boq.spoke_approved_by = boq.spoke_approved_by or name
+        boq.hub_approved_by = boq.hub_approved_by or name
+    elif actor_role in BOQ_SPOKE_APPROVERS:
+        boq.spoke_approved_by = name
+    elif actor_role in BOQ_HUB_APPROVERS:
+        boq.hub_approved_by = name
+    else:
+        raise SiteError("Only the spokesperson or a hub supervisor/manager can approve a BOQ")
+    site = db.get(models.Site, boq.site_id)
+    if not before_spoke and boq.spoke_approved_by:
+        _notify(db, site, "boq_spoke_approved", f"Final BOQ {boq.code} approved by the spoke.", audience="all")
+    if not before_hub and boq.hub_approved_by:
+        _notify(db, site, "boq_hub_approved", f"Final BOQ {boq.code} approved by the hub.", audience="all")
+    if boq.spoke_approved_by and boq.hub_approved_by:
+        boq.status = models.BOQ_APPROVED
+        boq_lines = [{"material_id": l.material_id, "product_id": l.product_id,
+                      "product_name": l.product_name, "phase_seq": l.phase_seq,
+                      "total_qty": float(l.total_qty)} for l in boq.lines]
+        db.commit()
+        set_bom(db, boq.site_id, boq_lines)  # reserve against hub stock (3x buffer surfaces shortfalls)
+        site = db.get(models.Site, boq.site_id)
+        site.stage = models.STAGE_BOQ_APPROVED
+        _notify(db, site, "boq_approved",
+                "Final BOQ fully approved and reserved against hub stock.", audience="all")
+        db.commit()
+        _safe_stock_check(db, boq.site_id)
+    else:
+        db.commit()
+    db.refresh(boq)
+    return boq
+
+
+def request_boq_change(db: Session, site_id: int, note: str, actor_name: str) -> models.BOQChangeRequest:
+    site = db.get(models.Site, site_id)
+    if site is None:
+        raise SiteError(f"Unknown site: SITE-{site_id}")
+    latest = db.execute(select(models.ProjectBOQ).where(
+        models.ProjectBOQ.site_id == site_id, models.ProjectBOQ.source == models.BOQ_FINAL)
+        .order_by(models.ProjectBOQ.id.desc())).scalars().first()
+    cr = models.BOQChangeRequest(site_id=site_id, boq_id=latest.id if latest else 0,
+                                 note=note.strip(), requested_by=actor_name)
+    db.add(cr)
+    _notify(db, site, "boq_change_requested",
+            f"Hub requested a BOQ change: {note.strip()[:180]}", audience="field")
+    db.commit()
+    db.refresh(cr)
+    return cr
+
+
+def list_boq_changes(db: Session, site_id: int | None = None, status: str | None = None) -> list[models.BOQChangeRequest]:
+    stmt = select(models.BOQChangeRequest).order_by(models.BOQChangeRequest.id.desc())
+    if site_id is not None:
+        stmt = stmt.where(models.BOQChangeRequest.site_id == site_id)
+    if status:
+        stmt = stmt.where(models.BOQChangeRequest.status == status)
+    return list(db.execute(stmt).scalars())
+
+
+def ack_boq_change(db: Session, req_id: int, actor_role: str, actor_name: str) -> models.BOQChangeRequest:
+    """A hub-requested BOQ change needs both the spoke and the CE to acknowledge; then the BOQ reopens."""
+    cr = db.get(models.BOQChangeRequest, req_id)
+    if cr is None:
+        raise SiteError(f"Unknown change request: {req_id}")
+    if cr.status != "pending":
+        raise SiteError("This change request is already resolved")
+    if actor_role == "admin":
+        cr.spoke_acked = cr.ce_acked = True
+    elif actor_role == "spokesperson":
+        cr.spoke_acked = True
+    elif actor_role == "civil_engineer":
+        cr.ce_acked = True
+    else:
+        raise SiteError("Only the spokesperson and the civil engineer can acknowledge a change request")
+    site = db.get(models.Site, cr.site_id)
+    if cr.spoke_acked and cr.ce_acked:
+        cr.status = "resolved"
+        cr.resolved_at = db.execute(select(func.now())).scalar()
+        for b in db.execute(select(models.ProjectBOQ).where(
+                models.ProjectBOQ.site_id == cr.site_id, models.ProjectBOQ.source == models.BOQ_FINAL,
+                models.ProjectBOQ.status == models.BOQ_APPROVED)).scalars():
+            b.status = models.BOQ_SUPERSEDED
+        site.stage = models.STAGE_BOQ_REVIEW
+        _notify(db, site, "boq_change_ack",
+                "BOQ change acknowledged by spoke + CE; the BOQ is reopened for revision.", audience="all")
+    db.commit()
+    db.refresh(cr)
+    return cr
+
+
+def boq_stock_check(db: Session, site_id: int, *, notify: bool = False) -> list[dict]:
+    """Compare the approved BOQ's product demand against current hub stock; flag low/out-of-stock."""
+    site = db.get(models.Site, site_id)
+    if site is None:
+        raise SiteError(f"Unknown site: SITE-{site_id}")
+    req: dict[str, dict] = {}
+    for l in site.bom_lines:
+        if not l.product_id:
+            continue
+        r = req.setdefault(l.product_id, {"product_name": l.product_name or l.material_id, "required": 0.0})
+        r["required"] += float(l.total_qty)
+    rows = []
+    for pid, r in req.items():
+        st = inventory_client.get_product_stock(pid)
+        on_hand = float(st["on_hand"]) if st else 0.0
+        available = float(st["available"]) if st else 0.0
+        status = "out" if available <= 0 else ("low" if available < r["required"] else "ok")
+        rows.append({"product_id": pid, "product_name": r["product_name"], "required": round(r["required"], 3),
+                     "on_hand": on_hand, "available": available, "status": status})
+        if notify and status == "out":
+            _notify(db, site, "out_of_stock",
+                    f"{r['product_name']} is out of stock at the hub for this project.", audience="all")
+        elif notify and status == "low":
+            _notify(db, site, "low_stock",
+                    f"{r['product_name']} is low at the hub ({available:g} available, {r['required']:g} needed).",
+                    audience="all")
+    if notify:
+        db.commit()
+    return sorted(rows, key=lambda x: {"out": 0, "low": 1, "ok": 2}[x["status"]])
+
+
+def _safe_stock_check(db: Session, site_id: int) -> None:
+    try:
+        boq_stock_check(db, site_id, notify=True)
+    except Exception as e:  # noqa: BLE001
+        print(f"[boq] stock-check failed for SITE-{site_id}: {type(e).__name__}: {e}", flush=True)
+
+
 def list_sites(db: Session) -> list[models.Site]:
     return list(db.execute(select(models.Site).order_by(models.Site.id.desc())).scalars())
 
