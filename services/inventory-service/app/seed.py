@@ -261,16 +261,23 @@ PRODUCTS = [
 
 def seed() -> int:
     db = SessionLocal()
-    added = prod_added = seg_backfill = 0
+    added = prod_added = updated = 0
     try:
         for m in MATERIALS:
             existing = db.get(Material, m["id"])
             if existing is None:
                 db.add(Material(**m))
                 added += 1
-            elif not existing.segment:
-                existing.segment = m["segment"]  # backfill the page-3 vertical onto pre-existing rows
-                seg_backfill += 1
+            else:
+                # Normalize display fields to the page-3 wording (leave per_sqft as configured so the
+                # structural auto-plan coefficients are never disturbed).
+                changed = False
+                for f in ("name", "category", "segment", "unit"):
+                    if getattr(existing, f) != m[f]:
+                        setattr(existing, f, m[f])
+                        changed = True
+                if changed:
+                    updated += 1
         for p in PRODUCTS:
             if db.get(Product, p["id"]) is None:
                 db.add(Product(**p))
@@ -278,7 +285,7 @@ def seed() -> int:
         db.commit()
     finally:
         db.close()
-    print(f"[seed] catalog ensured; {added} new materials, {seg_backfill} segments backfilled, "
+    print(f"[seed] catalog ensured; {added} new materials, {updated} normalized, "
           f"{prod_added} new products ({len(MATERIALS)} categories, {len(PRODUCTS)} product lines total)")
     return added
 
