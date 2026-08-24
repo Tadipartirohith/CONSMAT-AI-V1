@@ -398,12 +398,13 @@ def approve_boq(db: Session, boq_id: int, actor_role: str, actor_name: str) -> m
     if not before_hub and boq.hub_approved_by:
         _notify(db, site, "boq_hub_approved", f"Final BOQ {boq.code} approved by the hub.", audience="all")
     if boq.spoke_approved_by and boq.hub_approved_by:
-        boq.status = models.BOQ_APPROVED
         boq_lines = [{"material_id": l.material_id, "product_id": l.product_id,
                       "product_name": l.product_name, "phase_seq": l.phase_seq,
                       "total_qty": float(l.total_qty)} for l in boq.lines]
-        db.commit()
+        # Write the operational BOM FIRST: if the site already started, set_bom raises and the whole
+        # approval (gates + events) rolls back cleanly rather than leaving a half-approved BOQ.
         set_bom(db, boq.site_id, boq_lines)  # reserve against hub stock (3x buffer surfaces shortfalls)
+        boq.status = models.BOQ_APPROVED
         site = db.get(models.Site, boq.site_id)
         site.stage = models.STAGE_BOQ_APPROVED
         _notify(db, site, "boq_approved",
