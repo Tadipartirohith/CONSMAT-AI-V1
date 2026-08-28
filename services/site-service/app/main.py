@@ -13,6 +13,7 @@ from .routers import sites
 
 app = FastAPI(title="Consmat AI V1, Site Service", version="0.1.0")
 app.include_router(sites.router, prefix=settings.api_prefix)
+app.include_router(sites.public_router, prefix=settings.api_prefix)  # public enquiry (no auth)
 
 
 def _scheduler_loop() -> None:

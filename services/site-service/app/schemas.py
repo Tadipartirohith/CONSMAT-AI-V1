@@ -245,6 +245,39 @@ class BOQChangeOut(BaseModel):
     resolved_at: datetime | None = None
 
 
+class EnquiryIn(BaseModel):
+    name: str = Field(min_length=1)
+    phone: str = ""
+    email: str = ""
+    location: str = Field(min_length=1)
+    message: str = ""
+
+
+class EnquiryOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+    phone: str
+    email: str
+    location: str
+    message: str
+    spoke_id: str
+    routed_to: str
+    status: str
+    handled_by: str
+    created_at: datetime | None = None
+
+
+class EnquiryUpdate(BaseModel):
+    status: str | None = None
+
+
+class EnquiryResult(BaseModel):
+    id: int
+    routed_to: str
+    spoke: str | None = None
+
+
 class FinancePartnerIn(BaseModel):
     name: str = Field(min_length=1)
     kind: str = Field(default="bank", pattern="^(bank|nbfc|internal)$")

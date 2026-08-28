@@ -301,6 +301,30 @@ class BOQChangeRequest(Base):
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+ENQ_NEW = "new"
+ENQ_CONTACTED = "contacted"
+ENQ_CONVERTED = "converted"
+ENQ_CLOSED = "closed"
+ENQ_STATUSES = (ENQ_NEW, ENQ_CONTACTED, ENQ_CONVERTED, ENQ_CLOSED)
+
+
+class Enquiry(Base):
+    """A prospective customer's enquiry from the public portal. Routed by geofence to the covering
+    spoke; if no spoke serves the location it routes to the hub (supervisor queue)."""
+    __tablename__ = "enquiries"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    phone: Mapped[str] = mapped_column(String(32), default="")
+    email: Mapped[str] = mapped_column(String(160), default="")
+    location: Mapped[str] = mapped_column(String(160), nullable=False)
+    message: Mapped[str] = mapped_column(String(600), default="")
+    spoke_id: Mapped[str] = mapped_column(String(48), default="", index=True)  # covering spoke, or ""
+    routed_to: Mapped[str] = mapped_column(String(8), default="hub")           # spoke | hub
+    status: Mapped[str] = mapped_column(String(12), default=ENQ_NEW)
+    handled_by: Mapped[str] = mapped_column(String(120), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class FinancePartner(Base):
     """A preferred finance partner the internal finance team can route a project's funding to."""
     __tablename__ = "finance_partners"

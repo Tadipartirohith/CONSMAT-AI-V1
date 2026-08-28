@@ -106,6 +106,8 @@ export const site = {
   sites: () => req("site", "/sites"),
   siteDetail: (id) => req("site", `/sites/${id}`),
   updateSite: (id, b) => req("site", `/sites/${id}`, { method: "PATCH", body: JSON.stringify(b) }),
+  enquiries: (routedTo) => req("site", `/enquiries${routedTo ? `?routed_to=${routedTo}` : ""}`),
+  updateEnquiry: (id, status) => req("site", `/enquiries/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }),
   boqs: (id) => req("site", `/sites/${id}/boqs`),
   boqPending: () => req("site", "/boq-pending"),
   approveBoq: (boqId) => req("site", `/boqs/${boqId}/approve`, { method: "POST" }),

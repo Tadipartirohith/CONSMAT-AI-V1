@@ -43,6 +43,8 @@ export const site = {
   siteDetail: (id) => req("site", `/sites/${id}`),
   createSite: (b) => req("site", "/sites", body(b)),
   updateSite: (id, b) => req("site", `/sites/${id}`, { method: "PATCH", body: JSON.stringify(b) }),
+  enquiries: (spokeId) => req("site", `/enquiries${spokeId ? `?spoke_id=${spokeId}` : ""}`),
+  updateEnquiry: (id, status) => req("site", `/enquiries/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }),
   submitBoq: (id, lines) => req("site", `/sites/${id}/boq/submit`, body({ lines })),
   submitFinalBoq: (id, lines) => req("site", `/sites/${id}/boq/final`, body({ lines })),
   boqs: (id) => req("site", `/sites/${id}/boqs`),

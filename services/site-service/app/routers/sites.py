@@ -16,7 +16,22 @@ FIELD = require_role("spokesperson", "architect", "civil_engineer")
 BACKFILL = require_role("spokesperson", "architect", "civil_engineer", "hub_supervisor", "hub_manager")
 # Scheduling (phase dates) + oversight: the field team plus the hub, since the manager sits above the spoke.
 SCHEDULE = require_role("spokesperson", "architect", "civil_engineer", "hub_supervisor", "hub_manager")
+# Enquiry queue: the spoke sees its own leads; hub supervisor/manager see hub-routed (unserved) leads.
+ENQUIRY = require_role("spokesperson", "architect", "civil_engineer", "hub_supervisor", "hub_manager")
 router = APIRouter(tags=["sites"], dependencies=[Depends(current_user)])
+
+# Public (unauthenticated) endpoints - a prospective customer's enquiry before they have an account.
+public_router = APIRouter(tags=["public"])
+
+
+@public_router.post("/enquiries", response_model=schemas.EnquiryResult, status_code=201)
+def create_enquiry(body: schemas.EnquiryIn, db: Session = Depends(get_db)):
+    """Public enquiry: routed by geofence to the covering spoke, else to the hub supervisor queue."""
+    try:
+        return service.create_enquiry(db, name=body.name, phone=body.phone, email=body.email,
+                                      location=body.location, message=body.message)
+    except service.SiteError as e:
+        raise HTTPException(409, str(e))
 
 
 def _run(fn, **kwargs):
@@ -133,6 +148,20 @@ def update_site(site_id: int, body: schemas.SiteUpdate, db: Session = Depends(ge
 @router.get("/sites", response_model=list[schemas.SiteOut])
 def list_sites(db: Session = Depends(get_db)):
     return service.list_sites(db)
+
+
+# ---- Enquiries (spoke sees its own; hub sees hub-routed leads) ----
+@router.get("/enquiries", response_model=list[schemas.EnquiryOut], dependencies=[Depends(ENQUIRY)])
+def list_enquiries(spoke_id: str | None = None, routed_to: str | None = None,
+                   status: str | None = None, db: Session = Depends(get_db)):
+    return service.list_enquiries(db, spoke_id=spoke_id, routed_to=routed_to, status=status)
+
+
+@router.patch("/enquiries/{enquiry_id}", response_model=schemas.EnquiryOut, dependencies=[Depends(ENQUIRY)])
+def update_enquiry(enquiry_id: int, body: schemas.EnquiryUpdate, user: dict = Depends(current_user),
+                   db: Session = Depends(get_db)):
+    return _run(service.update_enquiry, db=db, enquiry_id=enquiry_id, status=body.status,
+                handled_by=user.get("name", ""))
 
 
 # ---- Project documents (design / BOQ files) ----

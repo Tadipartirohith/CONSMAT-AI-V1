@@ -49,7 +49,7 @@ export default function Project({ me }) {
         <p className="mt-1 text-sm text-muted">{s.location} · {s.area_sqft} sqft · {s.floors} floor(s) · {s.construction_type}</p>
         <div className="mt-4">
           <div className="mb-1 flex justify-between text-sm">
-            <span className="text-white">{pr.currentSeq ? `In progress: ${PHASE_NAMES[pr.currentSeq]}` : s.status === "completed" ? "Project complete" : "Awaiting start"}</span>
+            <span className="text-white">{pr.currentSeq ? `Currently in Phase ${pr.currentSeq} of ${pr.total}: ${PHASE_NAMES[pr.currentSeq]}` : s.status === "completed" ? "Project complete 🎉" : "Awaiting start"}</span>
             <span className="font-mono text-accent">{pr.done}/{pr.total} phases · {pr.pct}%</span>
           </div>
           <Progress pct={pr.pct} />
@@ -60,6 +60,8 @@ export default function Project({ me }) {
           <span className="text-white/90">{nextDelivery}</span>
         </div>
       </div>
+
+      <BuildingPlans siteId={id} />
 
       {s.bom_lines.length > 0 && <PayPanel site={s} me={me} />}
 
@@ -99,6 +101,28 @@ export default function Project({ me }) {
         </ol>
       </Card>
     </div>
+  );
+}
+
+function BuildingPlans({ siteId }) {
+  const docs = useAsync(() => site.documents(siteId, "design"), [siteId]);
+  const list = docs.data || [];
+  return (
+    <Card title="Building plans">
+      {list.length === 0 ? (
+        <p className="text-sm text-muted">Your architect's design and building plans will appear here once uploaded.</p>
+      ) : (
+        <div className="space-y-1.5">
+          {list.map((d) => (
+            <div key={d.id} className="flex items-center gap-2 border-b border-border/50 py-1.5 text-sm">
+              <span className="text-base">📐</span>
+              <button onClick={() => site.downloadDocument(d.id, d.filename)} className="text-accent hover:underline">{d.filename}</button>
+              <span className="text-[11px] text-muted">{(d.size / 1024).toFixed(0)} KB</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }
 

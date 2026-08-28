@@ -127,6 +127,50 @@ def decide_area_request(db: Session, req_id: int, approve: bool, actor_role: str
     return req
 
 
+def create_enquiry(db: Session, *, name: str, phone: str = "", email: str = "", location: str,
+                   message: str = "") -> dict:
+    """A public enquiry: geofence-route to the covering spoke, else to the hub supervisor queue."""
+    if not name.strip() or not location.strip():
+        raise SiteError("Name and site location are required")
+    spoke = geofence.resolve_spoke(db, location)
+    enq = models.Enquiry(name=name.strip(), phone=phone.strip(), email=email.strip().lower(),
+                         location=location.strip(), message=(message or "").strip(),
+                         spoke_id=spoke.id if spoke else "",
+                         routed_to="spoke" if spoke else "hub")
+    db.add(enq)
+    db.commit()
+    db.refresh(enq)
+    return {"id": enq.id, "routed_to": enq.routed_to, "spoke": spoke.name if spoke else None}
+
+
+def list_enquiries(db: Session, *, spoke_id: str | None = None, routed_to: str | None = None,
+                   status: str | None = None) -> list[models.Enquiry]:
+    stmt = select(models.Enquiry).order_by(models.Enquiry.id.desc())
+    if spoke_id is not None:
+        stmt = stmt.where(models.Enquiry.spoke_id == spoke_id)
+    if routed_to:
+        stmt = stmt.where(models.Enquiry.routed_to == routed_to)
+    if status:
+        stmt = stmt.where(models.Enquiry.status == status)
+    return list(db.execute(stmt).scalars())
+
+
+def update_enquiry(db: Session, enquiry_id: int, *, status: str | None = None,
+                   handled_by: str = "") -> models.Enquiry:
+    enq = db.get(models.Enquiry, enquiry_id)
+    if enq is None:
+        raise SiteError(f"Unknown enquiry: {enquiry_id}")
+    if status is not None:
+        if status not in models.ENQ_STATUSES:
+            raise SiteError(f"status must be one of {models.ENQ_STATUSES}")
+        enq.status = status
+    if handled_by:
+        enq.handled_by = handled_by
+    db.commit()
+    db.refresh(enq)
+    return enq
+
+
 def create_consumer(db: Session, name: str, tier: str, spoke_id: str, phone: str = "",
                     email: str = "") -> models.Consumer:
     if tier not in models.CONSUMER_TIERS:

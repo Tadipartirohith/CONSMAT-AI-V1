@@ -27,6 +27,24 @@ export const site = {
   siteDetail: (id) => req("/site", `/sites/${id}`),
   notifications: (consumerId) => req("/site", `/notifications?consumer_id=${encodeURIComponent(consumerId)}`),
   markAllRead: (consumerId) => req("/site", `/notifications/read-all?consumer_id=${encodeURIComponent(consumerId)}`, body({})),
+  documents: (id, kind) => req("/site", `/sites/${id}/documents${kind ? `?kind=${kind}` : ""}`),
+  downloadDocument: async (docId, filename) => {
+    const res = await fetch(`/site/documents/${docId}`, { headers: { ...authHeader() } });
+    if (!res.ok) throw new Error("Download failed");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = filename || `document-${docId}`;
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  },
+};
+
+// Public (no login) - a prospective customer submits an enquiry that gets geofence-routed.
+export const publicApi = {
+  enquire: async (b) => {
+    const res = await fetch("/site/enquiries", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) });
+    if (!res.ok) { let d = res.statusText; try { d = (await res.json()).detail || d; } catch {} throw new Error(typeof d === "string" ? d : JSON.stringify(d)); }
+    return res.json();
+  },
 };
 
 export const price = {
