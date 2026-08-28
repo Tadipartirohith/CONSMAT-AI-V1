@@ -281,6 +281,13 @@ project payments are
 held in escrow and released to the supplier proportionally as deliveries are confirmed (D29); and the
 catalog spans 20 categories / ~125 product lines (D30).
 
+The **site engineer** (renamed from civil engineer, D40) and architect run each site; fund type is chosen
+at onboarding (D41), the architect alone uploads the design (D42), spoke location fields default to the
+covered region (D43), the internal financier tracks eligibility and is auto-notified of design/budget/BOQ
+changes on captive projects (D44), and an advanced in-app notification system (spoke/customer/financier)
+also pushes customer events over **WhatsApp** (D45). A public geofence-routed enquiry (spoke vs hub) and a
+customer view of building plans + current phase round out the consumer side.
+
 A full **spoke project lifecycle** drives each project (D31-D36): a spoke team (architects, civil
 engineers, a new Finance role) runs projects typed **captive** or **client** (replacing the NBFC flag)
 through a stage machine - the architect uploads a design, the CE builds a BOQ that is cross-checked
