@@ -302,8 +302,8 @@ def update_project_finance(site_id: int, body: schemas.ProjectFinanceUpdate,
                            user: dict = Depends(current_user), db: Session = Depends(get_db)):
     """Finance team updates a project's funding status/partner/amount/remarks."""
     return _run(service.update_project_finance, db=db, site_id=site_id, status=body.status,
-                partner_id=body.partner_id, amount=body.amount, remarks=body.remarks,
-                actor_name=user.get("name", ""))
+                eligibility=body.eligibility, partner_id=body.partner_id, amount=body.amount,
+                remarks=body.remarks, actor_name=user.get("name", ""))
 
 
 @router.get("/sites/{site_id}", response_model=schemas.SiteOut)
@@ -383,11 +383,16 @@ def backfill_all(db: Session = Depends(get_db)):
 # ---- Notifications + JIT scheduler ----
 @router.get("/notifications", response_model=list[schemas.NotificationOut])
 def list_notifications(spoke_id: str | None = None, site_id: int | None = None,
-                       consumer_id: str | None = None, unread_only: bool = False,
-                       db: Session = Depends(get_db)):
-    """Notifications/events. Field/hub see everything; pass consumer_id to get a customer's own
-    project events only (audience 'all'/'consumer')."""
-    audiences = ("all", "consumer") if consumer_id else None
+                       consumer_id: str | None = None, audience: str | None = None,
+                       unread_only: bool = False, db: Session = Depends(get_db)):
+    """Notifications/events. Field/hub see everything; pass consumer_id for a customer's own project
+    events (audience 'all'/'consumer'); pass audience (e.g. 'finance') for a role feed (that + 'all')."""
+    if consumer_id:
+        audiences = ("all", "consumer")
+    elif audience:
+        audiences = (audience, "all")
+    else:
+        audiences = None
     return service.list_notifications(db, spoke_id=spoke_id, site_id=site_id, consumer_id=consumer_id,
                                       audiences=audiences, unread_only=unread_only)
 
@@ -398,9 +403,12 @@ def read_notification(notif_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/notifications/read-all")
-def read_all_notifications(consumer_id: str, db: Session = Depends(get_db)):
-    """Mark all of a customer's own project notifications read."""
-    return service.mark_all_read(db, consumer_id)
+def read_all_notifications(consumer_id: str | None = None, spoke_id: str | None = None,
+                           db: Session = Depends(get_db)):
+    """Mark all of a customer's (consumer_id) or a spoke's (spoke_id) notifications read."""
+    if spoke_id:
+        return service.mark_all_read_spoke(db, spoke_id)
+    return service.mark_all_read(db, consumer_id or "")
 
 
 @router.post("/dispatches/{dispatch_id}/confirm", response_model=schemas.DispatchOut, dependencies=[Depends(BACKFILL)])

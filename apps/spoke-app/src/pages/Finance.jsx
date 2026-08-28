@@ -42,13 +42,14 @@ function FinanceRow({ s, partners, onMsg }) {
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState(null);
   const f = fin.data;
-  const state = form || { status: f?.status || "pending", partner_id: f?.partner_id || "", amount: f?.amount ?? "", remarks: f?.remarks || "" };
+  const state = form || { status: f?.status || "pending", eligibility: f?.eligibility || "pending", partner_id: f?.partner_id || "", amount: f?.amount ?? "", remarks: f?.remarks || "" };
 
   const save = async () => {
     setBusy(true);
     try {
       await site.updateFinance(s.id, {
-        status: state.status, partner_id: state.partner_id ? Number(state.partner_id) : 0,
+        status: state.status, eligibility: state.eligibility,
+        partner_id: state.partner_id ? Number(state.partner_id) : 0,
         amount: state.amount === "" ? undefined : Number(state.amount), remarks: state.remarks,
       });
       onMsg?.({ ok: true, text: `${s.code} finance updated.` }); setForm(null); fin.reload();
@@ -62,9 +63,15 @@ function FinanceRow({ s, partners, onMsg }) {
         <span className="text-white/80">{s.label || "-"}</span>
         <span className="text-[11px] text-muted">{(s.stage || "").replace(/_/g, " ")}</span>
         {f && <Badge tone={f.status === "approved" ? "ok" : f.status === "rejected" ? "bad" : "warn"}>{f.status.replace("_", " ")}</Badge>}
+        {f?.eligibility && f.eligibility !== "pending" && <Badge tone={f.eligibility === "eligible" ? "ok" : f.eligibility === "not_eligible" ? "bad" : "accent"}>{f.eligibility.replace("_", " ")}</Badge>}
         <span className="ml-auto text-[11px] text-muted">budget {budget.data?.total != null ? `Rs ${Math.round(budget.data.total)}` : (s.budget != null ? `Rs ${Math.round(s.budget)}` : "not issued")}</span>
       </div>
       <div className="flex flex-wrap items-end gap-2">
+        <Field label="Eligibility">
+          <Select value={state.eligibility} onChange={(e) => setForm({ ...state, eligibility: e.target.value })}>
+            {["pending", "review", "eligible", "not_eligible"].map((x) => <option key={x} value={x}>{x.replace("_", " ")}</option>)}
+          </Select>
+        </Field>
         <Field label="Status">
           <Select value={state.status} onChange={(e) => setForm({ ...state, status: e.target.value })}>
             {FIN_STATUS.map((x) => <option key={x} value={x}>{x.replace("_", " ")}</option>)}

@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     scheduler_interval_seconds: int = 60
     # Nudge the field team when a delivered shipment stays unconfirmed for this many days.
     confirm_reminder_days: int = 3
+    # WhatsApp customer notifications (stub | meta). Meta uses the Cloud API with these secrets (from env).
+    whatsapp_provider: str = "stub"
+    whatsapp_token: str = ""
+    whatsapp_phone_id: str = ""
 
 
 settings = Settings()

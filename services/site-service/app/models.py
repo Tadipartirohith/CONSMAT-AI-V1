@@ -345,6 +345,7 @@ class ProjectFinance(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     site_id: Mapped[int] = mapped_column(ForeignKey("sites.id"), unique=True, index=True)
     status: Mapped[str] = mapped_column(String(16), default=FIN_PENDING)
+    eligibility: Mapped[str] = mapped_column(String(16), default="pending")  # pending|eligible|not_eligible|review
     partner_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     amount: Mapped[Decimal | None] = mapped_column(Numeric(16, 2), nullable=True)
     remarks: Mapped[str] = mapped_column(String(400), default="")

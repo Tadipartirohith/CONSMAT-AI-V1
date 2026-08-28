@@ -301,6 +301,7 @@ class ProjectFinanceOut(BaseModel):
     id: int
     site_id: int
     status: str
+    eligibility: str = "pending"
     partner_id: int | None = None
     amount: float | None = None
     remarks: str
@@ -311,6 +312,7 @@ class ProjectFinanceOut(BaseModel):
 
 class ProjectFinanceUpdate(BaseModel):
     status: str | None = None
+    eligibility: str | None = None
     partner_id: int | None = None
     amount: float | None = None
     remarks: str | None = None

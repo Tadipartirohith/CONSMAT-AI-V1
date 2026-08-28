@@ -86,6 +86,9 @@ services:
       PROCUREMENT_URL: http://procurement-service:8000
       PRICING_URL: http://pricing-service:8000
       DEMO_PASSWORD: ${DEMO_PASSWORD:-consmat123}
+      WHATSAPP_PROVIDER: ${WHATSAPP_PROVIDER:-stub}
+      WHATSAPP_TOKEN: ${WHATSAPP_TOKEN:-}
+      WHATSAPP_PHONE_ID: ${WHATSAPP_PHONE_ID:-}
     ports:
       - "127.0.0.1:${SITE_PORT:-8003}:8000"
     depends_on:

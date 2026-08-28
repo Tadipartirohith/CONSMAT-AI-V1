@@ -294,6 +294,8 @@ def add_document(db: Session, site_id: int, *, kind: str, filename: str, content
     ev = "design_uploaded" if kind == "design" else "document_uploaded"
     _notify(db, site, ev, f"{kind.replace('_', ' ')} '{filename}' uploaded"
             f"{f' by {uploaded_by}' if uploaded_by else ''}.", audience="all")
+    if kind == "design":
+        _notify_finance(db, site, "design_updated", f"Design updated ('{filename}') - project scope may change.")
     db.commit()
     db.refresh(doc)
     return doc
@@ -408,6 +410,7 @@ def submit_final_boq(db: Session, site_id: int, lines, actor_name: str = "") -> 
     site.stage = models.STAGE_BOQ_REVIEW
     _notify(db, site, "boq_final_submitted",
             f"Final BOQ submitted for spoke + hub approval ({len(norm)} line(s)).", audience="all")
+    _notify_finance(db, site, "boq_updated", "A new final BOQ was submitted - budget may change.")
     db.commit()
     db.refresh(fin)
     return fin
@@ -520,6 +523,7 @@ def ack_boq_change(db: Session, req_id: int, actor_role: str, actor_name: str) -
         site.stage = models.STAGE_BOQ_REVIEW
         _notify(db, site, "boq_change_ack",
                 "BOQ change acknowledged by spoke + SE; the BOQ is reopened for revision.", audience="all")
+        _notify_finance(db, site, "boq_changed", "BOQ change acknowledged - budget may change.")
     db.commit()
     db.refresh(cr)
     return cr
@@ -594,6 +598,7 @@ def issue_budget(db: Session, site_id: int, actor_name: str = "") -> models.Site
     _notify(db, site, "budget_issued",
             f"Hub issued a project budget of Rs {budget['total']:.0f}"
             f"{f' by {actor_name}' if actor_name else ''}.", audience="all")
+    _notify_finance(db, site, "budget_updated", f"Budget updated to Rs {budget['total']:.0f} - review funding.")
     db.commit()
     db.refresh(site)
     return site
@@ -643,16 +648,27 @@ def list_project_finance(db: Session, status: str | None = None) -> list[models.
     return list(db.execute(stmt).scalars())
 
 
+FINANCE_ELIGIBILITY = ("pending", "eligible", "not_eligible", "review")
+
+
 def update_project_finance(db: Session, site_id: int, *, status: str | None = None,
                            partner_id: int | None = None, amount: float | None = None,
-                           remarks: str | None = None, actor_name: str = "") -> models.ProjectFinance:
-    """Finance team updates the funding status/partner/amount for a project."""
+                           remarks: str | None = None, eligibility: str | None = None,
+                           actor_name: str = "") -> models.ProjectFinance:
+    """Finance team updates the funding status / eligibility / partner / amount for a project."""
     pf = get_or_create_project_finance(db, site_id)
     site = db.get(models.Site, site_id)
     if status is not None:
         if status not in models.FINANCE_STATUSES:
             raise SiteError(f"status must be one of {models.FINANCE_STATUSES}")
         pf.status = status
+    if eligibility is not None:
+        if eligibility not in FINANCE_ELIGIBILITY:
+            raise SiteError(f"eligibility must be one of {FINANCE_ELIGIBILITY}")
+        if eligibility != pf.eligibility:
+            pf.eligibility = eligibility
+            _notify(db, site, "finance_eligibility",
+                    f"Finance eligibility set to '{eligibility.replace('_', ' ')}'.", audience="all")
     if partner_id is not None:
         pf.partner_id = partner_id or None
     if amount is not None:
@@ -1161,7 +1177,20 @@ def _notify(db: Session, site: models.Site, kind: str, message: str, *, phase_se
     n = models.Notification(site_id=site.id, spoke_id=spoke_id, audience=audience,
                             phase_seq=phase_seq, kind=kind, message=message)
     db.add(n)
+    # Customer-facing events also go out over WhatsApp (best-effort; stub unless WHATSAPP_* is configured).
+    if audience in ("all", "consumer") and site.consumer and site.consumer.phone:
+        try:
+            from . import whatsapp_client
+            whatsapp_client.notify(site.consumer.phone, f"Consmat - {site.label or site.code}: {message}")
+        except Exception as e:  # noqa: BLE001
+            print(f"[whatsapp] notify failed: {type(e).__name__}: {e}", flush=True)
     return n
+
+
+def _notify_finance(db: Session, site: models.Site, kind: str, message: str) -> None:
+    """Notify the spoke's finance team about a captive project (design/budget/BOQ changes etc.)."""
+    if site.project_type == "captive":
+        _notify(db, site, kind, message, audience="finance")
 
 
 def list_notifications(db: Session, *, spoke_id: str | None = None, site_id: int | None = None,
@@ -1201,6 +1230,18 @@ def mark_all_read(db: Session, consumer_id: str) -> dict:
         models.Notification.site_id.in_(site_ids or [-1]),
         models.Notification.read.is_(False),
         models.Notification.audience.in_(("all", "consumer")))).scalars()
+    n = 0
+    for row in rows:
+        row.read = True
+        n += 1
+    db.commit()
+    return {"marked": n}
+
+
+def mark_all_read_spoke(db: Session, spoke_id: str) -> dict:
+    """Mark all of a spoke's notifications read."""
+    rows = db.execute(select(models.Notification).where(
+        models.Notification.spoke_id == spoke_id, models.Notification.read.is_(False))).scalars()
     n = 0
     for row in rows:
         row.read = True

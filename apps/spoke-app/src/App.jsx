@@ -7,11 +7,13 @@ import SiteDetail from "./pages/SiteDetail.jsx";
 import Finance from "./pages/Finance.jsx";
 import Inventory from "./pages/Inventory.jsx";
 import Enquiries from "./pages/Enquiries.jsx";
+import Notifications from "./pages/Notifications.jsx";
 import Login from "./pages/Login.jsx";
 import { getUser, logout } from "./auth.js";
 
 const NAV = [
   { to: "/dashboard", label: "Coverage", icon: "🗺️" },
+  { to: "/notifications", label: "Notifications", icon: "🔔" },
   { to: "/enquiries", label: "Enquiries", icon: "📨" },
   { to: "/intake", label: "Onboarding", icon: "🤝" },
   { to: "/sites", label: "Sites", icon: "🏗️" },
@@ -60,6 +62,7 @@ export default function App() {
           <Route path="/finance" element={<Finance />} />
           <Route path="/inventory" element={<Inventory />} />
           <Route path="/enquiries" element={<Enquiries />} />
+          <Route path="/notifications" element={<Notifications />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </main>
