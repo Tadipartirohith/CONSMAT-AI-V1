@@ -9,6 +9,7 @@ import Market from "./pages/Market.jsx";
 import Procurement from "./pages/Procurement.jsx";
 import Pricing from "./pages/Pricing.jsx";
 import Payments from "./pages/Payments.jsx";
+import Accounts from "./pages/Accounts.jsx";
 import Team from "./pages/Team.jsx";
 import Enquiries from "./pages/Enquiries.jsx";
 import Login from "./pages/Login.jsx";
@@ -24,6 +25,7 @@ const NAV = [
   { to: "/procurement", label: "Procurement" },
   { to: "/pricing", label: "Pricing" },
   { to: "/payments", label: "Payments" },
+  { to: "/accounts", label: "Accounts", roles: ["admin", "hub_manager", "hub_supervisor"] },
   { to: "/team", label: "Team & access", roles: ["admin", "hub_manager", "hub_supervisor"] },
 ];
 
@@ -71,6 +73,7 @@ export default function App() {
           <Route path="/procurement" element={<Procurement />} />
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/payments" element={<Payments />} />
+          <Route path="/accounts" element={<Accounts />} />
           <Route path="/team" element={<Team />} />
           <Route path="/enquiries" element={<Enquiries />} />
           <Route path="*" element={<Navigate to="/overview" replace />} />
