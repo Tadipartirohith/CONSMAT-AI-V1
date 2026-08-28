@@ -172,29 +172,32 @@ def update_enquiry(db: Session, enquiry_id: int, *, status: str | None = None,
 
 
 def create_consumer(db: Session, name: str, tier: str, spoke_id: str, phone: str = "",
-                    email: str = "") -> models.Consumer:
+                    email: str = "", fund_type: str = "") -> models.Consumer:
     if tier not in models.CONSUMER_TIERS:
         raise SiteError(f"tier must be one of {models.CONSUMER_TIERS}")
+    if fund_type and fund_type not in models.PROJECT_TYPES:
+        raise SiteError(f"fund_type must be one of {models.PROJECT_TYPES}")
     if db.get(models.Spoke, spoke_id) is None:
         raise SiteError(f"Unknown spoke: {spoke_id}")
     cid = _unique_id(db, models.Consumer, _slug(name, "c"))
     c = models.Consumer(id=cid, name=name.strip(), tier=tier, spoke_id=spoke_id, phone=phone,
-                        email=email.strip().lower())
+                        email=email.strip().lower(), fund_type=fund_type or "")
     db.add(c)
     db.commit()
     db.refresh(c)
     return c
 
 
-def intake(db: Session, name: str, tier: str, location: str, phone: str = "", email: str = "") -> dict:
-    """Onboarding: classify the consumer (tier), auto-assign the serving spoke by geofence (location),
-    and provision a `consumer` login (the customer's own email if given) so they can track their
-    project. Fails if no active spoke covers the location."""
+def intake(db: Session, name: str, tier: str, location: str, phone: str = "", email: str = "",
+           fund_type: str = "") -> dict:
+    """Onboarding: classify the consumer (tier), pick a fund type (captive/client), auto-assign the
+    serving spoke by geofence (location), and provision a `consumer` login. Fails if no spoke covers
+    the location."""
     spoke = geofence.resolve_spoke(db, location)
     if spoke is None:
         raise SiteError(f"No spoke covers '{location}'. Add coverage to a spoke or assign manually.")
     login_email = (email or "").strip().lower()
-    consumer = create_consumer(db, name, tier, spoke.id, phone, email=login_email)
+    consumer = create_consumer(db, name, tier, spoke.id, phone, email=login_email, fund_type=fund_type)
     if not login_email:
         login_email = f"{consumer.id}@consmat.com"
         consumer.email = login_email
@@ -227,12 +230,16 @@ def update_consumer(db: Session, consumer_id: str, *, tier: str | None = None,
 def create_site(db: Session, consumer_id: str, *, label: str = "", location: str = "",
                 area_sqft: float, floors: int = 1, construction_type: str = "standard",
                 project_type: str = "") -> models.Site:
-    if db.get(models.Consumer, consumer_id) is None:
+    consumer = db.get(models.Consumer, consumer_id)
+    if consumer is None:
         raise SiteError(f"Unknown consumer: {consumer_id}")
     if area_sqft <= 0:
         raise SiteError("area_sqft must be positive")
     if project_type and project_type not in models.PROJECT_TYPES:
         raise SiteError(f"project_type must be one of {models.PROJECT_TYPES}")
+    # Default the project's fund type from what was chosen at onboarding (still overridable per project).
+    if not project_type:
+        project_type = consumer.fund_type or ""
     site = models.Site(consumer_id=consumer_id, label=label, location=location,
                        area_sqft=_dec(area_sqft), floors=max(1, floors),
                        construction_type=construction_type, project_type=project_type or "")

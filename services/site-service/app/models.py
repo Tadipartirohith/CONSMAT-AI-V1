@@ -123,6 +123,8 @@ class Consumer(Base):
     tier: Mapped[str] = mapped_column(String(20), default="individual")
     phone: Mapped[str] = mapped_column(String(32), default="")
     email: Mapped[str] = mapped_column(String(160), default="")   # customer login id (identity user)
+    # Fund type chosen at onboarding (captive|client). Each new project defaults to it, still overridable.
+    fund_type: Mapped[str] = mapped_column(String(12), default="")
     spoke_id: Mapped[str] = mapped_column(ForeignKey("spokes.id"), index=True)
     spoke: Mapped["Spoke"] = relationship(back_populates="consumers")
     sites: Mapped[list["Site"]] = relationship(back_populates="consumer")

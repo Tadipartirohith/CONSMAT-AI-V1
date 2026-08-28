@@ -203,6 +203,7 @@ function DesignFilesCard({ siteId }) {
   const docs = useAsync(() => site.documents(siteId, "design"), [siteId]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
+  const canUpload = ["architect", "admin"].includes(getUser()?.role);   // design is the architect's
   const upload = async (e) => {
     const file = e.target.files?.[0]; if (!file) return;
     setBusy(true); setErr(null);
@@ -210,14 +211,14 @@ function DesignFilesCard({ siteId }) {
     catch (e) { setErr(e.message); } finally { setBusy(false); e.target.value = ""; }
   };
   return (
-    <Card title="Design files (architect)" right={
+    <Card title="Design files (architect)" right={canUpload &&
       <label className="cursor-pointer text-[11px] text-accent hover:underline">
         {busy ? "Uploading…" : "Upload design"}
         <input type="file" className="hidden" onChange={upload} accept=".pdf,.dwg,.dxf,.png,.jpg,.jpeg,.zip" />
       </label>}>
       {err && <p className="mb-1 text-xs text-red-400">{err}</p>}
       {(docs.data || []).length === 0 ? (
-        <p className="text-sm text-muted">No design uploaded yet. The architect uploads the CAD/design here; the SE builds the BOQ from it.</p>
+        <p className="text-sm text-muted">{canUpload ? "No design uploaded yet. Upload the CAD/design here; the SE builds the BOQ from it." : "No design uploaded yet. The architect uploads it here; you can view and download it to build the BOQ."}</p>
       ) : (
         <div className="space-y-1.5">
           {(docs.data || []).map((d) => (

@@ -8,14 +8,14 @@ export default function Sites() {
   const consumers = useAsync(() => site.consumers());
   const [err, setErr] = useState(null);
 
-  const [f, setF] = useState({ consumer_id: "", label: "", location: "", area_sqft: "", floors: 1, construction_type: "standard", project_type: "captive" });
+  // Fund type is chosen at onboarding; the site inherits it (overridable later on the site page).
+  const [f, setF] = useState({ consumer_id: "", label: "", location: "", area_sqft: "", floors: 1, construction_type: "standard" });
   const submit = async (e) => {
     e.preventDefault(); setErr(null);
     try {
       await site.createSite({
         consumer_id: f.consumer_id, label: f.label, location: f.location,
         area_sqft: Number(f.area_sqft), floors: Number(f.floors), construction_type: f.construction_type,
-        project_type: f.project_type,
       });
       setF({ ...f, label: "", location: "", area_sqft: "" });
       sites.reload();
@@ -63,12 +63,7 @@ export default function Sites() {
                 {CTYPES.map((c) => <option key={c} value={c}>{c}</option>)}
               </Select>
             </Field>
-            <Field label="Project type">
-              <Select value={f.project_type} onChange={(e) => setF({ ...f, project_type: e.target.value })}>
-                <option value="captive">Captive (financed in-house)</option>
-                <option value="client">Client (customer pays)</option>
-              </Select>
-            </Field>
+            <p className="text-[11px] text-muted">Fund type is inherited from the customer (set at onboarding); change it on the site page if needed.</p>
             <Button type="submit">Create site</Button>
             {err && <p className="text-xs text-red-400">{err}</p>}
           </form>

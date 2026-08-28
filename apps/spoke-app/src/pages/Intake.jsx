@@ -10,13 +10,13 @@ export default function Intake() {
   const [err, setErr] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  const [form, setForm] = useState({ name: "", tier: "individual", location: "", phone: "", email: "" });
+  const [form, setForm] = useState({ name: "", tier: "individual", location: "", phone: "", email: "", fund_type: "captive" });
   const submit = async (e) => {
     e.preventDefault(); setErr(null); setResult(null); setBusy(true);
     try {
       const r = await site.intake(form);
       setResult(r);
-      setForm({ name: "", tier: "individual", location: "", phone: "", email: "" });
+      setForm({ name: "", tier: "individual", location: "", phone: "", email: "", fund_type: "captive" });
       consumers.reload();
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
@@ -40,7 +40,13 @@ export default function Intake() {
             <Field label="Location (site area)"><Input value={form.location} required placeholder="e.g. Medchal" onChange={(e) => setForm({ ...form, location: e.target.value })} /></Field>
             <Field label="Email (customer login)"><Input type="email" value={form.email} placeholder="customer@email.com - blank = auto id" onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
             <Field label="Phone"><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
-            <p className="text-[11px] text-muted">Captive vs client is chosen per project when you create the site.</p>
+            <Field label="Fund type">
+              <Select value={form.fund_type} onChange={(e) => setForm({ ...form, fund_type: e.target.value })}>
+                <option value="captive">Captive (financed in-house)</option>
+                <option value="client">Client (customer pays)</option>
+              </Select>
+            </Field>
+            <p className="text-[11px] text-muted">Each project defaults to this fund type; you can still change it per project.</p>
             <Button type="submit" disabled={busy}>{busy ? "Onboarding…" : "Onboard customer"}</Button>
             {err && <p className="text-xs text-red-400">{err}</p>}
             {result && (
@@ -58,12 +64,13 @@ export default function Intake() {
         </Card>
 
         <Card title="Customers" className="lg:col-span-2" right={<Button size="sm" variant="ghost" onClick={consumers.reload}>Refresh</Button>}>
-          <Table head={["Builder ID", "Name", "Tier", "Login", "Phone"]}>
+          <Table head={["Builder ID", "Name", "Tier", "Fund type", "Login", "Phone"]}>
             {(consumers.data || []).map((c) => (
               <tr key={c.id} className="border-b border-border/50">
                 <Td mono className="text-muted">{c.id}</Td>
                 <Td>{c.name}</Td>
                 <Td><Badge tone="accent">{c.tier}</Badge></Td>
+                <Td>{c.fund_type ? <Badge tone={c.fund_type === "captive" ? "accent" : "ok"}>{c.fund_type}</Badge> : <span className="text-[11px] text-muted">-</span>}</Td>
                 <Td mono className="text-muted">{c.email || `${c.id}@consmat.com`}</Td>
                 <Td>{c.phone || "-"}</Td>
               </tr>

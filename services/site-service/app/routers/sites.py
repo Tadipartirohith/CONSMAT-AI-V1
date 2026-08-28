@@ -18,6 +18,8 @@ BACKFILL = require_role("spokesperson", "architect", "site_engineer", "hub_super
 SCHEDULE = require_role("spokesperson", "architect", "site_engineer", "hub_supervisor", "hub_manager")
 # Enquiry queue: the spoke sees its own leads; hub supervisor/manager see hub-routed (unserved) leads.
 ENQUIRY = require_role("spokesperson", "architect", "site_engineer", "hub_supervisor", "hub_manager")
+# The design is the architect's authority: only the architect uploads it (the SE/spoke view + download).
+ARCHITECT = require_role("architect")
 router = APIRouter(tags=["sites"], dependencies=[Depends(current_user)])
 
 # Public (unauthenticated) endpoints - a prospective customer's enquiry before they have an account.
@@ -103,7 +105,7 @@ def spoke_dashboard(spoke_id: str, db: Session = Depends(get_db)):
 @router.post("/consumers", response_model=schemas.ConsumerOut, status_code=201, dependencies=[Depends(FIELD)])
 def create_consumer(body: schemas.ConsumerIn, db: Session = Depends(get_db)):
     return _run(service.create_consumer, db=db, name=body.name, tier=body.tier,
-                spoke_id=body.spoke_id, phone=body.phone)
+                spoke_id=body.spoke_id, phone=body.phone, fund_type=body.fund_type)
 
 
 @router.get("/consumers", response_model=list[schemas.ConsumerOut])
@@ -121,10 +123,11 @@ def update_consumer(consumer_id: str, body: schemas.ConsumerUpdate, db: Session 
 def intake(body: schemas.IntakeIn, db: Session = Depends(get_db)):
     """Consumer intake: classify (tier) and auto-assign the serving spoke by geofence (location)."""
     result = _run(service.intake, db=db, name=body.name, tier=body.tier,
-                  location=body.location, phone=body.phone, email=body.email)
+                  location=body.location, phone=body.phone, email=body.email, fund_type=body.fund_type)
     c, s = result["consumer"], result["spoke"]
     return {
-        "consumer": {"id": c.id, "name": c.name, "tier": c.tier, "phone": c.phone, "spoke_id": c.spoke_id},
+        "consumer": {"id": c.id, "name": c.name, "tier": c.tier, "phone": c.phone,
+                     "spoke_id": c.spoke_id, "fund_type": c.fund_type},
         "assigned_spoke": {"id": s.id, "name": s.name},
         "login": result.get("login"),
     }
@@ -166,7 +169,7 @@ def update_enquiry(enquiry_id: int, body: schemas.EnquiryUpdate, user: dict = De
 
 # ---- Project documents (design / BOQ files) ----
 @router.post("/sites/{site_id}/documents", response_model=schemas.ProjectDocumentOut,
-             status_code=201, dependencies=[Depends(FIELD)])
+             status_code=201, dependencies=[Depends(ARCHITECT)])
 async def upload_document(site_id: int, file: UploadFile = File(...), kind: str = Form("design"),
                           note: str = Form(""), user: dict = Depends(current_user),
                           db: Session = Depends(get_db)):

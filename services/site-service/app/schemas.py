@@ -52,6 +52,7 @@ class IntakeIn(BaseModel):
     location: str = Field(min_length=1)
     phone: str = ""
     email: str = ""
+    fund_type: str = Field(default="", pattern="^(captive|client|)$")
 
 
 class ConsumerUpdate(BaseModel):
@@ -64,6 +65,7 @@ class ConsumerIn(BaseModel):
     tier: str = "individual"
     spoke_id: str
     phone: str = ""
+    fund_type: str = Field(default="", pattern="^(captive|client|)$")
 
 
 class ConsumerOut(BaseModel):
@@ -73,6 +75,7 @@ class ConsumerOut(BaseModel):
     tier: str
     phone: str
     email: str = ""
+    fund_type: str = ""
     spoke_id: str
 
 
