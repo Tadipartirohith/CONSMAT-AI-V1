@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { inv, proc } from "../api.js";
+import { inv, proc, site } from "../api.js";
 import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync } from "../components/ui.jsx";
 
 // Read hub stock + raise a stock-order request to the hub (the hub approves and sets vendor/rate).
@@ -19,6 +19,7 @@ export default function Inventory() {
   const products = useAsync(() => inv.products());
   const materials = useAsync(() => inv.materials());
   const requests = useAsync(() => proc.orderRequests());
+  const sites = useAsync(() => site.sites());
   const [q, setQ] = useState("");
   const [mat, setMat] = useState("");
   const [cart, setCart] = useState([]);
@@ -72,7 +73,12 @@ export default function Inventory() {
             ))}
           </div>
           <div className="mt-2 flex flex-wrap items-end gap-2">
-            <Field label="For project (optional)"><Input value={siteRef} placeholder="e.g. SITE-3" onChange={(e) => setSiteRef(e.target.value)} /></Field>
+            <Field label="For project (optional)">
+              <Select value={siteRef} onChange={(e) => setSiteRef(e.target.value)}>
+                <option value="">- not project-specific -</option>
+                {(sites.data || []).map((s) => <option key={s.id} value={s.code}>{s.code}{s.label ? ` · ${s.label}` : ""}{s.location ? ` (${s.location})` : ""}</option>)}
+              </Select>
+            </Field>
             <div className="flex-1"><Field label="Note"><Input value={note} placeholder="reason / urgency" onChange={(e) => setNote(e.target.value)} /></Field></div>
             <Button onClick={submit} disabled={busy}>Send request to hub</Button>
           </div>

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { site, TIERS } from "../api.js";
 import { getUser } from "../auth.js";
 import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync } from "../components/ui.jsx";
+import LocationField from "../components/LocationField.jsx";
 
 export default function Intake() {
   const spokes = useAsync(() => site.spokes());
@@ -37,7 +38,7 @@ export default function Intake() {
                 {TIERS.map((t) => <option key={t} value={t}>{t}</option>)}
               </Select>
             </Field>
-            <Field label="Location (site area)"><Input value={form.location} required placeholder="e.g. Medchal" onChange={(e) => setForm({ ...form, location: e.target.value })} /></Field>
+            <Field label="Location (site area)"><LocationField value={form.location} onChange={(v) => setForm({ ...form, location: v })} /></Field>
             <Field label="Email (customer login)"><Input type="email" value={form.email} placeholder="customer@email.com - blank = auto id" onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
             <Field label="Phone"><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
             <Field label="Fund type">

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { site, CTYPES } from "../api.js";
 import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync } from "../components/ui.jsx";
+import LocationField from "../components/LocationField.jsx";
 
 export default function Sites() {
   const sites = useAsync(() => site.sites());
@@ -53,7 +54,7 @@ export default function Sites() {
               </Select>
             </Field>
             <Field label="Label"><Input value={f.label} placeholder="e.g. Villa A" onChange={(e) => setF({ ...f, label: e.target.value })} /></Field>
-            <Field label="Location"><Input value={f.location} placeholder="e.g. Medchal" onChange={(e) => setF({ ...f, location: e.target.value })} /></Field>
+            <Field label="Location"><LocationField value={f.location} onChange={(v) => setF({ ...f, location: v })} /></Field>
             <div className="flex gap-2">
               <Field label="Area (sqft)"><Input type="number" step="any" value={f.area_sqft} required onChange={(e) => setF({ ...f, area_sqft: e.target.value })} /></Field>
               <Field label="Floors"><Input type="number" min="1" value={f.floors} onChange={(e) => setF({ ...f, floors: e.target.value })} /></Field>
