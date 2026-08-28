@@ -59,25 +59,26 @@ function SignIn({ onDone }) {
 }
 
 function Enquire() {
-  const [f, setF] = useState({ name: "", phone: "", email: "", location: "", message: "" });
+  const [f, setF] = useState({ first: "", middle: "", last: "", phone: "", email: "", location: "", message: "" });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const [done, setDone] = useState(null);
+  const fullName = [f.first, f.middle, f.last].map((s) => s.trim()).filter(Boolean).join(" ");
   const submit = async (e) => {
     e.preventDefault(); setBusy(true); setErr(null);
-    try { setDone(await publicApi.enquire(f)); }
+    try { setDone(await publicApi.enquire({ name: fullName, phone: f.phone, email: f.email, location: f.location, message: f.message })); }
     catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
   if (done) {
     return (
       <div className="space-y-2 rounded border border-emerald-500/30 bg-emerald-500/5 p-3 text-sm">
-        <p className="text-emerald-400">✓ Thank you, {f.name || "your enquiry is in"}!</p>
+        <p className="text-emerald-400">✓ Thank you, {fullName || "your enquiry is in"}!</p>
         <p className="text-white/80">
           {done.routed_to === "spoke"
             ? <>Your enquiry for <b>{f.location}</b> has been sent to our <b>{done.spoke}</b> team, who will contact you shortly.</>
             : <>We don't have a spoke covering <b>{f.location}</b> yet, so your enquiry has gone to our head-office team, who will reach out about serving your area.</>}
         </p>
-        <button onClick={() => { setDone(null); setF({ name: "", phone: "", email: "", location: "", message: "" }); }}
+        <button onClick={() => { setDone(null); setF({ first: "", middle: "", last: "", phone: "", email: "", location: "", message: "" }); }}
           className="text-[11px] text-accent hover:underline">Submit another enquiry</button>
       </div>
     );
@@ -85,8 +86,14 @@ function Enquire() {
   return (
     <form onSubmit={submit} className="space-y-3">
       <p className="text-[11px] text-muted">Tell us about your project. We'll route you to the team covering your area.</p>
-      <label className="block"><span className={label}>Your name</span>
-        <input value={f.name} required onChange={(e) => setF({ ...f, name: e.target.value })} className={field} /></label>
+      <div className="grid grid-cols-3 gap-2">
+        <label className="block"><span className={label}>First name</span>
+          <input value={f.first} required onChange={(e) => setF({ ...f, first: e.target.value })} className={field} /></label>
+        <label className="block"><span className={label}>Middle name</span>
+          <input value={f.middle} onChange={(e) => setF({ ...f, middle: e.target.value })} className={field} /></label>
+        <label className="block"><span className={label}>Last name</span>
+          <input value={f.last} required onChange={(e) => setF({ ...f, last: e.target.value })} className={field} /></label>
+      </div>
       <div className="grid grid-cols-2 gap-2">
         <label className="block"><span className={label}>Phone</span>
           <input value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} className={field} /></label>
@@ -95,7 +102,7 @@ function Enquire() {
       </div>
       <label className="block"><span className={label}>Site location</span>
         <input value={f.location} required placeholder="e.g. Kompally, Hyderabad" onChange={(e) => setF({ ...f, location: e.target.value })} className={field} /></label>
-      <label className="block"><span className={label}>What do you need? (optional)</span>
+      <label className="block"><span className={label}>Please share your requirement</span>
         <textarea value={f.message} rows={2} onChange={(e) => setF({ ...f, message: e.target.value })} className={field} /></label>
       <button type="submit" disabled={busy} className="w-full bg-accent px-3 py-2 text-sm font-semibold text-black hover:bg-accentHover disabled:opacity-40">
         {busy ? "Sending…" : "Submit enquiry"}
