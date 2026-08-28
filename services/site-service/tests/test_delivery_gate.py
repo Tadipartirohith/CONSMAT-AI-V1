@@ -59,10 +59,10 @@ def test_phase_end_change_escalates_and_requires_remarks(db):
     p4 = next(p for p in site.phases if p.phase_seq == 4)
     p4.planned_start = date(2026, 2, 1)
     db.commit()
-    # CE moves phase 3's end to Jan 28 -> only 4 days before phase 4 -> escalated, remark required
+    # SE moves phase 3's end to Jan 28 -> only 4 days before phase 4 -> escalated, remark required
     with pytest.raises(service.SiteError):
-        service.set_phase_dates(db, site.id, 3, None, date(2026, 1, 28), "civil_engineer", "CE")
-    res = service.set_phase_dates(db, site.id, 3, None, date(2026, 1, 28), "civil_engineer", "CE",
+        service.set_phase_dates(db, site.id, 3, None, date(2026, 1, 28), "site_engineer", "SE")
+    res = service.set_phase_dates(db, site.id, 3, None, date(2026, 1, 28), "site_engineer", "SE",
                                   remarks="rain delay, compressing schedule")
     chg = db.get(models.PhaseDateChange, res["pending_change_id"])
     assert chg.escalated is True and chg.remarks
@@ -72,7 +72,7 @@ def test_escalated_change_needs_hub_not_spoke(db):
     site = _captive_site(db)
     p4 = next(p for p in site.phases if p.phase_seq == 4)
     p4.planned_start = date(2026, 2, 1); db.commit()
-    res = service.set_phase_dates(db, site.id, 3, None, date(2026, 1, 28), "civil_engineer", "CE",
+    res = service.set_phase_dates(db, site.id, 3, None, date(2026, 1, 28), "site_engineer", "SE",
                                   remarks="compress")
     cid = res["pending_change_id"]
     with pytest.raises(service.SiteError):

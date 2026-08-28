@@ -14,7 +14,7 @@ class ProcurementUnavailable(Exception):
 
 
 def estimate_boq(lines: list[dict]) -> dict:
-    """Get the external app's BOQ for the given CE BOQ lines. Uses a service token."""
+    """Get the external app's BOQ for the given SE BOQ lines. Uses a service token."""
     url = f"{settings.procurement_url.rstrip('/')}{settings.api_prefix}/procurement/boq-estimate"
     body = json.dumps({"lines": lines}).encode("utf-8")
     req = urllib.request.Request(url, data=body, method="POST",

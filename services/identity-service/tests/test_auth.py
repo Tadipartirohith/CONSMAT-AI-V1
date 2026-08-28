@@ -39,17 +39,17 @@ def test_invalid_role_rejected(db):
 
 
 def test_token_roundtrip_and_claims():
-    tok = auth.make_token("civil@consmat.com", "civil_engineer", name="CE", org_ref="s_medchal")
+    tok = auth.make_token("site@consmat.com", "site_engineer", name="SE", org_ref="s_medchal")
     payload = jwt.decode(tok, settings.jwt_secret, algorithms=[settings.jwt_alg])
-    assert payload["sub"] == "civil@consmat.com"
-    assert payload["role"] == "civil_engineer"
+    assert payload["sub"] == "site@consmat.com"
+    assert payload["role"] == "site_engineer"
     assert payload["org_ref"] == "s_medchal"
 
 
 def test_role_hierarchy_can_manage():
     # admin manages everyone (including other admins); supervisor manages only ops, not peers/up
     assert service.can_manage("admin", "admin")
-    assert service.can_manage("admin", "civil_engineer")
+    assert service.can_manage("admin", "site_engineer")
     assert service.can_manage("hub_supervisor", "architect")
     assert not service.can_manage("hub_supervisor", "hub_supervisor")
     assert not service.can_manage("hub_supervisor", "hub_manager")
@@ -58,7 +58,7 @@ def test_role_hierarchy_can_manage():
 
 def test_create_user_respects_actor_role(db):
     # a supervisor may create ops but not another supervisor/admin
-    service.create_user(db, "ce1@consmat.com", "consmat123", "CE1", "civil_engineer",
+    service.create_user(db, "ce1@consmat.com", "consmat123", "CE1", "site_engineer",
                         actor_role="hub_supervisor")
     with pytest.raises(service.PermissionError_):
         service.create_user(db, "sup2@consmat.com", "consmat123", "S2", "hub_supervisor",

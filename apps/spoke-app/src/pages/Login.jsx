@@ -4,7 +4,7 @@ import { login } from "../auth.js";
 const DEMO = [
   ["spoke@consmat.com", "Spokesperson"],
   ["architect@consmat.com", "Architect"],
-  ["civil@consmat.com", "Civil engineer"],
+  ["site@consmat.com", "Site engineer"],
 ];
 
 export default function Login({ onDone }) {

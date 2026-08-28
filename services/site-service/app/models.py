@@ -1,7 +1,7 @@
 """SQLAlchemy 2.0 models for the field domain: spokes, consumers, sites, plans, phases, dispatches.
 
 A spoke (geo-fenced spokesperson) serves consumers; a consumer owns sites; a site's architect plan
-yields a BOM; the civil engineer advances the 9 phases, and completing a phase triggers a Dispatch of
+yields a BOM; the site engineer advances the 9 phases, and completing a phase triggers a Dispatch of
 the next phase's materials from hub inventory (hub to site, D3). `material_id` is an opaque reference to
 the inventory-service catalog (Q11).
 """
@@ -29,7 +29,7 @@ DSP_PARTIAL = "partial"
 DSP_PENDING = "pending"      # nothing could be fulfilled (stockout to procurement needed)
 DSP_RECEIVED = "received"    # customer confirmed receipt
 
-# phase-date change-request statuses (CE edits to a phase end date need spoke/manager approval)
+# phase-date change-request statuses (SE edits to a phase end date need spoke/manager approval)
 PDC_PENDING = "pending"
 PDC_APPROVED = "approved"
 PDC_REJECTED = "rejected"
@@ -44,7 +44,7 @@ AR_REMOVE = "remove"
 # project financing type (chosen per project at/after onboarding; replaces the old consumer NBFC flag)
 PROJECT_TYPES = ("captive", "client")
 
-# BOQ sources + statuses (CE BOQ vs an external app's BOQ, reconciled into a final BOQ that is approved)
+# BOQ sources + statuses (SE BOQ vs an external app's BOQ, reconciled into a final BOQ that is approved)
 BOQ_CE = "ce"
 BOQ_EXTERNAL = "external"
 BOQ_FINAL = "final"
@@ -169,7 +169,7 @@ class BOMLine(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     site_id: Mapped[int] = mapped_column(ForeignKey("sites.id"), index=True)
     material_id: Mapped[str] = mapped_column(String(40), nullable=False)
-    product_id: Mapped[str] = mapped_column(String(64), default="")     # brand SKU when CE/spoke enters it
+    product_id: Mapped[str] = mapped_column(String(64), default="")     # brand SKU when SE/spoke enters it
     product_name: Mapped[str] = mapped_column(String(200), default="")
     phase_seq: Mapped[int] = mapped_column(Integer, default=0)  # 0 = whole-project (auto-slice); 1-9 = explicit phase
     total_qty: Mapped[Decimal] = mapped_column(Numeric(16, 3), nullable=False)
@@ -193,7 +193,7 @@ class PhaseProgress(Base):
 class PhaseDateChange(Base):
     """A requested change to a phase's planned end date.
 
-    A civil engineer's edit lands here as `pending` and must be approved by the spoke or the hub
+    A site engineer's edit lands here as `pending` and must be approved by the spoke or the hub
     manager; a spoke/manager edit is applied directly and recorded here as `approved`.
     """
     __tablename__ = "phase_date_changes"
@@ -216,7 +216,7 @@ class PhaseDateChange(Base):
 
 
 class Notification(Base):
-    """A message to the field team (civil engineer / spokesperson) about a site.
+    """A message to the field team (site engineer / spokesperson) about a site.
 
     Written by the JIT scheduler: 3 days before a phase's end it warns that next-phase stock is about
     to dispatch, and again when the stock is dispatched, so work is never halted for want of material.
@@ -225,7 +225,7 @@ class Notification(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     site_id: Mapped[int] = mapped_column(ForeignKey("sites.id"), index=True)
     spoke_id: Mapped[str] = mapped_column(String(48), default="", index=True)
-    audience: Mapped[str] = mapped_column(String(24), default="field")  # field|civil_engineer|spokesperson
+    audience: Mapped[str] = mapped_column(String(24), default="field")  # field|site_engineer|spokesperson
     phase_seq: Mapped[int] = mapped_column(Integer, default=0)
     kind: Mapped[str] = mapped_column(String(32), default="")  # dispatch_pending|dispatched|low_stock
     message: Mapped[str] = mapped_column(String(300), default="")
@@ -252,7 +252,7 @@ class Dispatch(Base):
 class ProjectBOQ(Base):
     """A Bill of Quantities version for a project.
 
-    `source` is the CE's BOQ, the external app's BOQ, or the reconciled `final` BOQ. Only a `final` BOQ
+    `source` is the SE's BOQ, the external app's BOQ, or the reconciled `final` BOQ. Only a `final` BOQ
     goes through the spoke + hub approval gate; on full approval its lines become the site's operational
     BOM (reserved against hub stock).
     """
@@ -287,7 +287,7 @@ class ProjectBOQLine(Base):
 
 
 class BOQChangeRequest(Base):
-    """A hub request to change an approved BOQ. Needs the spoke AND the CE to acknowledge."""
+    """A hub request to change an approved BOQ. Needs the spoke AND the SE to acknowledge."""
     __tablename__ = "boq_change_requests"
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     site_id: Mapped[int] = mapped_column(ForeignKey("sites.id"), index=True)

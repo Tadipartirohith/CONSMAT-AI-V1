@@ -12,7 +12,7 @@ from ..db import get_db
 # A payer (consumer) or hub/field staff may initiate a payment; reads for any authenticated user.
 PAYER = require_role("consumer", "hub_manager", "hub_supervisor", "spokesperson")
 # Escrow release is triggered by the site-service (role=service) on delivery confirmation, or by hub/field staff.
-RELEASE = require_role("service", "hub_manager", "hub_supervisor", "spokesperson", "civil_engineer", "architect")
+RELEASE = require_role("service", "hub_manager", "hub_supervisor", "spokesperson", "site_engineer", "architect")
 router = APIRouter(tags=["payments"], dependencies=[Depends(current_user)])
 
 

@@ -304,7 +304,7 @@ def get_document(db: Session, doc_id: int) -> models.ProjectDocument | None:
     return db.get(models.ProjectDocument, doc_id)
 
 
-# ---- BOQ: CE BOQ vs external BOQ, reconciliation, approval, stock check ----
+# ---- BOQ: SE BOQ vs external BOQ, reconciliation, approval, stock check ----
 
 BOQ_SPOKE_APPROVERS = ("spokesperson", "admin")
 BOQ_HUB_APPROVERS = ("hub_supervisor", "hub_manager", "admin")
@@ -341,7 +341,7 @@ def compare_boqs(ce_lines: list[dict], ext_lines: list[dict]) -> float:
 
 
 def submit_boq(db: Session, site_id: int, lines, actor_name: str = "") -> dict:
-    """Persist the CE BOQ, fetch the external app's BOQ, and compare them (>5% => final BOQ needed)."""
+    """Persist the SE BOQ, fetch the external app's BOQ, and compare them (>5% => final BOQ needed)."""
     from . import procurement_client
     site = db.get(models.Site, site_id)
     if site is None:
@@ -371,10 +371,10 @@ def submit_boq(db: Session, site_id: int, lines, actor_name: str = "") -> dict:
     diff = compare_boqs(norm, ext_lines) if ext_lines else 0.0
     ce.diff_pct = _dec(diff)
     needs_final = diff > models.BOQ_DIFF_THRESHOLD
-    _notify(db, site, "boq_submitted", f"CE BOQ submitted ({len(norm)} line(s)).", audience="all")
+    _notify(db, site, "boq_submitted", f"SE BOQ submitted ({len(norm)} line(s)).", audience="all")
     if needs_final:
         _notify(db, site, "boq_diff_flagged",
-                f"CE and external BOQ differ by {diff:.1f}% (over {models.BOQ_DIFF_THRESHOLD:.0f}%); "
+                f"SE and external BOQ differ by {diff:.1f}% (over {models.BOQ_DIFF_THRESHOLD:.0f}%); "
                 "a reconciled final BOQ is required.", audience="all")
     db.commit()
     db.refresh(ce)
@@ -488,7 +488,7 @@ def list_boq_changes(db: Session, site_id: int | None = None, status: str | None
 
 
 def ack_boq_change(db: Session, req_id: int, actor_role: str, actor_name: str) -> models.BOQChangeRequest:
-    """A hub-requested BOQ change needs both the spoke and the CE to acknowledge; then the BOQ reopens."""
+    """A hub-requested BOQ change needs both the spoke and the SE to acknowledge; then the BOQ reopens."""
     cr = db.get(models.BOQChangeRequest, req_id)
     if cr is None:
         raise SiteError(f"Unknown change request: {req_id}")
@@ -498,10 +498,10 @@ def ack_boq_change(db: Session, req_id: int, actor_role: str, actor_name: str) -
         cr.spoke_acked = cr.ce_acked = True
     elif actor_role == "spokesperson":
         cr.spoke_acked = True
-    elif actor_role == "civil_engineer":
+    elif actor_role == "site_engineer":
         cr.ce_acked = True
     else:
-        raise SiteError("Only the spokesperson and the civil engineer can acknowledge a change request")
+        raise SiteError("Only the spokesperson and the site engineer can acknowledge a change request")
     site = db.get(models.Site, cr.site_id)
     if cr.spoke_acked and cr.ce_acked:
         cr.status = "resolved"
@@ -512,7 +512,7 @@ def ack_boq_change(db: Session, req_id: int, actor_role: str, actor_name: str) -
             b.status = models.BOQ_SUPERSEDED
         site.stage = models.STAGE_BOQ_REVIEW
         _notify(db, site, "boq_change_ack",
-                "BOQ change acknowledged by spoke + CE; the BOQ is reopened for revision.", audience="all")
+                "BOQ change acknowledged by spoke + SE; the BOQ is reopened for revision.", audience="all")
     db.commit()
     db.refresh(cr)
     return cr
@@ -747,7 +747,7 @@ def generate_plan(db: Session, site_id: int) -> models.Site:
     return site
 
 
-# Who may approve a civil-engineer's phase end-date change, and edit dates directly.
+# Who may approve a site-engineer's phase end-date change, and edit dates directly.
 FIELD_APPROVERS = ("spokesperson", "hub_supervisor", "hub_manager", "admin")
 
 
@@ -782,7 +782,7 @@ def _reserve_totals(lines: list[dict]) -> dict[str, float]:
 
 
 def set_bom(db: Session, site_id: int, lines: list[dict]) -> models.Site:
-    """CE/spoke enters the Bill of Materials (product/brand level, whole-project totals).
+    """SE/spoke enters the Bill of Materials (product/brand level, whole-project totals).
 
     The system slices it into the 9 phases at dispatch time; the hub reserves the committed demand so
     the 3x buffer can flag low/no-stock early. Editable until construction starts.
@@ -972,7 +972,7 @@ def delivery_ready(db: Session, site: models.Site) -> tuple[bool, str]:
 
 
 def _ensure_phase_dispatched(db: Session, site: models.Site, seq: int) -> models.Dispatch | None:
-    """Dispatch a phase's materials once (idempotent). The scheduler may pre-dispatch before the CE
+    """Dispatch a phase's materials once (idempotent). The scheduler may pre-dispatch before the SE
     completes the prior phase; this guard stops a second dispatch on completion. Emits a consumer-
     visible 'dispatched' event for every path (start / complete / scheduler)."""
     ph = _phase(site, seq)
@@ -1016,7 +1016,7 @@ def start_site(db: Session, site_id: int) -> models.Dispatch:
 
 
 def complete_phase(db: Session, site_id: int, seq: int) -> dict:
-    """Civil-engineer action: mark a phase done to trigger dispatch of the next phase (JIT)."""
+    """Site-engineer action: mark a phase done to trigger dispatch of the next phase (JIT)."""
     site = db.get(models.Site, site_id)
     if site is None:
         raise SiteError(f"Unknown site: SITE-{site_id}")
@@ -1060,11 +1060,11 @@ HUB_APPROVERS = ("hub_supervisor", "hub_manager", "admin")
 
 def set_phase_dates(db: Session, site_id: int, seq: int, start, end, actor_role: str,
                     actor_name: str, remarks: str = "") -> dict:
-    """CE/spoke sets a phase's planned start/end.
+    """SE/spoke sets a phase's planned start/end.
 
     Start applies directly. For the end date: the first entry applies directly; a later change by a
-    civil engineer becomes a pending request needing spoke/manager approval, while a spoke/manager
-    change applies directly. If a CE's change leaves the next phase starting less than a week away, it
+    site engineer becomes a pending request needing spoke/manager approval, while a spoke/manager
+    change applies directly. If a SE's change leaves the next phase starting less than a week away, it
     is escalated: a remark is required and hub approval is needed (not the spoke alone).
     """
     site = db.get(models.Site, site_id)
@@ -1081,7 +1081,7 @@ def set_phase_dates(db: Session, site_id: int, seq: int, start, end, actor_role:
             raise SiteError("End date cannot be before the start date")
         if ph.planned_end is None or actor_role in FIELD_APPROVERS:
             ph.planned_end = end
-        else:  # civil engineer changing an existing end date -> needs approval
+        else:  # site engineer changing an existing end date -> needs approval
             nxt = _phase(site, seq + 1)
             escalated = bool(nxt and nxt.planned_start and (nxt.planned_start - end).days < 7)
             if escalated and not (remarks or "").strip():
@@ -1116,7 +1116,7 @@ def list_phase_changes(db: Session, *, status: str | None = None,
 
 def decide_phase_change(db: Session, change_id: int, approve: bool, actor_role: str,
                         actor_name: str) -> models.PhaseDateChange:
-    """Spoke or hub manager approves/rejects a civil engineer's phase end-date change."""
+    """Spoke or hub manager approves/rejects a site engineer's phase end-date change."""
     if actor_role not in FIELD_APPROVERS:
         raise SiteError("Only a spoke or the hub manager can approve a date change")
     chg = db.get(models.PhaseDateChange, change_id)
@@ -1203,16 +1203,16 @@ def mark_all_read(db: Session, consumer_id: str) -> dict:
 
 
 def confirm_receipt(db: Session, dispatch_id: int, actor_role: str, actor_name: str) -> models.Dispatch:
-    """The CE/spoke (or hub staff) confirms the stock reached the site; feeds back into dispatch status.
+    """The SE/spoke (or hub staff) confirms the stock reached the site; feeds back into dispatch status.
 
     Customers never confirm; they only track progress. The confirmation is surfaced to everyone
     (audience 'all') so the customer sees the delivery as confirmed on their timeline."""
     d = db.get(models.Dispatch, dispatch_id)
     if d is None:
         raise SiteError(f"Unknown dispatch: {dispatch_id}")
-    if actor_role not in ("spokesperson", "architect", "civil_engineer",
+    if actor_role not in ("spokesperson", "architect", "site_engineer",
                           "hub_supervisor", "hub_manager", "admin"):
-        raise SiteError("Only the spoke/CE or hub staff can confirm a delivery")
+        raise SiteError("Only the spoke/SE or hub staff can confirm a delivery")
     if d.status not in (models.DSP_DISPATCHED, models.DSP_RECEIVED):
         raise SiteError("Only a fully-delivered shipment can be confirmed (shortfalls are still pending)")
     site = db.get(models.Site, d.site_id)

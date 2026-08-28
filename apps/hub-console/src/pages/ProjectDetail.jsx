@@ -84,7 +84,7 @@ function BoqApprovalCard({ s, onChanged }) {
             <div className="flex gap-2">
               <Input value={note} placeholder="what should change?" onChange={(e) => setNote(e.target.value)} />
               <Button size="sm" disabled={busy || !note.trim()}
-                onClick={() => { act(() => site.requestBoqChange(s.id, note), "Change requested (needs spoke + CE ack)."); setShowChange(false); setNote(""); }}>Send</Button>
+                onClick={() => { act(() => site.requestBoqChange(s.id, note), "Change requested (needs spoke + SE ack)."); setShowChange(false); setNote(""); }}>Send</Button>
             </div>
           )}
         </div>
@@ -187,7 +187,7 @@ function ControlTower({ s, needs, stock }) {
 function Overview({ s, notifs }) {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <Card title="Construction phases (CE / spoke)">
+      <Card title="Construction phases (SE / spoke)">
         <Table head={["#", "Phase", "Status", "Start", "End"]}>
           {s.phases.slice().sort((a, b) => a.phase_seq - b.phase_seq).map((p) => (
             <tr key={p.phase_seq} className="border-b border-border/50">

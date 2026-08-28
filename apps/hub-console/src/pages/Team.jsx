@@ -3,7 +3,7 @@ import { team, site, ROLE_LABEL } from "../api.js";
 import { getUser } from "../auth.js";
 import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync } from "../components/ui.jsx";
 
-const FIELD_ROLES = ["spokesperson", "architect", "civil_engineer", "finance"];  // roles that belong to a spoke team
+const FIELD_ROLES = ["spokesperson", "architect", "site_engineer", "finance"];  // roles that belong to a spoke team
 
 export default function Team() {
   const me = getUser();
@@ -22,7 +22,7 @@ export default function Team() {
 
   // group users by role (highest rank first), managed roles only
   const grouped = useMemo(() => {
-    const order = (roles.data?.manageable || ["admin", "hub_manager", "hub_supervisor", "spokesperson", "architect", "civil_engineer"]);
+    const order = (roles.data?.manageable || ["admin", "hub_manager", "hub_supervisor", "spokesperson", "architect", "site_engineer"]);
     const g = {};
     for (const u of users.data || []) (g[u.role] ||= []).push(u);
     return order.filter((r) => g[r]).map((r) => ({ role: r, list: g[r] }));

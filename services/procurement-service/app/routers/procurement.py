@@ -146,7 +146,7 @@ async def bom_extract(file: UploadFile = File(...)):
 
 
 # BOM optimize / find-alternatives is advisory (read-only suggestion) - the field team can use it too.
-BOM_SUGGEST = require_role("spokesperson", "civil_engineer", "architect", "hub_supervisor", "hub_manager")
+BOM_SUGGEST = require_role("spokesperson", "site_engineer", "architect", "hub_supervisor", "hub_manager")
 
 
 @router.post("/procurement/bom-optimize", dependencies=[Depends(BOM_SUGGEST)])
@@ -176,7 +176,7 @@ def bom_optimize(body: schemas.BomOptimizeIn, refresh: bool = False, db: Session
 
 
 # Spoke stock-order requests: the spoke requests, the hub approves (setting vendor + rate) -> PO.
-REQUESTER = require_role("spokesperson", "civil_engineer", "architect", "finance")
+REQUESTER = require_role("spokesperson", "site_engineer", "architect", "finance")
 
 
 @router.post("/procurement/order-requests", response_model=schemas.OrderRequestOut, status_code=201,
@@ -206,7 +206,7 @@ def decide_order_request(req_id: int, body: schemas.OrderRequestDecideIn,
 
 @router.post("/procurement/boq-estimate")
 def boq_estimate(body: schemas.BoqEstimateIn):
-    """Second BOQ from the external estimator (stub by default), used to cross-check the CE's BOQ."""
+    """Second BOQ from the external estimator (stub by default), used to cross-check the SE's BOQ."""
     from .. import boq_estimator
     return boq_estimator.estimate([l.model_dump() for l in body.lines])
 

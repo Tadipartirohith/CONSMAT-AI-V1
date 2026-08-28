@@ -11,7 +11,7 @@ Materials are classified into ConSmat's page-3 business verticals (`segment`):
   Interiors  Interiors & Home (doors/uPVC, glass, hardware, furniture, modular kitchen, elevations, lights, home automation)
 
 Structural materials keep a `per_sqft` coefficient for the auto-plan; everything else is quantified
-through the CE/architect product BOQ (per_sqft = 0) and dispatched on an explicit phase.
+through the SE/architect product BOQ (per_sqft = 0) and dispatched on an explicit phase.
 """
 from __future__ import annotations
 

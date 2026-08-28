@@ -17,7 +17,7 @@ USERS = [
     ("ops@consmat.com", "Hub Operator", "hub_ops", ""),
     ("spoke@consmat.com", "Medchal Spokesperson", "spokesperson", "s_medchal"),
     ("architect@consmat.com", "Site Architect", "architect", "s_medchal"),
-    ("civil@consmat.com", "Civil Engineer", "civil_engineer", "s_medchal"),
+    ("site@consmat.com", "Site Engineer", "site_engineer", "s_medchal"),
     ("finance@consmat.com", "Spoke Finance", "finance", "s_medchal"),
     ("demo@consmat.com", "Demo Builder", "consumer", "c_demo"),
     ("vendor@consmat.com", "Deccan Traders", "vendor", "v_deccan"),

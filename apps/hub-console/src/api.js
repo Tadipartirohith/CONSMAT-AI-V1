@@ -98,7 +98,7 @@ export const team = {
 
 export const ROLE_LABEL = {
   admin: "Admin", hub_manager: "Hub manager", hub_supervisor: "Hub supervisor",
-  spokesperson: "Spokesperson", architect: "Architect", civil_engineer: "Civil engineer",
+  spokesperson: "Spokesperson", architect: "Architect", site_engineer: "Site engineer",
   finance: "Finance", vendor: "Vendor", consumer: "Consumer", service: "Service",
 };
 

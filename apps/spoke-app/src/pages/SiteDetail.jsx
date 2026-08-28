@@ -5,12 +5,12 @@ import { Card, Table, Td, Badge, Button, Input, Select, useAsync } from "../comp
 import { getUser } from "../auth.js";
 
 // What each field role owns on a site. The architect is the design authority: the Bill of Materials
-// (which products and how much) and the phase schedule come from the architect's drawings; the civil
+// (which products and how much) and the phase schedule come from the architect's drawings; the site
 // engineer executes the build phase by phase; the spokesperson owns the customer relationship.
 const ROLE_TASK = {
   architect: { icon: "📐", title: "Architect - design spec", text: "Enter and refine this site's Bill of Materials (products & quantities) from the drawings, and set each phase's planned dates. This is your design output; it stays editable until construction starts." },
-  civil_engineer: { icon: "🏗️", title: "Civil engineer - execution", text: "Run the build: start the site, complete phases in order (the hub auto-dispatches the next phase's materials), and confirm each delivery when it reaches site." },
-  spokesperson: { icon: "🤝", title: "Spokesperson - coverage", text: "Own the customer relationship and coverage. Review and approve civil-engineer phase-date changes; keep the plan and schedule aligned with the hub." },
+  site_engineer: { icon: "🏗️", title: "Site engineer - execution", text: "Run the build: start the site, complete phases in order (the hub auto-dispatches the next phase's materials), and confirm each delivery when it reaches site." },
+  spokesperson: { icon: "🤝", title: "Spokesperson - coverage", text: "Own the customer relationship and coverage. Review and approve site-engineer phase-date changes; keep the plan and schedule aligned with the hub." },
 };
 
 function RoleGuide() {
@@ -116,7 +116,7 @@ export default function SiteDetail() {
                 onDates={(b) => act(() => site.setPhaseDates(id, p.phase_seq, b), `Phase ${p.phase_seq} dates`)} />
             ))}
           </div>
-          <p className="mt-2 text-[11px] text-muted">A civil engineer's change to a phase end date needs spoke or manager approval. The hub auto-dispatches the next phase ~1 day before the current one ends.</p>
+          <p className="mt-2 text-[11px] text-muted">A site engineer's change to a phase end date needs spoke or manager approval. The hub auto-dispatches the next phase ~1 day before the current one ends.</p>
         </Card>
       </div>
 
@@ -184,12 +184,12 @@ function BoqStatusCard({ siteId, onMsg, reload }) {
       ) : <p className="text-sm text-muted">No final BOQ submitted yet.</p>}
       {pendingChanges.length > 0 && (
         <div className="mt-3 space-y-1.5">
-          <p className="text-[11px] uppercase tracking-wider text-[#f59e0b]">Hub change requests (need spoke + CE acknowledgement)</p>
+          <p className="text-[11px] uppercase tracking-wider text-[#f59e0b]">Hub change requests (need spoke + SE acknowledgement)</p>
           {pendingChanges.map((c) => (
             <div key={c.id} className="flex flex-wrap items-center gap-2 border border-[#f59e0b]/30 bg-panel2 px-2.5 py-1.5 text-sm">
               <span className="flex-1 text-white/80">{c.note}</span>
               <Badge tone={c.spoke_acked ? "ok" : "muted"}>spoke</Badge>
-              <Badge tone={c.ce_acked ? "ok" : "muted"}>CE</Badge>
+              <Badge tone={c.ce_acked ? "ok" : "muted"}>SE</Badge>
               <Button size="sm" onClick={() => ack(c.id)} disabled={busy}>Acknowledge</Button>
             </div>
           ))}
@@ -217,7 +217,7 @@ function DesignFilesCard({ siteId }) {
       </label>}>
       {err && <p className="mb-1 text-xs text-red-400">{err}</p>}
       {(docs.data || []).length === 0 ? (
-        <p className="text-sm text-muted">No design uploaded yet. The architect uploads the CAD/design here; the CE builds the BOQ from it.</p>
+        <p className="text-sm text-muted">No design uploaded yet. The architect uploads the CAD/design here; the SE builds the BOQ from it.</p>
       ) : (
         <div className="space-y-1.5">
           {(docs.data || []).map((d) => (
@@ -339,7 +339,7 @@ function BomCard({ siteId, lines, editable, onSaved }) {
         </div>
         {sugg && <SuggestPanel sugg={sugg} onApply={applySuggestions} onClose={() => setSugg(null)} />}
         {cmp && <ComparePanel cmp={cmp} onFinal={submitFinal} busy={busy} />}
-        <p className="text-[11px] text-muted">The CE builds the BOQ from the architect's design. Submitting compares it against the external app's BOQ; a difference over 5% needs a reconciled final BOQ. The final BOQ needs spoke + hub approval.</p>
+        <p className="text-[11px] text-muted">The SE builds the BOQ from the architect's design. Submitting compares it against the external app's BOQ; a difference over 5% needs a reconciled final BOQ. The final BOQ needs spoke + hub approval.</p>
       </div>
     </Card>
   );
@@ -399,12 +399,12 @@ function ComparePanel({ cmp, onFinal, busy }) {
   return (
     <div className={`mt-2 border p-3 ${over ? "border-red-500/40 bg-red-500/5" : "border-emerald-500/30 bg-emerald-500/5"}`}>
       <p className={`text-sm font-semibold ${over ? "text-red-400" : "text-emerald-400"}`}>
-        {over ? `⚠ CE vs external BOQ differ by ${cmp.diff_pct}% (over ${cmp.threshold}%) - reconcile the quantities, then submit the final BOQ.`
-              : `✓ CE and external BOQ agree within ${cmp.threshold}% (max ${cmp.diff_pct}%). You can submit the final BOQ.`}
+        {over ? `⚠ SE vs external BOQ differ by ${cmp.diff_pct}% (over ${cmp.threshold}%) - reconcile the quantities, then submit the final BOQ.`
+              : `✓ SE and external BOQ agree within ${cmp.threshold}% (max ${cmp.diff_pct}%). You can submit the final BOQ.`}
       </p>
-      <p className="mb-1 mt-1 text-[10px] uppercase tracking-wider text-muted">CE vs external ({cmp.external_provider})</p>
+      <p className="mb-1 mt-1 text-[10px] uppercase tracking-wider text-muted">SE vs external ({cmp.external_provider})</p>
       <div className="max-h-40 overflow-auto">
-        <Table head={["Product", "CE qty", "External qty", "Δ%"]}>
+        <Table head={["Product", "SE qty", "External qty", "Δ%"]}>
           {(cmp.ce_lines || []).map((l, i) => {
             const key = l.product_id || l.material_id;
             const ce = Number(l.total_qty), ext = Number(extMap[key] ?? 0);

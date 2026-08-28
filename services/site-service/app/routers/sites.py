@@ -9,15 +9,15 @@ from .. import bom, inventory_client, models, schemas, service
 from ..auth import current_user, require_role
 from ..db import get_db
 
-# Reads: any authenticated user. Field actions: the spoke team (spokesperson/architect/civil engineer).
+# Reads: any authenticated user. Field actions: the spoke team (spokesperson/architect/site engineer).
 # Kept as one field role-set since the spoke-app blends the three personas; admin bypasses.
-FIELD = require_role("spokesperson", "architect", "civil_engineer")
+FIELD = require_role("spokesperson", "architect", "site_engineer")
 # Backfill is a dispatch action either side can trigger after a replenishment.
-BACKFILL = require_role("spokesperson", "architect", "civil_engineer", "hub_supervisor", "hub_manager")
+BACKFILL = require_role("spokesperson", "architect", "site_engineer", "hub_supervisor", "hub_manager")
 # Scheduling (phase dates) + oversight: the field team plus the hub, since the manager sits above the spoke.
-SCHEDULE = require_role("spokesperson", "architect", "civil_engineer", "hub_supervisor", "hub_manager")
+SCHEDULE = require_role("spokesperson", "architect", "site_engineer", "hub_supervisor", "hub_manager")
 # Enquiry queue: the spoke sees its own leads; hub supervisor/manager see hub-routed (unserved) leads.
-ENQUIRY = require_role("spokesperson", "architect", "civil_engineer", "hub_supervisor", "hub_manager")
+ENQUIRY = require_role("spokesperson", "architect", "site_engineer", "hub_supervisor", "hub_manager")
 router = APIRouter(tags=["sites"], dependencies=[Depends(current_user)])
 
 # Public (unauthenticated) endpoints - a prospective customer's enquiry before they have an account.
@@ -191,7 +191,7 @@ def download_document(doc_id: int, db: Session = Depends(get_db)):
                     headers={"Content-Disposition": f'attachment; filename="{doc.filename}"'})
 
 
-# ---- BOQ: CE build + external compare + reconcile + approve + stock check ----
+# ---- BOQ: SE build + external compare + reconcile + approve + stock check ----
 BOQ_APPROVE = require_role("spokesperson", "hub_supervisor", "hub_manager")
 HUB = require_role("hub_supervisor", "hub_manager")
 
@@ -199,7 +199,7 @@ HUB = require_role("hub_supervisor", "hub_manager")
 @router.post("/sites/{site_id}/boq/submit", dependencies=[Depends(FIELD)])
 def submit_boq(site_id: int, body: schemas.SetBomIn, user: dict = Depends(current_user),
                db: Session = Depends(get_db)):
-    """CE submits a BOQ; the external app returns a second BOQ and we compare (>5% => final BOQ needed)."""
+    """SE submits a BOQ; the external app returns a second BOQ and we compare (>5% => final BOQ needed)."""
     return _run(service.submit_boq, db=db, site_id=site_id, lines=body.lines, actor_name=user.get("name", ""))
 
 
@@ -231,7 +231,7 @@ def approve_boq(boq_id: int, user: dict = Depends(current_user), db: Session = D
 @router.post("/sites/{site_id}/boq-change", response_model=schemas.BOQChangeOut, dependencies=[Depends(HUB)])
 def request_boq_change(site_id: int, body: schemas.BOQChangeIn, user: dict = Depends(current_user),
                        db: Session = Depends(get_db)):
-    """Hub asks for a BOQ change; needs the spoke and the CE to acknowledge."""
+    """Hub asks for a BOQ change; needs the spoke and the SE to acknowledge."""
     return _run(service.request_boq_change, db=db, site_id=site_id, note=body.note,
                 actor_name=user.get("name", ""))
 
@@ -319,7 +319,7 @@ def generate_plan(site_id: int, db: Session = Depends(get_db)):
 
 @router.post("/sites/{site_id}/bom", response_model=schemas.SiteOut, dependencies=[Depends(SCHEDULE)])
 def set_bom(site_id: int, body: schemas.SetBomIn, db: Session = Depends(get_db)):
-    """CE/spoke (or the hub, as final authority) enters/edits the product BOM. Editable before start."""
+    """SE/spoke (or the hub, as final authority) enters/edits the product BOM. Editable before start."""
     return _run(service.set_bom, db=db, site_id=site_id, lines=[l.model_dump() for l in body.lines])
 
 
@@ -332,7 +332,7 @@ def phase_needs(site_id: int, db: Session = Depends(get_db)):
 @router.post("/sites/{site_id}/phases/{seq}/dates", dependencies=[Depends(SCHEDULE)])
 def set_phase_dates(site_id: int, seq: int, body: schemas.PhaseDatesIn,
                     user: dict = Depends(current_user), db: Session = Depends(get_db)):
-    """Set/modify a phase's planned start & end. A civil engineer's end-date change needs approval."""
+    """Set/modify a phase's planned start & end. A site engineer's end-date change needs approval."""
     return _run(service.set_phase_dates, db=db, site_id=site_id, seq=seq, start=body.start,
                 end=body.end, actor_role=user.get("role", ""), actor_name=user.get("name", ""),
                 remarks=body.remarks)
@@ -348,7 +348,7 @@ def list_phase_changes(status: str | None = None, site_id: int | None = None,
 @router.post("/phase-changes/{change_id}/decide", response_model=schemas.PhaseDateChangeOut)
 def decide_phase_change(change_id: int, body: schemas.DecideChangeIn,
                         user: dict = Depends(current_user), db: Session = Depends(get_db)):
-    """Spoke or hub manager approves/rejects a civil engineer's phase end-date change."""
+    """Spoke or hub manager approves/rejects a site engineer's phase end-date change."""
     return _run(service.decide_phase_change, db=db, change_id=change_id, approve=body.approve,
                 actor_role=user.get("role", ""), actor_name=user.get("name", ""))
 
@@ -361,7 +361,7 @@ def start_site(site_id: int, db: Session = Depends(get_db)):
 
 @router.post("/sites/{site_id}/phases/{seq}/complete", dependencies=[Depends(FIELD)])
 def complete_phase(site_id: int, seq: int, db: Session = Depends(get_db)):
-    """Civil engineer: mark a phase complete to triggers JIT dispatch of the next phase."""
+    """Site engineer: mark a phase complete to triggers JIT dispatch of the next phase."""
     return _run(service.complete_phase, db=db, site_id=site_id, seq=seq)
 
 
@@ -402,7 +402,7 @@ def read_all_notifications(consumer_id: str, db: Session = Depends(get_db)):
 
 @router.post("/dispatches/{dispatch_id}/confirm", response_model=schemas.DispatchOut, dependencies=[Depends(BACKFILL)])
 def confirm_receipt(dispatch_id: int, user: dict = Depends(current_user), db: Session = Depends(get_db)):
-    """CE/spoke (or hub staff) confirms a delivery reached the site -> dispatch status 'received'."""
+    """SE/spoke (or hub staff) confirms a delivery reached the site -> dispatch status 'received'."""
     return _run(service.confirm_receipt, db=db, dispatch_id=dispatch_id,
                 actor_role=user.get("role", ""), actor_name=user.get("name", ""))
 

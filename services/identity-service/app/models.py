@@ -15,7 +15,7 @@ ROLES = (
     "hub_supervisor",
     "spokesperson",
     "architect",
-    "civil_engineer",
+    "site_engineer",
     "finance",
     "consumer",
     "vendor",

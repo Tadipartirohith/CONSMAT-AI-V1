@@ -1,7 +1,7 @@
-"""External BOQ estimator: a *second* Bill of Quantities from another app, used to cross-check the CE's BOQ.
+"""External BOQ estimator: a *second* Bill of Quantities from another app, used to cross-check the SE's BOQ.
 
 Pluggable provider (carried in the same spirit as the payment/scout providers). The **stub** derives a
-deterministic second BOQ from the CE BOQ (a stable per-line variance) so the >5% reconciliation flow is
+deterministic second BOQ from the SE BOQ (a stable per-line variance) so the >5% reconciliation flow is
 fully demonstrable without a real integration. A real HTTP provider (`BOQ_PROVIDER=external` +
 `BOQ_API_URL`/`BOQ_API_KEY`) is a clearly-marked extension point; this service never hardcodes keys.
 """
