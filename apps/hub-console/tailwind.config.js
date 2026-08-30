@@ -16,9 +16,9 @@ export default {
         onAccent: "rgb(var(--on-accent) / <alpha-value>)",
       },
       fontFamily: {
-        head: ["Geist", "system-ui", "sans-serif"],
-        sans: ["Geist", "system-ui", "sans-serif"],
-        mono: ["'Geist Mono'", "ui-monospace", "monospace"],
+        head: ["'Geist Variable'", "Geist", "system-ui", "sans-serif"],
+        sans: ["'Geist Variable'", "Geist", "system-ui", "sans-serif"],
+        mono: ["'Geist Mono Variable'", "'Geist Mono'", "ui-monospace", "monospace"],
       },
       // One radius scale: controls 10px, cards 12-14px, pills full.
       borderRadius: { lg: "0.625rem", xl: "0.75rem", "2xl": "0.875rem" },

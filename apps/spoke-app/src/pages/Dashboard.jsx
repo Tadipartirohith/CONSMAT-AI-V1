@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { site } from "../api.js";
 import { getUser } from "../auth.js";
-import { Card, Stat, Table, Td, Badge, useAsync } from "../components/ui.jsx";
+import { Card, Stat, Table, Td, Badge, useAsync, PageSkeleton } from "../components/ui.jsx";
 
 export default function Dashboard() {
   const spokes = useAsync(() => site.spokes());
@@ -15,6 +15,7 @@ export default function Dashboard() {
   const d = dash.data;
   const regions = d?.spoke?.areas || [];
 
+  if (spokes.loading && !spokes.data) return <PageSkeleton stats={4} rows={5} />;
   return (
     <div className="space-y-5">
       <div className="rounded-lg border border-border bg-gradient-to-br from-panel to-panel2 p-5">

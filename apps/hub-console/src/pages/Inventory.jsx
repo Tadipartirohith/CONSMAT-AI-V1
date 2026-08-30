@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { inv, proc, inr } from "../api.js";
-import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync } from "../components/ui.jsx";
+import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync, PageSkeleton } from "../components/ui.jsx";
 
 const ICON = { cement: "🧱", steel: "🔩", sand: "🏖️", aggregate: "🪨", bricks: "🟥" };
 const TONE = { green: "#22c55e", yellow: "#eab308", orange: "#f59e0b", red: "#ef4444" };
@@ -53,6 +53,7 @@ export default function Inventory() {
     return m;
   }, [pstock.data]);
 
+  if (pstock.loading && !pstock.data) return <PageSkeleton stats={0} rows={8} />;
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">

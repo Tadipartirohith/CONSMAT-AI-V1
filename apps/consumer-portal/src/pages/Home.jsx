@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { site, progressOf, PHASE_NAMES } from "../api.js";
-import { Card, Badge, Progress, useAsync } from "../components/ui.jsx";
+import { Card, Badge, Progress, useAsync, PageSkeleton } from "../components/ui.jsx";
 
 export default function Home({ me, meName }) {
   const sites = useAsync(() => site.sites());
@@ -16,6 +16,7 @@ export default function Home({ me, meName }) {
 
   const mine = (sites.data || []).filter((s) => s.consumer_id === me);
 
+  if (sites.loading && !sites.data) return <PageSkeleton stats={0} rows={4} />;
   return (
     <div className="space-y-5">
       <div>

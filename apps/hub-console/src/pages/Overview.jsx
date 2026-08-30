@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { inv, proc, site, inr, PHASE_NAMES } from "../api.js";
-import { Card, Stat, Table, Td, Badge, Button, useAsync } from "../components/ui.jsx";
+import { Card, Stat, Table, Td, Badge, Button, useAsync, PageSkeleton } from "../components/ui.jsx";
 import { siteHealth } from "./Projects.jsx";
 
 const TONE = {
@@ -30,6 +30,7 @@ export default function Overview() {
   const active = (sites.data || []).filter((s) => s.status === "active").length;
   const attention = (counts.yellow || 0) + (counts.orange || 0) + (counts.red || 0);
 
+  if (stock.loading && !stock.data) return <PageSkeleton stats={4} rows={6} />;
   return (
     <div className="space-y-5">
       <div>

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { site, PHASE_NAMES } from "../api.js";
-import { Card, Table, Td, Badge, Button, Input, Select, useAsync } from "../components/ui.jsx";
+import { Card, Table, Td, Badge, Button, Input, Select, useAsync, PageSkeleton } from "../components/ui.jsx";
 
 const TOTAL_PHASES = 9;
 const TONE = { green: "#22c55e", yellow: "#eab308", orange: "#f59e0b", red: "#ef4444" };
@@ -78,6 +78,7 @@ export default function Projects() {
 
   const showTable = f.area || filtered;
 
+  if (sites.loading && !sites.data) return <PageSkeleton stats={0} rows={8} />;
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">

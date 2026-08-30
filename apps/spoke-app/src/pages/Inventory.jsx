@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { inv, proc, price, site, inr } from "../api.js";
-import { Card, Stat, Table, Td, Badge, Button, Field, Input, Select, useAsync } from "../components/ui.jsx";
+import { Card, Stat, Table, Td, Badge, Button, Field, Input, Select, useAsync, PageSkeleton } from "../components/ui.jsx";
 import { MagnifyingGlass, PaperPlaneTilt, Plus, Minus, X, Package } from "@phosphor-icons/react";
 
 // The hub's live inventory (read-only). The field sees quantities and the hub's SELLING price, never
@@ -69,6 +69,7 @@ export default function Inventory() {
     } catch (e) { setMsg({ ok: false, text: e.message }); } finally { setBusy(false); }
   };
 
+  if (load.loading && !load.data) return <PageSkeleton stats={4} rows={6} />;
   return (
     <div className="space-y-5">
       <div>

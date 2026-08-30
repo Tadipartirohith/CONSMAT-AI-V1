@@ -102,3 +102,26 @@ export function useAsync(fn, deps = []) {
   useEffect(() => { run(); }, [run]);
   return { data, error, loading, reload: run };
 }
+export function Skeleton({ className = "" }) {
+  return <div className={`animate-pulse rounded-lg bg-muted/15 ${className}`} />;
+}
+
+export function PageSkeleton({ stats = 0, rows = 6 }) {
+  return (
+    <div className="space-y-5">
+      <Skeleton className="h-7 w-56" />
+      {stats > 0 && (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {Array.from({ length: stats }).map((_, i) => (
+            <div key={i} className="space-y-2.5 rounded-2xl bg-panel nm-raised p-5">
+              <Skeleton className="h-2.5 w-20" /><Skeleton className="h-6 w-16" />
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="space-y-3 rounded-2xl bg-panel nm-raised p-5">
+        {Array.from({ length: rows }).map((_, i) => <Skeleton key={i} className="h-4 w-full" />)}
+      </div>
+    </div>
+  );
+}

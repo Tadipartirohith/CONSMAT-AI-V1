@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { pay, inr } from "../api.js";
-import { Card, Table, Td, Badge, Button, Field, Input, useAsync } from "../components/ui.jsx";
+import { Card, Table, Td, Badge, Button, Field, Input, useAsync, PageSkeleton } from "../components/ui.jsx";
 
 export default function Payments() {
   const cfg = useAsync(() => pay.config());
@@ -19,6 +19,7 @@ export default function Payments() {
     } catch (e) { setMsg({ ok: false, text: e.message }); }
   };
 
+  if (list.loading && !list.data) return <PageSkeleton stats={0} rows={6} />;
   return (
     <div className="space-y-5">
       <div className="flex items-end justify-between">

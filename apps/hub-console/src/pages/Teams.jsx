@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { teams, team, TEAM_ROLES, ROLE_LABEL } from "../api.js";
 import { getUser } from "../auth.js";
-import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync } from "../components/ui.jsx";
+import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync, PageSkeleton } from "../components/ui.jsx";
 
 const TEAM_TONE = { admin: "accent", member: "ok", viewer: "muted" };
 
@@ -29,6 +29,7 @@ export default function Teams() {
   const afterMember = (text) => { setMsg({ ok: true, text }); detail.reload(); teamsA.reload(); };
   const err = (e) => setMsg({ ok: false, text: e.message });
 
+  if (teamsA.loading && !teamsA.data) return <PageSkeleton stats={0} rows={6} />;
   return (
     <div className="space-y-5">
       <div>

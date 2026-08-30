@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { inv, proc, MATERIALS, inr } from "../api.js";
 import { getUser } from "../auth.js";
-import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync } from "../components/ui.jsx";
+import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync, PageSkeleton } from "../components/ui.jsx";
 
 export default function Vendors() {
   const role = getUser()?.role;
@@ -45,6 +45,7 @@ export default function Vendors() {
   };
 
 
+  if (vendors.loading && !vendors.data) return <PageSkeleton stats={0} rows={8} />;
   return (
     <div className="space-y-5">
       <h1 className="font-head text-2xl font-extrabold text-ink">Vendors & Products</h1>

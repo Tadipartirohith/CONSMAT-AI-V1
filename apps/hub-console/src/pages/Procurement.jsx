@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { proc, inv, MATERIALS, inr } from "../api.js";
-import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync } from "../components/ui.jsx";
+import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync, PageSkeleton } from "../components/ui.jsx";
 
 export default function Procurement() {
   const orders = useAsync(() => proc.orders());
@@ -41,6 +41,7 @@ export default function Procurement() {
   };
 
   const p = result?.profitability;
+  if (orders.loading && !orders.data) return <PageSkeleton stats={0} rows={8} />;
   return (
     <div className="space-y-5">
       <h1 className="font-head text-2xl font-extrabold text-ink">Procurement</h1>

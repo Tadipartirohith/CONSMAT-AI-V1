@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { site, CTYPES } from "../api.js";
-import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync } from "../components/ui.jsx";
+import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync, PageSkeleton } from "../components/ui.jsx";
 import LocationField from "../components/LocationField.jsx";
 
 export default function Sites() {
@@ -23,6 +23,7 @@ export default function Sites() {
     } catch (e) { setErr(e.message); }
   };
 
+  if (sites.loading && !sites.data) return <PageSkeleton stats={0} rows={8} />;
   return (
     <div className="space-y-5">
       <h1 className="font-head text-2xl font-extrabold text-ink">Sites</h1>
