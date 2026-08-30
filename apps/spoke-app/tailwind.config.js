@@ -3,22 +3,24 @@ export default {
   content: ["./index.html", "./src/**/*.{js,jsx}"],
   theme: {
     extend: {
+      // Tokens resolve to CSS variables (channel form) so alpha modifiers work: bg-accent/10 etc.
       colors: {
-        // Soft-UI "clay" charcoal palette. Surfaces extrude from the canvas via
-        // the .nm-* dual-shadow utilities in index.css; borders are used sparingly.
-        bg: "#1e232b",       // app canvas
-        panel: "#242a34",    // raised surface base (slightly lifted from canvas)
-        panel2: "#191d24",   // recessed wells / inset controls (darker than canvas)
-        border: "#2f3743",
-        accent: "#38bdf8",
-        accentHover: "#0ea5e9",
-        muted: "#9aa6b4",    // lifted for WCAG AA on the lighter panels
+        bg: "rgb(var(--bg) / <alpha-value>)",
+        panel: "rgb(var(--surface) / <alpha-value>)",
+        panel2: "rgb(var(--surface-2) / <alpha-value>)",
+        border: "rgb(var(--border) / <alpha-value>)",
+        accent: "rgb(var(--accent) / <alpha-value>)",
+        accentHover: "rgb(var(--accent-hover) / <alpha-value>)",
+        muted: "rgb(var(--muted) / <alpha-value>)",
+        ink: "rgb(var(--ink) / <alpha-value>)",
       },
       fontFamily: {
-        head: ["Outfit", "system-ui", "sans-serif"],
-        mono: ["'JetBrains Mono'", "ui-monospace", "monospace"],
+        head: ["Geist", "system-ui", "sans-serif"],
+        sans: ["Geist", "system-ui", "sans-serif"],
+        mono: ["'Geist Mono'", "ui-monospace", "monospace"],
       },
-      borderRadius: { xl: "0.75rem", "2xl": "1rem" },
+      // One radius scale: controls 10px, cards 12-14px, pills full.
+      borderRadius: { lg: "0.625rem", xl: "0.75rem", "2xl": "0.875rem" },
     },
   },
   plugins: [],

@@ -28,14 +28,14 @@ export function Stat({ label, value, sub, accent }) {
 
 export function Button({ children, onClick, type = "button", variant = "primary", disabled, size = "md" }) {
   const styles = {
-    primary: "bg-accent text-black font-semibold nm-raised-sm nm-press hover:brightness-105",
-    ghost: "bg-panel text-white/85 nm-raised-sm nm-press hover:text-white",
+    primary: "bg-accent text-black font-semibold nm-press hover:bg-accentHover",
+    ghost: "bg-panel text-white/85 nm-raised-sm nm-press hover:text-white hover:bg-panel2",
     danger: "bg-panel text-red-400 nm-raised-sm nm-press hover:text-red-300",
   };
   const sizes = { md: "px-4 py-2 text-sm", sm: "px-3 py-1.5 text-xs" };
   return (
     <button type={type} onClick={onClick} disabled={disabled}
-      className={`inline-flex items-center justify-center gap-1.5 rounded-xl disabled:opacity-40 disabled:pointer-events-none ${styles[variant]} ${sizes[size]}`}>
+      className={`inline-flex items-center justify-center gap-1.5 rounded-lg disabled:opacity-40 disabled:pointer-events-none ${styles[variant]} ${sizes[size]}`}>
       {children}
     </button>
   );

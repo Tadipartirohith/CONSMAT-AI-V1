@@ -52,7 +52,7 @@ export default function Login({ onDone }) {
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={inputCls} />
           </label>
           <button type="submit" disabled={busy}
-            className="w-full rounded-xl bg-accent py-2.5 text-sm font-semibold text-black nm-raised-sm nm-press hover:brightness-105 disabled:opacity-40">
+            className="w-full rounded-xl bg-accent py-2.5 text-sm font-semibold text-black nm-press hover:bg-accentHover disabled:opacity-40">
             {busy ? "Signing in..." : "Sign in"}
           </button>
           {err && <p className="text-xs text-red-300">{err}</p>}

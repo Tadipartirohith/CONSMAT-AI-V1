@@ -1,39 +1,42 @@
 import { useEffect, useState, useCallback } from "react";
 
+// Consmat premium component kit. Quiet elevation (hairline + soft shadow), Signal Amber accent,
+// Geist type, one radius scale (controls rounded-lg, cards rounded-2xl, pills rounded-full).
+
 export function Card({ title, right, children, className = "" }) {
   return (
-    <div className={`border border-border bg-panel ${className}`}>
+    <div className={`rounded-2xl bg-panel nm-raised ${className}`}>
       {(title || right) && (
-        <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
-          <h3 className="text-sm font-semibold text-white">{title}</h3>
+        <div className="flex items-center justify-between gap-3 border-b border-border/70 px-5 py-3.5">
+          <h3 className="font-head text-sm font-semibold text-white">{title}</h3>
           {right}
         </div>
       )}
-      <div className="p-4">{children}</div>
+      <div className="p-5">{children}</div>
     </div>
   );
 }
 
 export function Stat({ label, value, sub, accent }) {
   return (
-    <div className="border border-border bg-panel p-4">
-      <p className="text-[10px] uppercase tracking-wider text-muted">{label}</p>
-      <p className={`mt-1 font-mono text-2xl font-bold ${accent ? "text-accent" : "text-white"}`}>{value}</p>
-      {sub && <p className="mt-0.5 text-xs text-muted">{sub}</p>}
+    <div className="rounded-2xl bg-panel nm-raised p-5">
+      <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted">{label}</p>
+      <p className={`mt-1.5 font-mono text-2xl font-semibold tracking-tight ${accent ? "text-accent" : "text-white"}`}>{value}</p>
+      {sub && <p className="mt-1 text-xs text-muted">{sub}</p>}
     </div>
   );
 }
 
 export function Button({ children, onClick, type = "button", variant = "primary", disabled, size = "md" }) {
   const styles = {
-    primary: "bg-accent text-black hover:bg-accentHover font-semibold",
-    ghost: "border border-border text-white/80 hover:bg-white/5",
-    danger: "border border-red-500/40 text-red-400 hover:bg-red-500/10",
+    primary: "bg-accent text-black font-semibold nm-press hover:bg-accentHover",
+    ghost: "bg-panel text-white/85 nm-raised-sm nm-press hover:text-white hover:bg-panel2",
+    danger: "bg-panel text-red-400 nm-raised-sm nm-press hover:text-red-300",
   };
-  const sizes = { md: "px-3 py-1.5 text-sm", sm: "px-2 py-1 text-xs" };
+  const sizes = { md: "px-4 py-2 text-sm", sm: "px-3 py-1.5 text-xs" };
   return (
     <button type={type} onClick={onClick} disabled={disabled}
-      className={`inline-flex items-center gap-1.5 transition-colors disabled:opacity-40 ${styles[variant]} ${sizes[size]}`}>
+      className={`inline-flex items-center justify-center gap-1.5 rounded-lg disabled:opacity-40 disabled:pointer-events-none ${styles[variant]} ${sizes[size]}`}>
       {children}
     </button>
   );
@@ -42,14 +45,14 @@ export function Button({ children, onClick, type = "button", variant = "primary"
 export function Field({ label, children }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[11px] uppercase tracking-wider text-muted">{label}</span>
+      <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.08em] text-muted">{label}</span>
       {children}
     </label>
   );
 }
 
 const inputCls =
-  "w-full border border-border bg-panel2 px-2.5 py-1.5 text-sm text-white outline-none focus:border-accent";
+  "w-full rounded-lg bg-panel2 nm-inset px-3 py-2 text-sm text-white placeholder:text-muted/60 outline-none focus:ring-2 focus:ring-accent/45";
 
 export function Input(props) {
   return <input {...props} className={inputCls} />;
@@ -64,8 +67,8 @@ export function Table({ head, children }) {
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-border text-left text-[11px] uppercase tracking-wider text-muted">
-            {head.map((h) => <th key={h} className="px-3 py-2 font-medium">{h}</th>)}
+          <tr className="border-b border-border text-left text-[11px] font-medium uppercase tracking-[0.06em] text-muted">
+            {head.map((h) => <th key={h} className="px-3 py-2.5 font-medium">{h}</th>)}
           </tr>
         </thead>
         <tbody>{children}</tbody>
@@ -75,21 +78,35 @@ export function Table({ head, children }) {
 }
 
 export function Td({ children, mono, className = "" }) {
-  return <td className={`px-3 py-2 ${mono ? "font-mono" : ""} ${className}`}>{children}</td>;
+  return <td className={`px-3 py-2.5 ${mono ? "font-mono" : ""} ${className}`}>{children}</td>;
 }
 
 export function Badge({ children, tone = "muted", className = "" }) {
   const tones = {
-    muted: "bg-white/5 text-muted",
-    ok: "bg-emerald-500/15 text-emerald-400",
-    warn: "bg-[#f59e0b]/15 text-[#f59e0b]",
-    bad: "bg-red-500/15 text-red-400",
+    muted: "bg-white/[0.06] text-muted",
+    ok: "bg-emerald-500/15 text-emerald-300",
+    warn: "bg-amber-400/15 text-amber-300",
+    bad: "bg-red-500/15 text-red-300",
     accent: "bg-accent/15 text-accent",
   };
-  return <span className={`rounded px-2 py-0.5 text-[10px] font-semibold uppercase ${tones[tone]} ${className}`}>{children}</span>;
+  return <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${tones[tone]} ${className}`}>{children}</span>;
 }
 
-// tiny data hook
+// ---- polish primitives ----
+export function Skeleton({ className = "" }) {
+  return <div className={`animate-pulse rounded-lg bg-white/[0.06] ${className}`} />;
+}
+
+export function Empty({ icon, title, hint }) {
+  return (
+    <div className="flex flex-col items-center gap-2 py-10 text-center">
+      {icon && <div className="grid h-11 w-11 place-items-center rounded-xl bg-panel2 nm-inset text-muted">{icon}</div>}
+      <p className="text-sm font-medium text-white/90">{title}</p>
+      {hint && <p className="max-w-xs text-xs text-muted">{hint}</p>}
+    </div>
+  );
+}
+
 export function useAsync(fn, deps = []) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);

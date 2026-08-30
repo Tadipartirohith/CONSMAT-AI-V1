@@ -6,7 +6,7 @@ const field =
   "w-full rounded-xl bg-panel2 nm-inset px-3.5 py-2.5 text-sm text-white placeholder:text-muted/70 outline-none focus:ring-2 focus:ring-accent/50";
 const label = "mb-1.5 block text-[11px] uppercase tracking-wider text-muted";
 const primaryBtn =
-  "w-full rounded-xl bg-accent py-2.5 text-sm font-semibold text-black nm-raised-sm nm-press hover:brightness-105 disabled:opacity-40";
+  "w-full rounded-xl bg-accent py-2.5 text-sm font-semibold text-black nm-press hover:bg-accentHover disabled:opacity-40";
 
 export default function Login({ onDone }) {
   const [mode, setMode] = useState("signin"); // signin | enquire
