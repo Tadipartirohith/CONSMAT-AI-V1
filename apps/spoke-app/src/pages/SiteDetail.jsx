@@ -3,26 +3,28 @@ import { Link, useParams } from "react-router-dom";
 import { site, inv, proc, PHASE_NAMES } from "../api.js";
 import { Card, Table, Td, Badge, Button, Input, Select, useAsync } from "../components/ui.jsx";
 import { getUser } from "../auth.js";
+import { ArrowLeft, Compass, HardHat, Handshake, File, CheckCircle, Warning, X, Sparkle } from "@phosphor-icons/react";
 
 // What each field role owns on a site. The architect is the design authority: the Bill of Materials
 // (which products and how much) and the phase schedule come from the architect's drawings; the site
 // engineer executes the build phase by phase; the spokesperson owns the customer relationship.
 const ROLE_TASK = {
-  architect: { icon: "📐", title: "Architect - design spec", text: "Enter and refine this site's Bill of Materials (products & quantities) from the drawings, and set each phase's planned dates. This is your design output; it stays editable until construction starts." },
-  site_engineer: { icon: "🏗️", title: "Site engineer - execution", text: "Run the build: start the site, complete phases in order (the hub auto-dispatches the next phase's materials), and confirm each delivery when it reaches site." },
-  spokesperson: { icon: "🤝", title: "Spokesperson - coverage", text: "Own the customer relationship and coverage. Review and approve site-engineer phase-date changes; keep the plan and schedule aligned with the hub." },
+  architect: { icon: Compass, title: "Architect - design spec", text: "Enter and refine this site's Bill of Materials (products & quantities) from the drawings, and set each phase's planned dates. This is your design output; it stays editable until construction starts." },
+  site_engineer: { icon: HardHat, title: "Site engineer - execution", text: "Run the build: start the site, complete phases in order (the hub auto-dispatches the next phase's materials), and confirm each delivery when it reaches site." },
+  spokesperson: { icon: Handshake, title: "Spokesperson - coverage", text: "Own the customer relationship and coverage. Review and approve site-engineer phase-date changes; keep the plan and schedule aligned with the hub." },
 };
 
 function RoleGuide() {
   const role = getUser()?.role;
   const t = ROLE_TASK[role];
   if (!t) return null;
+  const Icon = t.icon;
   return (
-    <div className="flex items-start gap-2.5 border border-accent/30 bg-accent/5 px-3 py-2">
-      <span className="text-lg">{t.icon}</span>
+    <div className="flex items-start gap-3 rounded-xl border border-accent/25 bg-accent/[0.06] px-4 py-3">
+      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-accent/15 text-accent"><Icon size={18} weight="fill" /></div>
       <div>
         <p className="text-xs font-semibold text-accent">{t.title}</p>
-        <p className="text-[11px] text-white/70">{t.text}</p>
+        <p className="mt-0.5 text-[11px] leading-relaxed text-white/70">{t.text}</p>
       </div>
     </div>
   );
@@ -44,8 +46,8 @@ export default function SiteDetail() {
     catch (e) { setMsg({ ok: false, text: e.message }); } finally { setBusy(false); }
   };
 
-  if (detail.error) return <p className="text-sm text-red-400">{detail.error}</p>;
-  if (!s) return <p className="text-sm text-muted">Loading…</p>;
+  if (detail.error) return <p className="text-sm text-red-300">{detail.error}</p>;
+  if (!s) return <p className="text-sm text-muted">Loading...</p>;
 
   const planned = s.bom_lines.length > 0;
   const editable = s.status === "planning" || s.status === "planned";
@@ -56,16 +58,16 @@ export default function SiteDetail() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <Link to="/sites" className="text-sm text-muted hover:text-white">Back to Sites</Link>
+      <div className="flex flex-wrap items-center gap-3">
+        <Link to="/sites" className="flex items-center gap-1 text-sm text-muted transition-colors hover:text-white"><ArrowLeft size={15} />Sites</Link>
         <h1 className="font-head text-2xl font-extrabold text-white">{s.code}</h1>
         <Badge tone={s.status === "completed" ? "ok" : s.status === "active" ? "accent" : "muted"}>{s.status}</Badge>
         {s.project_type && <Badge tone={s.project_type === "captive" ? "accent" : "ok"}>{s.project_type}</Badge>}
-        <span className="text-[11px] text-muted">{(s.stage || "onboarded").replace(/_/g, " ")}</span>
+        <span className="text-[11px] capitalize text-muted">{(s.stage || "onboarded").replace(/_/g, " ")}</span>
         <div className="ml-auto flex items-center gap-2">
           {!s.project_type && (
             <Select value="" onChange={(e) => e.target.value && act(() => site.updateSite(id, { project_type: e.target.value }), "Project type set")}>
-              <option value="">set project type…</option>
+              <option value="">set project type...</option>
               <option value="captive">captive</option>
               <option value="client">client</option>
             </Select>
@@ -73,14 +75,14 @@ export default function SiteDetail() {
           {notStarted && <Button onClick={() => act(() => site.start(id), "Started")} disabled={busy}>Start construction</Button>}
         </div>
       </div>
-      {msg && <p className={`text-xs ${msg.ok ? "text-emerald-400" : "text-red-400"}`}>{msg.text}</p>}
+      {msg && <div className={`rounded-xl px-4 py-2.5 text-sm ${msg.ok ? "bg-emerald-500/10 text-emerald-300" : "bg-red-500/10 text-red-300"}`}>{msg.text}</div>}
 
       <RoleGuide />
 
-      <div className="flex flex-wrap gap-4 border border-border bg-panel p-4 text-sm">
+      <div className="grid grid-cols-2 gap-4 rounded-2xl bg-panel nm-raised p-5 text-sm md:grid-cols-4">
         <Info label="Label" value={s.label || "-"} />
         <Info label="Location" value={s.location || "-"} />
-        <Info label="Area" value={`${s.area_sqft} sqft × ${s.floors} floor(s)`} />
+        <Info label="Area" value={`${s.area_sqft} sqft x ${s.floors} floor(s)`} />
         <Info label="Type" value={s.construction_type} />
       </div>
 
@@ -91,10 +93,10 @@ export default function SiteDetail() {
       {pending.length > 0 && (
         <Card title="Phase date changes awaiting your approval">
           {pending.map((c) => (
-            <div key={c.id} className="flex flex-wrap items-center gap-3 border-b border-border/50 py-2 text-sm">
-              <span className="text-white/80">Phase {c.phase_seq} ({PHASE_NAMES[c.phase_seq]}): end {c.old_end || "?"} to <b>{c.new_end}</b></span>
-              {c.escalated && <Badge tone="bad">escalated · needs hub</Badge>}
-              {c.remarks && <span className="text-[11px] text-[#f59e0b]">"{c.remarks}"</span>}
+            <div key={c.id} className="flex flex-wrap items-center gap-3 border-b border-border/50 py-2 text-sm last:border-0">
+              <span className="text-white/80">Phase {c.phase_seq} ({PHASE_NAMES[c.phase_seq]}): end {c.old_end || "?"} to <b className="text-white">{c.new_end}</b></span>
+              {c.escalated && <Badge tone="bad">escalated, needs hub</Badge>}
+              {c.remarks && <span className="text-[11px] text-[#fbbf24]">"{c.remarks}"</span>}
               <span className="text-muted">by {c.requested_by || c.requested_by_role}</span>
               <div className="ml-auto flex gap-2">
                 <Button size="sm" onClick={() => act(() => site.decideChange(c.id, true), "Approved")} disabled={busy}>Approve</Button>
@@ -109,34 +111,34 @@ export default function SiteDetail() {
         <BomCard siteId={id} lines={s.bom_lines} editable={editable} onSaved={(t) => { setMsg({ ok: true, text: t }); reloadAll(); }} />
 
         <Card title="Construction phases">
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             {s.phases.slice().sort((a, b) => a.phase_seq - b.phase_seq).map((p) => (
               <PhaseRow key={p.phase_seq} siteId={id} phase={p} busy={busy}
                 onComplete={() => act(() => site.completePhase(id, p.phase_seq), `Phase ${p.phase_seq} completed`)}
                 onDates={(b) => act(() => site.setPhaseDates(id, p.phase_seq, b), `Phase ${p.phase_seq} dates`)} />
             ))}
           </div>
-          <p className="mt-2 text-[11px] text-muted">A site engineer's change to a phase end date needs spoke or manager approval. The hub auto-dispatches the next phase ~1 day before the current one ends.</p>
+          <p className="mt-3 text-[11px] leading-relaxed text-muted">A site engineer's change to a phase end date needs spoke or manager approval. The hub auto-dispatches the next phase about a day before the current one ends.</p>
         </Card>
       </div>
 
       <Card title="Dispatches (hub to site)"
         right={hasShorts && <Button size="sm" onClick={() => act(() => site.backfill(id), "Backfill")} disabled={busy}>Backfill shortfalls</Button>}>
         {s.dispatches.length === 0 ? <p className="text-sm text-muted">No dispatches yet.</p> : (
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {s.dispatches.slice().sort((a, b) => a.phase_seq - b.phase_seq).map((d) => (
-              <div key={d.id} className="border border-border/60 bg-panel2 p-3">
-                <div className="mb-1.5 flex items-center gap-2 text-sm">
+              <div key={d.id} className="rounded-xl border border-border/40 bg-panel2 p-3.5">
+                <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
                   <span className="font-mono text-white">{d.code}</span>
                   <span className="text-muted">phase {d.phase_seq}, {PHASE_NAMES[d.phase_seq]}</span>
                   <Badge tone={d.status === "received" ? "accent" : d.status === "dispatched" ? "ok" : d.status === "partial" ? "warn" : "bad"}>{d.status}</Badge>
                   {d.status === "dispatched" && <Button size="sm" onClick={() => act(() => site.confirmDelivery(d.id), "Delivery confirmed")} disabled={busy}>Confirm delivery</Button>}
-                  {d.status === "received" && <span className="text-[11px] text-accent">✓ confirmed</span>}
+                  {d.status === "received" && <span className="flex items-center gap-1 text-[11px] text-accent"><CheckCircle size={13} weight="fill" />confirmed</span>}
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-x-3 gap-y-1">
                   {d.lines.map((l, i) => (
-                    <span key={i} className={`font-mono text-xs ${l.status === "short" ? "text-red-400" : "text-white/70"}`}>
-                      {l.product_name || l.material_id} ×{l.qty}{l.status === "short" && " (short)"}
+                    <span key={i} className={`font-mono text-xs ${l.status === "short" ? "text-red-300" : "text-white/70"}`}>
+                      {l.product_name || l.material_id} x{l.qty}{l.status === "short" && " (short)"}
                     </span>
                   ))}
                 </div>
@@ -148,9 +150,9 @@ export default function SiteDetail() {
 
       <Card title="Notifications" right={<Button size="sm" variant="ghost" onClick={notifs.reload}>Refresh</Button>}>
         {(notifs.data || []).filter((n) => n.site_id === Number(id)).slice(0, 8).map((n) => (
-          <div key={n.id} className="border-b border-border/50 py-1.5 text-sm">
+          <div key={n.id} className="flex items-center gap-2 border-b border-border/50 py-2 text-sm last:border-0">
             <Badge tone={n.kind === "dispatched" ? "ok" : "warn"}>{n.kind}</Badge>
-            <span className="ml-2 text-white/80">{n.message}</span>
+            <span className="text-white/80">{n.message}</span>
           </div>
         ))}
         {(notifs.data || []).filter((n) => n.site_id === Number(id)).length === 0 && <p className="text-sm text-muted">No notifications for this site yet.</p>}
@@ -177,16 +179,16 @@ function BoqStatusCard({ siteId, onMsg, reload }) {
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className="font-mono text-white">{latest.code}</span>
           <Badge tone={latest.status === "approved" ? "ok" : latest.status === "submitted" ? "warn" : "muted"}>{latest.status}</Badge>
-          <Badge tone={latest.spoke_approved_by ? "ok" : "muted"}>spoke {latest.spoke_approved_by ? "✓" : "…"}</Badge>
-          <Badge tone={latest.hub_approved_by ? "ok" : "muted"}>hub {latest.hub_approved_by ? "✓" : "…"}</Badge>
+          <Badge tone={latest.spoke_approved_by ? "ok" : "muted"}>spoke {latest.spoke_approved_by ? "ok" : "pending"}</Badge>
+          <Badge tone={latest.hub_approved_by ? "ok" : "muted"}>hub {latest.hub_approved_by ? "ok" : "pending"}</Badge>
           {latest.diff_pct != null && <span className="text-[11px] text-muted">external diff {latest.diff_pct}%</span>}
         </div>
       ) : <p className="text-sm text-muted">No final BOQ submitted yet.</p>}
       {pendingChanges.length > 0 && (
         <div className="mt-3 space-y-1.5">
-          <p className="text-[11px] uppercase tracking-wider text-[#f59e0b]">Hub change requests (need spoke + SE acknowledgement)</p>
+          <p className="text-[11px] uppercase tracking-wider text-[#fbbf24]">Hub change requests (need spoke + SE acknowledgement)</p>
           {pendingChanges.map((c) => (
-            <div key={c.id} className="flex flex-wrap items-center gap-2 border border-[#f59e0b]/30 bg-panel2 px-2.5 py-1.5 text-sm">
+            <div key={c.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-[#f59e0b]/30 bg-panel2 px-3 py-2 text-sm">
               <span className="flex-1 text-white/80">{c.note}</span>
               <Badge tone={c.spoke_acked ? "ok" : "muted"}>spoke</Badge>
               <Badge tone={c.ce_acked ? "ok" : "muted"}>SE</Badge>
@@ -213,19 +215,19 @@ function DesignFilesCard({ siteId }) {
   return (
     <Card title="Design files (architect)" right={canUpload &&
       <label className="cursor-pointer text-[11px] text-accent hover:underline">
-        {busy ? "Uploading…" : "Upload design"}
+        {busy ? "Uploading..." : "Upload design"}
         <input type="file" className="hidden" onChange={upload} accept=".pdf,.dwg,.dxf,.png,.jpg,.jpeg,.zip" />
       </label>}>
-      {err && <p className="mb-1 text-xs text-red-400">{err}</p>}
+      {err && <p className="mb-1 text-xs text-red-300">{err}</p>}
       {(docs.data || []).length === 0 ? (
         <p className="text-sm text-muted">{canUpload ? "No design uploaded yet. Upload the CAD/design here; the SE builds the BOQ from it." : "No design uploaded yet. The architect uploads it here; you can view and download it to build the BOQ."}</p>
       ) : (
         <div className="space-y-1.5">
           {(docs.data || []).map((d) => (
-            <div key={d.id} className="flex items-center gap-2 border-b border-border/50 py-1.5 text-sm">
-              <span className="text-base">📐</span>
+            <div key={d.id} className="flex items-center gap-2.5 rounded-xl bg-panel2 px-3 py-2 text-sm">
+              <File size={17} className="text-accent" weight="fill" />
               <button onClick={() => site.downloadDocument(d.id, d.filename)} className="text-accent hover:underline">{d.filename}</button>
-              <span className="text-[11px] text-muted">{(d.size / 1024).toFixed(0)} KB · {d.uploaded_by || d.uploaded_by_role}</span>
+              <span className="ml-auto text-[11px] text-muted">{(d.size / 1024).toFixed(0)} KB, {d.uploaded_by || d.uploaded_by_role}</span>
             </div>
           ))}
         </div>
@@ -280,7 +282,7 @@ function BomCard({ siteId, lines, editable, onSaved }) {
   };
   const uploadDoc = async (e) => {
     const file = e.target.files?.[0]; if (!file) return;
-    setBusy(true); setInfo("Reading document…"); setErr(null);
+    setBusy(true); setInfo("Reading document..."); setErr(null);
     try {
       const r = await proc.bomExtract(file);
       setRows((r.lines || []).map((l) => ({ product_id: l.product_id || "", material_id: l.material_id || "", product_name: l.product_name || l.raw || "", phase_seq: l.phase_seq || 0, total_qty: l.total_qty || 0 })));
@@ -306,13 +308,13 @@ function BomCard({ siteId, lines, editable, onSaved }) {
     <Card title="Bill of Quantities (BOQ)"
       right={<label className="cursor-pointer text-[11px] text-accent hover:underline">Upload doc<input type="file" accept=".pdf,.docx,.txt,.csv" className="hidden" onChange={uploadDoc} /></label>}>
       <div className="space-y-2">
-        {info && <p className="text-[11px] text-[#f59e0b]">{info}</p>}
+        {info && <p className="text-[11px] text-[#fbbf24]">{info}</p>}
         {rows.map((r, i) => (
           <div key={i} className="flex items-center gap-2 text-sm">
             {r.product_id
               ? <span className="flex-1 truncate text-white/80" title={r.product_name}>{r.product_name}</span>
               : <Select value="" onChange={(e) => { const p = (products.data || []).find((x) => x.id === e.target.value); if (p) setRows(rows.map((x, j) => j === i ? { ...x, product_id: p.id, material_id: p.material_id, product_name: p.name } : x)); }}>
-                  <option value="">map “{r.product_name}”…</option>
+                  <option value="">map "{r.product_name}"...</option>
                   {(products.data || []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </Select>}
             <Select value={r.phase_seq} onChange={(e) => setField(i, "phase_seq", Number(e.target.value))}>
@@ -320,27 +322,27 @@ function BomCard({ siteId, lines, editable, onSaved }) {
               {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => <option key={n} value={n}>P{n}</option>)}
             </Select>
             <div className="w-20"><Input type="number" step="any" value={r.total_qty} onChange={(e) => setField(i, "total_qty", e.target.value)} /></div>
-            <Button size="sm" variant="ghost" onClick={() => del(i)}>✕</Button>
+            <button onClick={() => del(i)} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted transition-colors hover:text-red-300"><X size={15} /></button>
           </div>
         ))}
-        {rows.length === 0 && <p className="text-xs text-muted">Add products, or upload a BOM doc - the LLM extracts and maps it.</p>}
+        {rows.length === 0 && <p className="text-xs text-muted">Add products, or upload a BOM doc; the LLM extracts and maps it.</p>}
         <div className="flex items-center gap-2 pt-1">
           <Select value={pid} onChange={(e) => setPid(e.target.value)}>
-            <option value="">select product…</option>
+            <option value="">select product...</option>
             {(products.data || []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </Select>
           <div className="w-24"><Input type="number" step="any" placeholder="qty" value={qty} onChange={(e) => setQty(e.target.value)} /></div>
           <Button size="sm" onClick={add}>Add</Button>
         </div>
         <div className="flex flex-wrap items-center gap-2 pt-1">
-          <Button onClick={submit} disabled={busy || cleanRows().length === 0}>Submit BOQ & compare</Button>
+          <Button onClick={submit} disabled={busy || cleanRows().length === 0}>Submit BOQ &amp; compare</Button>
           <Button variant="ghost" onClick={submitFinal} disabled={busy || cleanRows().length === 0}>Submit as final BOQ</Button>
-          <Button variant="ghost" onClick={findAlternatives} disabled={busy || cleanRows().length === 0}>AI: find alternatives</Button>
-          {err && <span className="text-xs text-red-400">{err}</span>}
+          <Button variant="ghost" onClick={findAlternatives} disabled={busy || cleanRows().length === 0}><Sparkle size={14} weight="fill" />Find alternatives</Button>
+          {err && <span className="text-xs text-red-300">{err}</span>}
         </div>
         {sugg && <SuggestPanel sugg={sugg} onApply={applySuggestions} onClose={() => setSugg(null)} />}
         {cmp && <ComparePanel cmp={cmp} onFinal={submitFinal} busy={busy} />}
-        <p className="text-[11px] text-muted">The SE builds the BOQ from the architect's design. Submitting compares it against the external app's BOQ; a difference over 5% needs a reconciled final BOQ. The final BOQ needs spoke + hub approval.</p>
+        <p className="text-[11px] leading-relaxed text-muted">The SE builds the BOQ from the architect's design. Submitting compares it against the external app's BOQ; a difference over 5% needs a reconciled final BOQ. The final BOQ needs spoke + hub approval.</p>
       </div>
     </Card>
   );
@@ -348,9 +350,9 @@ function BomCard({ siteId, lines, editable, onSaved }) {
 
 function SuggestPanel({ sugg, onApply, onClose }) {
   return (
-    <div className="mt-2 border border-accent/30 bg-accent/5 p-3">
-      <div className="mb-1 flex items-center justify-between">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-accent">AI alternatives</p>
+    <div className="mt-2 rounded-xl border border-accent/25 bg-accent/[0.06] p-3.5">
+      <div className="mb-1.5 flex items-center justify-between">
+        <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-accent"><Sparkle size={13} weight="fill" />AI alternatives</p>
         <button onClick={onClose} className="text-[11px] text-muted hover:text-white">dismiss</button>
       </div>
       {sugg.summary && <p className="mb-2 text-sm text-white/80">{sugg.summary}</p>}
@@ -379,8 +381,8 @@ function SuggestPanel({ sugg, onApply, onClose }) {
               <p className="text-[11px] text-white/60">{mid}</p>
               {offers.map((o, i) => (
                 <div key={i} className="flex items-center justify-between gap-2 text-xs">
-                  <span className="min-w-0 flex-1 truncate text-white/80">{o.seller || "market"} · {o.product}</span>
-                  <span className="shrink-0 font-mono text-white/70">₹{Math.round(o.price)}</span>
+                  <span className="min-w-0 flex-1 truncate text-white/80">{o.seller || "market"}, {o.product}</span>
+                  <span className="shrink-0 font-mono text-white/70">Rs {Math.round(o.price)}</span>
                 </div>
               ))}
             </div>
@@ -398,14 +400,15 @@ function ComparePanel({ cmp, onFinal, busy }) {
   const extMap = Object.fromEntries((cmp.external || []).map((l) => [l.product_id || l.material_id, l.total_qty]));
   const over = cmp.needs_final;
   return (
-    <div className={`mt-2 border p-3 ${over ? "border-red-500/40 bg-red-500/5" : "border-emerald-500/30 bg-emerald-500/5"}`}>
-      <p className={`text-sm font-semibold ${over ? "text-red-400" : "text-emerald-400"}`}>
-        {over ? `⚠ SE vs external BOQ differ by ${cmp.diff_pct}% (over ${cmp.threshold}%) - reconcile the quantities, then submit the final BOQ.`
-              : `✓ SE and external BOQ agree within ${cmp.threshold}% (max ${cmp.diff_pct}%). You can submit the final BOQ.`}
+    <div className={`mt-2 rounded-xl border p-3.5 ${over ? "border-red-500/40 bg-red-500/[0.07]" : "border-emerald-500/30 bg-emerald-500/[0.07]"}`}>
+      <p className={`flex items-start gap-1.5 text-sm font-semibold ${over ? "text-red-300" : "text-emerald-300"}`}>
+        {over ? <Warning size={16} weight="fill" className="mt-0.5 shrink-0" /> : <CheckCircle size={16} weight="fill" className="mt-0.5 shrink-0" />}
+        {over ? `SE vs external BOQ differ by ${cmp.diff_pct}% (over ${cmp.threshold}%). Reconcile the quantities, then submit the final BOQ.`
+              : `SE and external BOQ agree within ${cmp.threshold}% (max ${cmp.diff_pct}%). You can submit the final BOQ.`}
       </p>
-      <p className="mb-1 mt-1 text-[10px] uppercase tracking-wider text-muted">SE vs external ({cmp.external_provider})</p>
+      <p className="mb-1 mt-2 text-[10px] uppercase tracking-wider text-muted">SE vs external ({cmp.external_provider})</p>
       <div className="max-h-40 overflow-auto">
-        <Table head={["Product", "SE qty", "External qty", "Δ%"]}>
+        <Table head={["Product", "SE qty", "External qty", "Diff %"]}>
           {(cmp.ce_lines || []).map((l, i) => {
             const key = l.product_id || l.material_id;
             const ce = Number(l.total_qty), ext = Number(extMap[key] ?? 0);
@@ -415,7 +418,7 @@ function ComparePanel({ cmp, onFinal, busy }) {
                 <Td className="text-white/80">{l.product_name || key}</Td>
                 <Td mono>{ce}</Td>
                 <Td mono>{ext}</Td>
-                <Td mono className={d > cmp.threshold ? "text-red-400" : "text-muted"}>{d.toFixed(1)}%</Td>
+                <Td mono className={d > cmp.threshold ? "text-red-300" : "text-muted"}>{d.toFixed(1)}%</Td>
               </tr>
             );
           })}
@@ -433,22 +436,22 @@ function PhaseRow({ phase: p, busy, onComplete, onDates }) {
   const [editing, setEditing] = useState(false);
 
   return (
-    <div className="border border-border/60 bg-panel2 px-3 py-2">
+    <div className="rounded-xl border border-border/40 bg-panel2 px-3.5 py-2.5">
       <div className="flex items-center gap-3">
-        <span className="w-5 font-mono text-xs text-muted">{p.phase_seq}</span>
-        <span className="flex-1 text-sm text-white/80">{PHASE_NAMES[p.phase_seq]}</span>
-        <Badge tone={p.status === "done" ? "ok" : p.status === "in_progress" ? "accent" : "muted"}>{p.status}</Badge>
+        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-bg font-mono text-[11px] text-muted">{p.phase_seq}</span>
+        <span className="flex-1 text-sm text-white/85">{PHASE_NAMES[p.phase_seq]}</span>
+        <Badge tone={p.status === "done" ? "ok" : p.status === "in_progress" ? "accent" : "muted"}>{p.status.replace("_", " ")}</Badge>
         <Button size="sm" variant="ghost" onClick={() => setEditing(!editing)}>{editing ? "Cancel" : "Dates"}</Button>
         {p.status === "in_progress" && <Button size="sm" onClick={onComplete} disabled={busy}>Complete</Button>}
       </div>
-      <div className="mt-1 pl-8 text-[11px] text-muted">
+      <div className="mt-1 pl-9 text-[11px] text-muted">
         {p.planned_start || "no start"} to {p.planned_end || "no end"}
       </div>
       {editing && (
-        <div className="mt-2 flex flex-wrap items-center gap-2 pl-8">
+        <div className="mt-2 flex flex-wrap items-center gap-2 pl-9">
           <label className="text-[11px] text-muted">Start <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} /></label>
           <label className="text-[11px] text-muted">End <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} /></label>
-          <Input value={remarks} placeholder="remarks (needed if compressing to <1 week)" onChange={(e) => setRemarks(e.target.value)} />
+          <Input value={remarks} placeholder="remarks (needed if compressing to under 1 week)" onChange={(e) => setRemarks(e.target.value)} />
           <Button size="sm" onClick={() => { onDates({ start: start || null, end: end || null, remarks }); setEditing(false); }} disabled={busy}>Save</Button>
         </div>
       )}
@@ -460,7 +463,7 @@ function Info({ label, value }) {
   return (
     <div>
       <p className="text-[10px] uppercase tracking-wider text-muted">{label}</p>
-      <p className="text-white">{value}</p>
+      <p className="mt-0.5 text-white">{value}</p>
     </div>
   );
 }
