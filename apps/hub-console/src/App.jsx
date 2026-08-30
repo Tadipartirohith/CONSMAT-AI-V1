@@ -2,7 +2,7 @@ import { useState } from "react";
 import { NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import {
   Gauge, EnvelopeSimple, Buildings, Package, Storefront, TrendUp, ShoppingCart,
-  Tag, CreditCard, ChartLineUp, IdentificationBadge, UsersThree, MagnifyingGlass,
+  Tag, CreditCard, ChartLineUp, IdentificationBadge, MagnifyingGlass,
 } from "@phosphor-icons/react";
 import Overview from "./pages/Overview.jsx";
 import Projects from "./pages/Projects.jsx";
@@ -14,8 +14,7 @@ import Procurement from "./pages/Procurement.jsx";
 import Pricing from "./pages/Pricing.jsx";
 import Payments from "./pages/Payments.jsx";
 import Accounts from "./pages/Accounts.jsx";
-import Team from "./pages/Team.jsx";
-import Teams from "./pages/Teams.jsx";
+import TeamAccess from "./pages/TeamAccess.jsx";
 import Enquiries from "./pages/Enquiries.jsx";
 import Login from "./pages/Login.jsx";
 import ProfileMenu from "./components/ProfileMenu.jsx";
@@ -33,8 +32,7 @@ const NAV = [
   { to: "/pricing", label: "Pricing", icon: Tag },
   { to: "/payments", label: "Payments", icon: CreditCard },
   { to: "/accounts", label: "Accounts", icon: ChartLineUp, roles: ["admin", "hub_manager", "hub_supervisor"] },
-  { to: "/team", label: "Team & access", icon: IdentificationBadge, roles: ["admin", "hub_manager", "hub_supervisor", "hr"] },
-  { to: "/teams", label: "Teams", icon: UsersThree, roles: ["admin", "hub_manager", "hub_supervisor", "hr", "spokesperson", "architect", "site_engineer", "finance"] },
+  { to: "/team", label: "Team & Access", icon: IdentificationBadge, roles: ["admin", "hub_manager", "hub_supervisor", "hr", "spokesperson", "architect", "site_engineer", "finance"] },
 ];
 
 function TopBar({ title, onSearch }) {
@@ -120,8 +118,8 @@ export default function App() {
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/payments" element={<Payments />} />
             <Route path="/accounts" element={<Accounts />} />
-            <Route path="/team" element={<Team />} />
-            <Route path="/teams" element={<Teams />} />
+            <Route path="/team" element={<TeamAccess />} />
+            <Route path="/teams" element={<Navigate to="/team" replace />} />
             <Route path="/enquiries" element={<Enquiries />} />
             <Route path="*" element={<Navigate to="/overview" replace />} />
           </Routes>

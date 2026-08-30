@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { pay, proc, inv, site, inr } from "../api.js";
-import { Card, Stat, Table, Td, Badge, Button, useAsync } from "../components/ui.jsx";
+import { Card, Stat, Table, Td, Badge, Button, Tabs, useAsync } from "../components/ui.jsx";
 
 const C = { rev: "#22c55e", escrow: "#38bdf8", spend: "#f59e0b", overdue: "#ef4444", muted: "#3f4655" };
 const TABS = ["Overview", "Receivables", "Payables", "Ledger"];
@@ -38,12 +38,7 @@ export default function Accounts() {
         <Kpi label="Gross margin" value={inr(a.margin)} sub={`${a.marginPct}% vs collected`} bar={Math.abs(a.margin)} max={a.captured} color={a.margin >= 0 ? C.rev : C.overdue} />
       </div>
 
-      <div className="flex gap-1 border-b border-border">
-        {TABS.map((t) => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`px-3 py-2 text-sm ${tab === t ? "border-b-2 border-accent text-accent" : "text-muted hover:text-ink"}`}>{t}</button>
-        ))}
-      </div>
+      <Tabs tabs={TABS} active={tab} onChange={setTab} />
 
       {tab === "Overview" && <Overview a={a} />}
       {tab === "Receivables" && <Receivables a={a} />}

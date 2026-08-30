@@ -107,6 +107,30 @@ export function Empty({ icon, title, hint }) {
   );
 }
 
+// Underline tab bar. `tabs` is a list of strings or { value, label } objects.
+export function Tabs({ tabs, active, onChange }) {
+  return (
+    <div className="flex gap-1 border-b border-border">
+      {tabs.map((t) => {
+        const value = typeof t === "string" ? t : t.value;
+        const label = typeof t === "string" ? t : t.label;
+        return (
+          <button key={value} onClick={() => onChange(value)}
+            className={`-mb-px border-b-2 px-3.5 py-2 text-sm transition-colors ${active === value ? "border-accent font-medium text-accent" : "border-transparent text-muted hover:text-ink"}`}>
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Inline status line for form/action results.
+export function Notice({ msg }) {
+  if (!msg) return null;
+  return <p className={`text-xs ${msg.ok ? "text-emerald-400" : "text-red-400"}`}>{msg.text}</p>;
+}
+
 export function useAsync(fn, deps = []) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
