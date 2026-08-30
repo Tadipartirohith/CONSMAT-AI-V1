@@ -61,7 +61,9 @@ export default function App() {
   if (!user) return <Login onDone={() => setUser(getUser())} />;
 
   const nav = NAV.filter((n) => !n.roles || n.roles.includes(user.role));
-  const active = nav.find((n) => location.pathname.startsWith(n.to));
+  // longest match first so /teams doesn't resolve to the /team item
+  const active = [...nav].sort((a, b) => b.to.length - a.to.length)
+    .find((n) => location.pathname === n.to || location.pathname.startsWith(n.to + "/"));
   const title = active ? active.label : "Consmat Hub";
 
   return (
