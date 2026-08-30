@@ -4,7 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
-from .. import llm, orders, pricing_client, procurement_engine, schemas, service
+from .. import llm, orders, pricing_client, procurement_engine, schemas, service, site_client
 from ..auth import current_user, require_role
 from ..config import settings
 from ..db import get_db
@@ -145,18 +145,31 @@ async def bom_extract(file: UploadFile = File(...)):
     return result or {"summary": "Hub LLM unavailable - configure AI_PROVIDER.", "lines": []}
 
 
-# BOM optimize / find-alternatives is advisory (read-only suggestion) - the field team can use it too.
+# BOM optimize / find-alternatives is advisory (read-only suggestion) - the spoke + SE use it too.
 BOM_SUGGEST = require_role("spokesperson", "site_engineer", "architect", "hub_supervisor", "hub_manager")
+# Field roles see the hub's SELLING price for stocked catalog products, but NEVER a market price
+# (they request the price / order the market find through a BOQ order-request instead).
+_FIELD_ROLES = {"spokesperson", "site_engineer", "architect", "finance"}
 
 
 @router.post("/procurement/bom-optimize", dependencies=[Depends(BOM_SUGGEST)])
-def bom_optimize(body: schemas.BomOptimizeIn, refresh: bool = False, db: Session = Depends(get_db)):
-    """Find BOM alternatives: the Hub LLM suggests cheaper/alternative catalog products, and the
-    price-scout (SCOUT_API_KEY / Tavily) adds live open-market offers per material (advisory)."""
+def bom_optimize(body: schemas.BomOptimizeIn, refresh: bool = False,
+                 user: dict = Depends(current_user), db: Session = Depends(get_db)):
+    """Find BOM alternatives: the Hub LLM suggests cheaper/alternative catalog products (priced at the
+    hub's selling price), and the price-scout adds live open-market finds per material. Field roles see
+    the hub selling price for stocked products but not market prices - they request/order those."""
     import json as _json
+    field = user.get("role") in _FIELD_ROLES
     result = llm.complete_json(_BOM_OPT_SCHEMA, _json.dumps({
         "instruction": body.prompt, "current_bom": body.current_bom, "catalog": body.catalog,
     })) or {"summary": "Hub LLM unavailable - configure AI_PROVIDER.", "lines": []}
+    # Enrich catalog suggestions with the hub SELLING price (never cost) so the field can compare.
+    lines = result.get("lines") or []
+    prices = pricing_client.product_selling_prices([l.get("product_id") for l in lines if isinstance(l, dict)])
+    for l in lines:
+        if isinstance(l, dict) and l.get("product_id") in prices:
+            l["hub_price"] = prices[l["product_id"]]
+            l["in_inventory"] = True
     # Live open-market alternatives via the scout (reuses SCOUT_API_KEY / Tavily) for each material.
     mats = {l.get("material_id") for l in (body.current_bom or []) if isinstance(l, dict) and l.get("material_id")}
     market = {}
@@ -169,9 +182,19 @@ def bom_optimize(body: schemas.BomOptimizeIn, refresh: bool = False, db: Session
                 print(f"[bom-optimize] scout failed for {mid}: {type(e).__name__}: {e}", flush=True)
             offers = service.list_external_offers(db, mid)
         if offers:
-            market[mid] = [{"seller": o.seller, "product": o.product_name, "price": float(o.price),
-                            "url": o.url, "source": o.source, "confidence": o.confidence} for o in offers[:5]]
+            rows = []
+            for o in offers[:5]:
+                row = {"seller": o.seller, "product": o.product_name, "material_id": mid,
+                       "source": o.source, "confidence": o.confidence}
+                if field:
+                    row["price_hidden"] = True   # the field requests the price / orders it, never sees it
+                else:
+                    row["price"] = float(o.price)
+                    row["url"] = o.url
+                rows.append(row)
+            market[mid] = rows
     result["market"] = market
+    result["field_view"] = field
     return result
 
 
@@ -184,9 +207,13 @@ REQUESTER = require_role("spokesperson", "site_engineer", "architect", "finance"
 def create_order_request(body: schemas.OrderRequestIn, user: dict = Depends(current_user),
                          db: Session = Depends(get_db)):
     """A spoke asks the hub to procure stock (optionally tied to a project); needs hub approval."""
-    return _run(service.create_order_request, db=db, requested_by=user.get("name", ""),
-                requested_by_role=user.get("role", ""), site_ref=body.site_ref, note=body.note,
-                lines=[l.model_dump() for l in body.lines])
+    req = _run(service.create_order_request, db=db, requested_by=user.get("name", ""),
+               requested_by_role=user.get("role", ""), site_ref=body.site_ref, note=body.note,
+               lines=[l.model_dump() for l in body.lines])
+    site_client.notify(req.site_ref, "order_request",
+                       f"{req.code}: {len(req.lines)} item(s) requested by {req.requested_by_role or 'the field'}, "
+                       "awaiting procurement approval.", audience="all")
+    return req
 
 
 @router.get("/procurement/order-requests", response_model=list[schemas.OrderRequestOut])
@@ -199,9 +226,15 @@ def list_order_requests(status: str | None = None, db: Session = Depends(get_db)
 def decide_order_request(req_id: int, body: schemas.OrderRequestDecideIn,
                          user: dict = Depends(current_user), db: Session = Depends(get_db)):
     """Hub approves (choosing a vendor + per-product rate -> creates a PO) or rejects the request."""
-    return _run(service.decide_order_request, db=db, req_id=req_id, approve=body.approve,
-                vendor_id=body.vendor_id, prices=[p.model_dump() for p in body.prices],
-                decided_by=user.get("name", ""))
+    req = _run(service.decide_order_request, db=db, req_id=req_id, approve=body.approve,
+               vendor_id=body.vendor_id, prices=[p.model_dump() for p in body.prices],
+               decided_by=user.get("name", ""))
+    if req.status == "approved":
+        site_client.notify(req.site_ref, "order_approved",
+                           f"{req.code} approved by the hub; a purchase order was placed.", audience="all")
+    elif req.status == "rejected":
+        site_client.notify(req.site_ref, "order_rejected", f"{req.code} was declined by the hub.", audience="all")
+    return req
 
 
 @router.post("/procurement/boq-estimate")

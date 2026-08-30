@@ -397,6 +397,15 @@ def list_notifications(spoke_id: str | None = None, site_id: int | None = None,
                                       audiences=audiences, unread_only=unread_only)
 
 
+@router.post("/internal/notify", response_model=schemas.NotificationOut,
+             dependencies=[Depends(require_role("service"))])
+def internal_notify(body: schemas.InternalNotifyIn, db: Session = Depends(get_db)):
+    """Post a notification for a project on behalf of another service (e.g. procurement raises an
+    order-request event). Service-token only."""
+    return _run(service.notify_site_ref, db=db, site_ref=body.site_ref, kind=body.kind,
+                message=body.message, audience=body.audience)
+
+
 @router.post("/notifications/{notif_id}/read", response_model=schemas.NotificationOut)
 def read_notification(notif_id: int, db: Session = Depends(get_db)):
     return _run(service.mark_notification_read, db=db, notif_id=notif_id)

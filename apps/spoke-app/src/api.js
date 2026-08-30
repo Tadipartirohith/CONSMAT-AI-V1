@@ -1,7 +1,7 @@
 // Spoke app talks mainly to site-service (/site); reads hub stock (/inv) for context.
 import { authHeader, logout } from "./auth.js";
 
-const BASES = { site: "/site", inv: "/inv", proc: "/proc" };
+const BASES = { site: "/site", inv: "/inv", proc: "/proc", price: "/price" };
 
 export const PHASE_NAMES = {
   1: "Excavation & footing", 2: "Foundation & plinth beam", 3: "RCC superstructure",
@@ -92,6 +92,12 @@ export const inv = {
   materials: () => req("inv", "/materials"),
   products: (m) => req("inv", `/products${m ? `?material_id=${m}` : ""}`),
   searchProducts: (q) => req("inv", `/products/search?q=${encodeURIComponent(q)}`),
+};
+
+// pricing-service: the field team only ever sees the hub's SELLING price (no cost/margin).
+export const price = {
+  sellingPricesProducts: (productIds, tier) =>
+    req("price", "/selling-prices-products", body({ product_ids: productIds, tier: tier || null })),
 };
 
 export const proc = {

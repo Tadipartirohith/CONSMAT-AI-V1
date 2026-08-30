@@ -367,23 +367,40 @@ def create_order_request(db: Session, *, requested_by: str, requested_by_role: s
                          site_ref: str = "", note: str = "", lines: list[dict]) -> models.OrderRequest:
     if not lines:
         raise ProcurementError("An order request needs at least one line")
+    # A line is either a stocked catalog product (product_id) or a new/market item the hub does not
+    # stock yet (product_id blank + a free-text product_name). The hub reviews and, on approval, places
+    # the purchase order - which is exactly how a "request the price / order this market find" works.
+    extra_notes = []
     req = models.OrderRequest(site_ref=site_ref or "", note=note or "",
                               requested_by=requested_by, requested_by_role=requested_by_role)
     for ln in lines:
-        pid = ln.get("product_id", "") or ""
+        pid = (ln.get("product_id") or "").strip()
         qty = _dec(ln.get("qty", 0))
-        if not pid or qty <= 0:
+        name = (ln.get("product_name") or "").strip()
+        mid = (ln.get("material_id") or "").strip()
+        if qty <= 0:
             continue
-        prod = None
-        try:
-            prod = catalog_client.get_product(pid)
-        except Exception:  # noqa: BLE001
+        if pid:
             prod = None
-        req.lines.append(models.OrderRequestLine(
-            product_id=pid, material_id=(prod or {}).get("material_id", ""),
-            product_name=(prod or {}).get("name", pid), qty=qty))
+            try:
+                prod = catalog_client.get_product(pid)
+            except Exception:  # noqa: BLE001
+                prod = None
+            req.lines.append(models.OrderRequestLine(
+                product_id=pid, material_id=(prod or {}).get("material_id", "") or mid,
+                product_name=(prod or {}).get("name", "") or name or pid, qty=qty))
+        elif name:
+            req.lines.append(models.OrderRequestLine(product_id="", material_id=mid, product_name=name, qty=qty))
+            src = (ln.get("source") or "").strip()
+            ctx = (ln.get("note") or "").strip()
+            if src == "market":
+                extra_notes.append(f"'{name}' seen on the open market{f' ({ctx})' if ctx else ''} - price check / order requested")
+            elif src == "new":
+                extra_notes.append(f"'{name}' is a new product not yet stocked")
     if not req.lines:
-        raise ProcurementError("No valid lines (need a product and a positive quantity)")
+        raise ProcurementError("No valid lines (need a product or a named item, and a positive quantity)")
+    if extra_notes:
+        req.note = (req.note + " | " if req.note else "") + "; ".join(extra_notes)
     db.add(req)
     db.commit()
     db.refresh(req)

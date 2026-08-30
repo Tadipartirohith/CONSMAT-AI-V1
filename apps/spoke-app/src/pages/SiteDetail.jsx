@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { site, inv, proc, PHASE_NAMES } from "../api.js";
+import { site, inv, proc, PHASE_NAMES, inr } from "../api.js";
 import { Card, Table, Td, Badge, Button, Input, Select, useAsync } from "../components/ui.jsx";
 import { getUser } from "../auth.js";
 import { ArrowLeft, Compass, HardHat, Handshake, File, CheckCircle, Warning, X, Sparkle } from "@phosphor-icons/react";
@@ -246,6 +246,19 @@ function BomCard({ siteId, lines, editable, onSaved }) {
   const [info, setInfo] = useState(null);
   const [cmp, setCmp] = useState(null);
   const [sugg, setSugg] = useState(null);
+  const [reqMsg, setReqMsg] = useState(null);
+
+  const orderMarket = async (mid, offer) => {
+    setReqMsg(null);
+    try {
+      const qty = cleanRows().filter((r) => r.material_id === mid).reduce((t, r) => t + Number(r.total_qty || 0), 0) || 1;
+      const r = await proc.createOrderRequest({
+        site_ref: `SITE-${siteId}`, note: `BOQ open-market alternative for ${mid}`,
+        lines: [{ product_id: "", product_name: offer.product || mid, material_id: mid, source: "market", note: offer.seller || "", qty }],
+      });
+      setReqMsg({ ok: true, text: `Request ${r.code} sent to procurement for "${offer.product || mid}". The hub will price and order it.` });
+    } catch (e) { setReqMsg({ ok: false, text: e.message }); }
+  };
 
   const add = () => {
     const p = (products.data || []).find((x) => x.id === pid);
@@ -340,7 +353,7 @@ function BomCard({ siteId, lines, editable, onSaved }) {
           <Button variant="ghost" onClick={findAlternatives} disabled={busy || cleanRows().length === 0}><Sparkle size={14} weight="fill" />Find alternatives</Button>
           {err && <span className="text-xs text-red-300">{err}</span>}
         </div>
-        {sugg && <SuggestPanel sugg={sugg} onApply={applySuggestions} onClose={() => setSugg(null)} />}
+        {sugg && <SuggestPanel sugg={sugg} onApply={applySuggestions} onClose={() => setSugg(null)} onOrderMarket={orderMarket} reqMsg={reqMsg} />}
         {cmp && <ComparePanel cmp={cmp} onFinal={submitFinal} busy={busy} />}
         <p className="text-[11px] leading-relaxed text-muted">The SE builds the BOQ from the architect's design. Submitting compares it against the external app's BOQ; a difference over 5% needs a reconciled final BOQ. The final BOQ needs spoke + hub approval.</p>
       </div>
@@ -348,7 +361,7 @@ function BomCard({ siteId, lines, editable, onSaved }) {
   );
 }
 
-function SuggestPanel({ sugg, onApply, onClose }) {
+function SuggestPanel({ sugg, onApply, onClose, onOrderMarket, reqMsg }) {
   return (
     <div className="mt-2 rounded-xl border border-accent/25 bg-accent/[0.06] p-3.5">
       <div className="mb-1.5 flex items-center justify-between">
@@ -356,15 +369,17 @@ function SuggestPanel({ sugg, onApply, onClose }) {
         <button onClick={onClose} className="text-[11px] text-muted hover:text-white">dismiss</button>
       </div>
       {sugg.summary && <p className="mb-2 text-sm text-white/80">{sugg.summary}</p>}
+      {reqMsg && <p className={`mb-2 text-xs ${reqMsg.ok ? "text-emerald-300" : "text-red-300"}`}>{reqMsg.text}</p>}
       {(sugg.lines || []).length > 0 && (
         <>
-          <p className="mb-1 text-[10px] uppercase tracking-wider text-muted">Catalog alternatives (Hub LLM)</p>
+          <p className="mb-1 text-[10px] uppercase tracking-wider text-muted">In-catalog alternatives (hub selling price)</p>
           <div className="max-h-44 overflow-auto">
-            <Table head={["Suggested product", "Qty", "Why"]}>
+            <Table head={["Suggested product", "Qty", "Hub price", "Why"]}>
               {sugg.lines.map((l, i) => (
                 <tr key={i} className="border-b border-border/50">
                   <Td className="text-white/80">{l.product_name || l.product_id}</Td>
                   <Td mono>{l.total_qty}</Td>
+                  <Td mono className="text-white/90">{l.hub_price != null ? inr(l.hub_price) : "-"}</Td>
                   <Td className="text-[11px] text-muted">{l.reason || "-"}</Td>
                 </tr>
               ))}
@@ -375,16 +390,21 @@ function SuggestPanel({ sugg, onApply, onClose }) {
       )}
       {sugg.market && Object.keys(sugg.market).length > 0 && (
         <div className="mt-3 border-t border-border/60 pt-2">
-          <p className="mb-1 text-[10px] uppercase tracking-wider text-muted">Live open-market alternatives (web scout)</p>
+          <p className="mb-1 text-[10px] uppercase tracking-wider text-muted">Open-market finds</p>
+          <p className="mb-1.5 text-[11px] text-muted">Market prices are set by the hub. Request one and the procurement supervisor prices and orders it into your BOQ.</p>
           {Object.entries(sugg.market).map(([mid, offers]) => (
-            <div key={mid} className="mb-1.5">
-              <p className="text-[11px] text-white/60">{mid}</p>
-              {offers.map((o, i) => (
-                <div key={i} className="flex items-center justify-between gap-2 text-xs">
-                  <span className="min-w-0 flex-1 truncate text-white/80">{o.seller || "market"}, {o.product}</span>
-                  <span className="shrink-0 font-mono text-white/70">Rs {Math.round(o.price)}</span>
-                </div>
-              ))}
+            <div key={mid} className="mb-2">
+              <p className="mb-1 text-[11px] text-white/60">{mid}</p>
+              <div className="space-y-1">
+                {offers.map((o, i) => (
+                  <div key={i} className="flex items-center justify-between gap-2 rounded-lg bg-panel2 px-2.5 py-1.5 text-xs">
+                    <span className="min-w-0 flex-1 truncate text-white/80">{o.product}{o.seller ? ` - ${o.seller}` : ""}</span>
+                    {o.price != null
+                      ? <span className="shrink-0 font-mono text-white/70">{inr(o.price)}</span>
+                      : <Button size="sm" variant="ghost" onClick={() => onOrderMarket(mid, o)}>Request / order</Button>}
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
         </div>

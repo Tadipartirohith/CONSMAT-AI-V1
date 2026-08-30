@@ -12,19 +12,29 @@ from ..db import get_db
 HUB_WRITE = require_role("service", "hub_supervisor", "hub_manager")
 router = APIRouter(tags=["inventory"], dependencies=[Depends(current_user)])
 
+# The field team (spoke / site engineer / architect / finance) must never see the hub's cost or avg
+# cost price - only quantities (and, elsewhere, the hub's selling price). Cost stays with hub staff
+# and internal services (pricing computes selling price from it server-side).
+COST_HIDDEN_ROLES = {"spokesperson", "site_engineer", "architect", "finance"}
 
-def _stock(item) -> schemas.StockOut:
+
+def _hide_cost(user: dict) -> bool:
+    return (user or {}).get("role") in COST_HIDDEN_ROLES
+
+
+def _stock(item, hide_cost: bool = False) -> schemas.StockOut:
     return schemas.StockOut(
         material_id=item.material_id, on_hand=float(item.on_hand), reserved=float(item.reserved),
-        available=float(item.available), avg_cost=float(item.avg_cost), updated_at=item.updated_at,
+        available=float(item.available), avg_cost=0.0 if hide_cost else float(item.avg_cost),
+        updated_at=item.updated_at,
     )
 
 
-def _pstock(ps) -> schemas.ProductStockOut:
+def _pstock(ps, hide_cost: bool = False) -> schemas.ProductStockOut:
     return schemas.ProductStockOut(
         product_id=ps.product_id, material_id=ps.material_id, on_hand=float(ps.on_hand),
-        reserved=float(ps.reserved), available=float(ps.available), avg_cost=float(ps.avg_cost),
-        updated_at=ps.updated_at,
+        reserved=float(ps.reserved), available=float(ps.available),
+        avg_cost=0.0 if hide_cost else float(ps.avg_cost), updated_at=ps.updated_at,
     )
 
 
@@ -64,24 +74,26 @@ def get_product(product_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/inventory", response_model=list[schemas.StockOut])
-def list_stock(db: Session = Depends(get_db)):
-    return [_stock(i) for i in service.list_stock(db)]
+def list_stock(user: dict = Depends(current_user), db: Session = Depends(get_db)):
+    hide = _hide_cost(user)
+    return [_stock(i, hide) for i in service.list_stock(db)]
 
 
 @router.get("/inventory/{material_id}", response_model=schemas.StockOut)
-def get_stock(material_id: str, db: Session = Depends(get_db)):
+def get_stock(material_id: str, user: dict = Depends(current_user), db: Session = Depends(get_db)):
     item = service.get_item(db, material_id)
     if item is None:
         raise HTTPException(404, f"No inventory for material {material_id}")
-    return _stock(item)
+    return _stock(item, _hide_cost(user))
 
 
 # ---- Product-level (brand SKU) stock ----
 
 @router.get("/product-stock", response_model=list[schemas.ProductStockOut])
-def list_product_stock(material_id: str | None = None, db: Session = Depends(get_db)):
+def list_product_stock(material_id: str | None = None, user: dict = Depends(current_user), db: Session = Depends(get_db)):
     """Per-brand stock positions, optionally filtered by material."""
-    return [_pstock(ps) for ps in service.list_product_stock(db, material_id)]
+    hide = _hide_cost(user)
+    return [_pstock(ps, hide) for ps in service.list_product_stock(db, material_id)]
 
 
 @router.get("/product-stock/low", response_model=list[schemas.LowStockOut])
@@ -91,11 +103,11 @@ def low_stock(db: Session = Depends(get_db)):
 
 
 @router.get("/product-stock/{product_id}", response_model=schemas.ProductStockOut)
-def get_product_stock(product_id: str, db: Session = Depends(get_db)):
+def get_product_stock(product_id: str, user: dict = Depends(current_user), db: Session = Depends(get_db)):
     ps = service.get_product_stock(db, product_id)
     if ps is None:
         raise HTTPException(404, f"No stock for product {product_id}")
-    return _pstock(ps)
+    return _pstock(ps, _hide_cost(user))
 
 
 @router.get("/inventory/{material_id}/ledger", response_model=list[schemas.LedgerOut])

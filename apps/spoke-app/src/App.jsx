@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { MapTrifold, Bell, EnvelopeSimple, Handshake, Buildings, Wallet, Package, SignOut } from "@phosphor-icons/react";
+import NotificationBell from "./components/NotificationBell.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Intake from "./pages/Intake.jsx";
 import Sites from "./pages/Sites.jsx";
@@ -19,7 +20,7 @@ const NAV = [
   { to: "/intake", label: "Onboarding", icon: Handshake },
   { to: "/sites", label: "Sites", icon: Buildings },
   { to: "/finance", label: "Finance", icon: Wallet, roles: ["finance", "spokesperson", "hub_manager", "hub_supervisor"] },
-  { to: "/inventory", label: "Hub stock", icon: Package },
+  { to: "/inventory", label: "Inventory", icon: Package },
 ];
 
 export default function App() {
@@ -67,6 +68,9 @@ export default function App() {
 
       <main className="flex-1 overflow-x-hidden px-6 py-6">
         <div className="mx-auto max-w-6xl">
+          <div className="mb-5 flex items-center justify-end">
+            <NotificationBell />
+          </div>
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />

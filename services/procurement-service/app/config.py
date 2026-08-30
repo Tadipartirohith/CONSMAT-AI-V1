@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     inventory_url: str = "http://localhost:8001"
     # pricing-service base URL (fetch hub selling prices for profitability).
     pricing_url: str = "http://localhost:8004"
+    # site-service base URL (post notifications on order-request events).
+    site_url: str = "http://localhost:8003"
 
     # --- Hub LLM (procurement intelligence). stub = deterministic only, no key. ---
     ai_provider: str = "stub"          # stub | gemini | openai | groq | openrouter | anthropic | openai-compat

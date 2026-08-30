@@ -159,3 +159,16 @@ def selling_prices(db: Session, tier: str | None) -> dict[str, float]:
     for mid in inventory_client.material_ids():
         out[mid] = price_material(db, mid, tier)["unit_price"]
     return out
+
+
+def selling_prices_products(db: Session, product_ids: list[str], tier: str | None) -> dict[str, float]:
+    """Map product_id -> unit SELLING price only. Never returns cost or margin (field-safe)."""
+    out = {}
+    for pid in product_ids:
+        if not pid:
+            continue
+        try:
+            out[pid] = price_product(db, pid, tier)["unit_price"]
+        except Exception:  # noqa: BLE001, skip unknown/unpriceable products
+            continue
+    return out

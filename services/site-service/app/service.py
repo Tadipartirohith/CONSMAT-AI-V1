@@ -1193,6 +1193,23 @@ def _notify_finance(db: Session, site: models.Site, kind: str, message: str) -> 
         _notify(db, site, kind, message, audience="finance")
 
 
+def notify_site_ref(db: Session, *, site_ref: str, kind: str, message: str,
+                    audience: str = "all") -> models.Notification:
+    """Resolve SITE-<id> and post a notification. Used by other services (e.g. procurement raises an
+    event on an order-request tied to a project) via the internal endpoint."""
+    try:
+        sid = int(str(site_ref).strip().split("-")[-1])
+    except (ValueError, IndexError):
+        raise SiteError(f"Bad site ref: {site_ref}")
+    site = db.get(models.Site, sid)
+    if site is None:
+        raise SiteError(f"Unknown site: {site_ref}")
+    n = _notify(db, site, kind, message, audience=audience)
+    db.commit()
+    db.refresh(n)
+    return n
+
+
 def list_notifications(db: Session, *, spoke_id: str | None = None, site_id: int | None = None,
                        consumer_id: str | None = None, audiences: tuple | None = None,
                        unread_only: bool = False) -> list[models.Notification]:

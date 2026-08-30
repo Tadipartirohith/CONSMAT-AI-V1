@@ -60,3 +60,8 @@ class ProductQuoteItem(BaseModel):
 class ProductQuoteIn(BaseModel):
     tier: str | None = None
     items: list[ProductQuoteItem] = Field(min_length=1)
+
+
+class ProductPricesIn(BaseModel):
+    product_ids: list[str] = Field(min_length=1)
+    tier: str | None = None

@@ -69,3 +69,10 @@ def quote_products(body: schemas.ProductQuoteIn, db: Session = Depends(get_db)):
 def selling_prices(tier: str | None = None, db: Session = Depends(get_db)):
     """Map material_id -> unit selling price (consumed by procurement /analyze)."""
     return _run(service.selling_prices, db=db, tier=tier)
+
+
+@router.post("/selling-prices-products")
+def selling_prices_products(body: schemas.ProductPricesIn, db: Session = Depends(get_db)):
+    """Map product_id -> unit SELLING price only (no cost/margin). Field-safe: the spoke/SE see the
+    hub's selling price for stocked products, never the cost or avg price."""
+    return _run(service.selling_prices_products, db=db, product_ids=body.product_ids, tier=body.tier)

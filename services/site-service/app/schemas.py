@@ -164,6 +164,13 @@ class NotificationOut(BaseModel):
     created_at: datetime | None = None
 
 
+class InternalNotifyIn(BaseModel):
+    site_ref: str = Field(min_length=1)   # SITE-<id>
+    kind: str = "event"
+    message: str = Field(min_length=1)
+    audience: str = "all"
+
+
 class DispatchLineOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     material_id: str

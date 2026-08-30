@@ -58,6 +58,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
       INVENTORY_URL: http://inventory-service:8000
       PRICING_URL: http://pricing-service:8000
+      SITE_URL: http://site-service:8000
       # Hub LLM (procurement intelligence), stub unless configured in .env
       AI_PROVIDER: ${AI_PROVIDER:-stub}
       AI_API_KEY: ${AI_API_KEY:-}

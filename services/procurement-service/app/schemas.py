@@ -115,7 +115,11 @@ class BoqEstimateIn(BaseModel):
 
 
 class OrderReqLineIn(BaseModel):
-    product_id: str = Field(min_length=1)
+    product_id: str = ""            # "" for a product the hub does not stock yet (new / market find)
+    product_name: str = ""         # required when product_id is empty: the item being requested
+    material_id: str = ""          # optional category hint
+    source: str = "inventory"      # inventory | market | new (advisory; drives the request note)
+    note: str = ""                 # where the field saw it (e.g. a market seller)
     qty: float = Field(gt=0)
 
 
