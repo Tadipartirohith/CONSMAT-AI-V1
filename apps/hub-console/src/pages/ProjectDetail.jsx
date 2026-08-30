@@ -20,8 +20,8 @@ export default function ProjectDetail() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
-        <Link to="/projects" className="text-sm text-muted hover:text-white">Back to Projects</Link>
-        <h1 className="font-head text-2xl font-extrabold text-white">{s.label || s.code}</h1>
+        <Link to="/projects" className="text-sm text-muted hover:text-ink">Back to Projects</Link>
+        <h1 className="font-head text-2xl font-extrabold text-ink">{s.label || s.code}</h1>
         <Badge tone={s.status === "completed" ? "ok" : s.status === "active" ? "accent" : "muted"}>{s.status}</Badge>
         {s.project_type && <Badge tone={s.project_type === "captive" ? "accent" : "ok"}>{s.project_type}</Badge>}
         <span className="text-[11px] text-muted">{(s.stage || "onboarded").replace(/_/g, " ")}</span>
@@ -36,7 +36,7 @@ export default function ProjectDetail() {
       <div className="flex gap-1 border-b border-border">
         {TABS.map((t) => (
           <button key={t} onClick={() => setTab(t)}
-            className={`px-3 py-2 text-sm ${tab === t ? "border-b-2 border-accent text-accent" : "text-muted hover:text-white"}`}>{t}</button>
+            className={`px-3 py-2 text-sm ${tab === t ? "border-b-2 border-accent text-accent" : "text-muted hover:text-ink"}`}>{t}</button>
         ))}
       </div>
 
@@ -68,7 +68,7 @@ function BoqApprovalCard({ s, onChanged }) {
       {!latest ? <p className="text-sm text-muted">No final BOQ submitted yet.</p> : (
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="font-mono text-white">{latest.code}</span>
+            <span className="font-mono text-ink">{latest.code}</span>
             <Badge tone={latest.status === "approved" ? "ok" : latest.status === "submitted" ? "warn" : "muted"}>{latest.status}</Badge>
             <Badge tone={latest.spoke_approved_by ? "ok" : "muted"}>spoke {latest.spoke_approved_by ? "✓" : "…"}</Badge>
             <Badge tone={latest.hub_approved_by ? "ok" : "muted"}>hub {latest.hub_approved_by ? "✓" : "…"}</Badge>
@@ -97,7 +97,7 @@ function BoqApprovalCard({ s, onChanged }) {
               <Table head={["Product", "Required", "Available", "Status"]}>
                 {shortfalls.map((r) => (
                   <tr key={r.product_id} className="border-b border-border/50">
-                    <Td className="text-white/80">{r.product_name}</Td>
+                    <Td className="text-ink/80">{r.product_name}</Td>
                     <Td mono>{r.required}</Td>
                     <Td mono>{r.available}</Td>
                     <Td><Badge tone={r.status === "out" ? "bad" : "warn"}>{r.status === "out" ? "out of stock" : "low"}</Badge></Td>
@@ -168,7 +168,7 @@ function ControlTower({ s, needs, stock }) {
   const Tile = ({ label, value, sub, tone }) => (
     <div className="border border-border bg-panel p-3">
       <p className="text-[10px] uppercase tracking-wider text-muted">{label}</p>
-      <p className={`mt-0.5 font-head text-lg font-bold ${tone || "text-white"}`}>{value}</p>
+      <p className={`mt-0.5 font-head text-lg font-bold ${tone || "text-ink"}`}>{value}</p>
       {sub && <p className="text-[11px] text-muted">{sub}</p>}
     </div>
   );
@@ -178,8 +178,8 @@ function ControlTower({ s, needs, stock }) {
       <Tile label="Current phase" value={cur ? `${cur.phase_seq}. ${PHASE_NAMES[cur.phase_seq]}` : (s.status === "completed" ? "Completed" : "Not started")} sub={cur?.planned_end ? `ends ${cur.planned_end}` : "no end date"} />
       <Tile label="Progress" value={`${done}/9 phases`} sub={`${Math.round(done / 9 * 100)}% done`} />
       <Tile label="Next shipment" value={nextPhase ? `Phase ${nextPhase.phase_seq}` : "-"} sub={nextPhase ? (eta ? `~${eta}` : "set phase dates") : "all dispatched"} tone="text-accent" />
-      <Tile label="Stock for next phase" value={nextNeeds.length === 0 ? "-" : covered ? "Covered" : `${shortItems.length} short`} sub={shortItems.length ? shortItems.map((l) => l.product_name || l.material_id).join(", ") : (nextNeeds.length ? "hub has stock" : "nothing needed")} tone={nextNeeds.length === 0 ? "text-white" : covered ? "text-emerald-400" : "text-[#f59e0b]"} />
-      <Tile label="Deliveries confirmed" value={delivered.length === 0 ? "-" : `${confirmed}/${delivered.length}`} sub={awaiting > 0 ? `${awaiting} awaiting confirmation` : (delivered.length ? "all confirmed" : "none delivered")} tone={delivered.length === 0 ? "text-white" : awaiting > 0 ? "text-[#f59e0b]" : "text-emerald-400"} />
+      <Tile label="Stock for next phase" value={nextNeeds.length === 0 ? "-" : covered ? "Covered" : `${shortItems.length} short`} sub={shortItems.length ? shortItems.map((l) => l.product_name || l.material_id).join(", ") : (nextNeeds.length ? "hub has stock" : "nothing needed")} tone={nextNeeds.length === 0 ? "text-ink" : covered ? "text-emerald-400" : "text-[#f59e0b]"} />
+      <Tile label="Deliveries confirmed" value={delivered.length === 0 ? "-" : `${confirmed}/${delivered.length}`} sub={awaiting > 0 ? `${awaiting} awaiting confirmation` : (delivered.length ? "all confirmed" : "none delivered")} tone={delivered.length === 0 ? "text-ink" : awaiting > 0 ? "text-[#f59e0b]" : "text-emerald-400"} />
     </div>
   );
 }
@@ -206,12 +206,12 @@ function Overview({ s, notifs }) {
             {s.dispatches.slice().sort((a, b) => a.phase_seq - b.phase_seq).map((d) => (
               <div key={d.id} className="border border-border/60 bg-panel2 p-2.5 text-sm">
                 <div className="mb-1 flex items-center gap-2">
-                  <span className="font-mono text-white">{d.code}</span>
+                  <span className="font-mono text-ink">{d.code}</span>
                   <span className="text-muted">phase {d.phase_seq}</span>
                   <Badge tone={d.status === "dispatched" ? "ok" : d.status === "partial" ? "warn" : "bad"}>{d.status}</Badge>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {d.lines.map((l, i) => <span key={i} className={`font-mono text-xs ${l.status === "short" ? "text-red-400" : "text-white/70"}`}>{l.product_name || l.material_id} ×{l.qty}{l.status === "short" && " (short)"}</span>)}
+                  {d.lines.map((l, i) => <span key={i} className={`font-mono text-xs ${l.status === "short" ? "text-red-400" : "text-ink/70"}`}>{l.product_name || l.material_id} ×{l.qty}{l.status === "short" && " (short)"}</span>)}
                 </div>
               </div>
             ))}
@@ -220,7 +220,7 @@ function Overview({ s, notifs }) {
       </Card>
       <Card title="Notifications" className="lg:col-span-2">
         {(notifs.data || []).filter((n) => n.site_id === Number(s.id)).slice(0, 8).map((n) => (
-          <div key={n.id} className="border-b border-border/50 py-1.5 text-sm"><Badge tone={n.kind === "dispatched" ? "ok" : "warn"}>{n.kind}</Badge> <span className="ml-2 text-white/80">{n.message}</span></div>
+          <div key={n.id} className="border-b border-border/50 py-1.5 text-sm"><Badge tone={n.kind === "dispatched" ? "ok" : "warn"}>{n.kind}</Badge> <span className="ml-2 text-ink/80">{n.message}</span></div>
         ))}
         {(notifs.data || []).filter((n) => n.site_id === Number(s.id)).length === 0 && <p className="text-sm text-muted">No notifications.</p>}
       </Card>
@@ -288,7 +288,7 @@ function BomTab({ s, onSaved }) {
           {rows.map((r, i) => (
             <div key={i} className="flex items-center gap-2 text-sm">
               {r.product_id
-                ? <span className="flex-1 truncate text-white/80" title={r.product_name}>{r.product_name}</span>
+                ? <span className="flex-1 truncate text-ink/80" title={r.product_name}>{r.product_name}</span>
                 : editable
                   ? <Select value="" onChange={(e) => { const p = (products.data || []).find((x) => x.id === e.target.value); if (p) setRows(rows.map((x, j) => j === i ? { ...x, product_id: p.id, material_id: p.material_id, product_name: p.name } : x)); }}>
                       <option value="">map “{r.product_name}”…</option>
@@ -329,7 +329,7 @@ function BomTab({ s, onSaved }) {
           </div>
           {sug && (
             <div className="border border-accent/30 bg-accent/5 p-3 text-sm">
-              <p className="text-white/80">{sug.summary}</p>
+              <p className="text-ink/80">{sug.summary}</p>
               {sug.lines?.length > 0 && (
                 <Table head={["Product", "Qty", "Why"]}>
                   {sug.lines.map((l, i) => (
@@ -361,12 +361,12 @@ function PhaseNeedsTab({ s }) {
             <div key={p.phase_seq} className="border border-border/60 bg-panel2 p-2.5">
               <div className="mb-1 flex items-center gap-2 text-sm">
                 <span className="font-mono text-muted">{p.phase_seq}</span>
-                <span className="text-white/80">{PHASE_NAMES[p.phase_seq]}</span>
+                <span className="text-ink/80">{PHASE_NAMES[p.phase_seq]}</span>
                 <Badge tone={p.status === "done" ? "ok" : p.status === "in_progress" ? "accent" : "muted"}>{p.status}</Badge>
               </div>
               {p.lines.length === 0 ? <p className="text-[11px] text-muted">nothing required this phase</p> : (
                 <div className="flex flex-wrap gap-2">
-                  {p.lines.map((l, i) => <span key={i} className="border border-border px-2 py-0.5 font-mono text-xs text-white/70">{l.product_name || l.material_id} ×{l.qty}</span>)}
+                  {p.lines.map((l, i) => <span key={i} className="border border-border px-2 py-0.5 font-mono text-xs text-ink/70">{l.product_name || l.material_id} ×{l.qty}</span>)}
                 </div>
               )}
             </div>

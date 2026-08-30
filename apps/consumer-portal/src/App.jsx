@@ -3,7 +3,8 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import Home from "./pages/Home.jsx";
 import Project from "./pages/Project.jsx";
 import Login from "./pages/Login.jsx";
-import { getUser, logout } from "./auth.js";
+import { getUser } from "./auth.js";
+import ProfileMenu from "./components/ProfileMenu.jsx";
 
 export default function App() {
   const [user, setUser] = useState(getUser());
@@ -15,15 +16,12 @@ export default function App() {
     <div className="min-h-[100dvh] bg-bg">
       <div className="mx-auto max-w-4xl px-4 pt-4">
         <header className="flex items-center gap-3 rounded-2xl bg-panel nm-raised px-5 py-3.5">
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-accent nm-raised-sm font-mono text-base font-bold text-black">C</div>
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-accent nm-raised-sm font-mono text-base font-bold text-onAccent">C</div>
           <div className="mr-auto">
-            <p className="font-head text-sm font-bold leading-tight text-white">Consmat</p>
+            <p className="font-head text-sm font-bold leading-tight text-ink">Consmat</p>
             <p className="text-[10px] leading-tight text-muted">My Project</p>
           </div>
-          <div className="text-right">
-            <p className="text-xs font-medium text-white">{user.name}</p>
-            <button onClick={logout} className="text-[11px] text-accent hover:underline">Sign out</button>
-          </div>
+          <ProfileMenu />
         </header>
       </div>
 

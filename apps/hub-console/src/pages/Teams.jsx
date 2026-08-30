@@ -32,7 +32,7 @@ export default function Teams() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="font-head text-2xl font-extrabold text-white">Teams</h1>
+        <h1 className="font-head text-2xl font-extrabold text-ink">Teams</h1>
         <p className="text-xs text-muted">Teams are the assignment unit (like an OpenStack project). Members hold a team role - admin, member, or viewer. A team admin, HR, or the org admin can grant and revoke membership.</p>
       </div>
       {msg && <p className={`text-xs ${msg.ok ? "text-emerald-400" : "text-red-400"}`}>{msg.text}</p>}
@@ -43,9 +43,9 @@ export default function Teams() {
             <div className="space-y-1.5">
               {(teamsA.data || []).map((tm) => (
                 <button key={tm.id} onClick={() => setSel(tm.id)}
-                  className={`w-full rounded border px-3 py-2 text-left transition-colors ${sel === tm.id ? "border-accent/50 bg-accent/10" : "border-border bg-panel2 hover:bg-white/5"}`}>
+                  className={`w-full rounded border px-3 py-2 text-left transition-colors ${sel === tm.id ? "border-accent/50 bg-accent/10" : "border-border bg-panel2 hover:bg-muted/10"}`}>
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium text-white">{tm.name}</span>
+                    <span className="text-sm font-medium text-ink">{tm.name}</span>
                     <span className="text-[11px] text-muted">{tm.member_count} member{tm.member_count === 1 ? "" : "s"}</span>
                   </div>
                   <div className="mt-0.5 flex items-center gap-2">
@@ -77,7 +77,7 @@ export default function Teams() {
               <Table head={["Member", "Email", "Team role", "Granted by", canManage ? "" : null].filter((x) => x !== null)}>
                 {t.members.map((m) => (
                   <tr key={m.user_id} className="border-b border-border/50">
-                    <Td className="text-white/90">{m.name}</Td>
+                    <Td className="text-ink/90">{m.name}</Td>
                     <Td mono className="text-muted">{m.user_id}</Td>
                     <Td>
                       {canManage ? (

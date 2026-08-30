@@ -82,7 +82,7 @@ export default function Projects() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-head text-2xl font-extrabold text-white">Projects</h1>
+          <h1 className="font-head text-2xl font-extrabold text-ink">Projects</h1>
           <p className="text-xs text-muted">Manager oversight. Browse by area, or filter across every location.</p>
         </div>
         <Button size="sm" variant="ghost" onClick={() => { sites.reload(); changes.reload(); areaReqs.reload(); }}>Refresh</Button>
@@ -145,7 +145,7 @@ export default function Projects() {
           {areas.map((a) => (
             <button key={a.id} onClick={() => setF({ area: a.id })} className="border border-border bg-panel p-4 text-left hover:border-accent">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-white">📍 {a.name}</span>
+                <span className="text-sm font-semibold text-ink">📍 {a.name}</span>
                 <span className="text-[11px] text-muted">{a.sites.length} project(s)</span>
               </div>
               <p className="mt-1 text-[11px] text-muted">{[...a.regions].join(", ") || "no regions"}</p>

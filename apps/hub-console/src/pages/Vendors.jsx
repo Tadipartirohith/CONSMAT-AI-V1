@@ -47,7 +47,7 @@ export default function Vendors() {
 
   return (
     <div className="space-y-5">
-      <h1 className="font-head text-2xl font-extrabold text-white">Vendors & Products</h1>
+      <h1 className="font-head text-2xl font-extrabold text-ink">Vendors & Products</h1>
       {msg && <p className="text-xs text-red-400">{msg}</p>}
 
       <ProductSearch />
@@ -115,7 +115,7 @@ export default function Vendors() {
             </form>
           </Card>
           <Card title="Vendor prices">
-            <p className="text-sm text-muted">Prices are now captured when you <b className="text-white/80">receive stock</b> (Inventory to Receive stock records the vendor, product and rate together). The market view below reflects the latest rates.</p>
+            <p className="text-sm text-muted">Prices are now captured when you <b className="text-ink/80">receive stock</b> (Inventory to Receive stock records the vendor, product and rate together). The market view below reflects the latest rates.</p>
           </Card>
         </div>
       </div>

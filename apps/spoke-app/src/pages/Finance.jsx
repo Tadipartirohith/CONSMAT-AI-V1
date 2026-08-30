@@ -16,7 +16,7 @@ export default function Finance() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="font-head text-2xl font-extrabold text-white">Finance</h1>
+        <h1 className="font-head text-2xl font-extrabold text-ink">Finance</h1>
         <p className="text-xs text-muted">Secure funding for captive projects from a preferred partner, and track status.</p>
       </div>
       {msg && <p className={`text-xs ${msg.ok ? "text-emerald-400" : "text-red-400"}`}>{msg.text}</p>}
@@ -60,7 +60,7 @@ function FinanceRow({ s, partners, onMsg }) {
     <div className="border border-border/60 bg-panel2 p-3">
       <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
         <Link to={`/sites/${s.id}`} className="font-mono text-accent hover:underline">{s.code}</Link>
-        <span className="text-white/80">{s.label || "-"}</span>
+        <span className="text-ink/80">{s.label || "-"}</span>
         <span className="text-[11px] text-muted">{(s.stage || "").replace(/_/g, " ")}</span>
         {f && <Badge tone={f.status === "approved" ? "ok" : f.status === "rejected" ? "bad" : "warn"}>{f.status.replace("_", " ")}</Badge>}
         {f?.eligibility && f.eligibility !== "pending" && <Badge tone={f.eligibility === "eligible" ? "ok" : f.eligibility === "not_eligible" ? "bad" : "accent"}>{f.eligibility.replace("_", " ")}</Badge>}
@@ -114,7 +114,7 @@ function PartnersCard({ partners, onMsg }) {
       <Table head={["Name", "Kind", "Status", "Note"]}>
         {(partners.data || []).map((p) => (
           <tr key={p.id} className="border-b border-border/50">
-            <Td className="text-white/85">{p.name}</Td>
+            <Td className="text-ink/85">{p.name}</Td>
             <Td><Badge tone={p.kind === "internal" ? "accent" : "muted"}>{p.kind}</Badge></Td>
             <Td>{p.active ? <Badge tone="ok">active</Badge> : <Badge tone="muted">inactive</Badge>}</Td>
             <Td className="text-muted">{p.note || "-"}</Td>

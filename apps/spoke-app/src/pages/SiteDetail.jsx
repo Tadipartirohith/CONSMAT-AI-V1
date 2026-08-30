@@ -24,7 +24,7 @@ function RoleGuide() {
       <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-accent/15 text-accent"><Icon size={18} weight="fill" /></div>
       <div>
         <p className="text-xs font-semibold text-accent">{t.title}</p>
-        <p className="mt-0.5 text-[11px] leading-relaxed text-white/70">{t.text}</p>
+        <p className="mt-0.5 text-[11px] leading-relaxed text-ink/70">{t.text}</p>
       </div>
     </div>
   );
@@ -59,8 +59,8 @@ export default function SiteDetail() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
-        <Link to="/sites" className="flex items-center gap-1 text-sm text-muted transition-colors hover:text-white"><ArrowLeft size={15} />Sites</Link>
-        <h1 className="font-head text-2xl font-extrabold text-white">{s.code}</h1>
+        <Link to="/sites" className="flex items-center gap-1 text-sm text-muted transition-colors hover:text-ink"><ArrowLeft size={15} />Sites</Link>
+        <h1 className="font-head text-2xl font-extrabold text-ink">{s.code}</h1>
         <Badge tone={s.status === "completed" ? "ok" : s.status === "active" ? "accent" : "muted"}>{s.status}</Badge>
         {s.project_type && <Badge tone={s.project_type === "captive" ? "accent" : "ok"}>{s.project_type}</Badge>}
         <span className="text-[11px] capitalize text-muted">{(s.stage || "onboarded").replace(/_/g, " ")}</span>
@@ -94,7 +94,7 @@ export default function SiteDetail() {
         <Card title="Phase date changes awaiting your approval">
           {pending.map((c) => (
             <div key={c.id} className="flex flex-wrap items-center gap-3 border-b border-border/50 py-2 text-sm last:border-0">
-              <span className="text-white/80">Phase {c.phase_seq} ({PHASE_NAMES[c.phase_seq]}): end {c.old_end || "?"} to <b className="text-white">{c.new_end}</b></span>
+              <span className="text-ink/80">Phase {c.phase_seq} ({PHASE_NAMES[c.phase_seq]}): end {c.old_end || "?"} to <b className="text-ink">{c.new_end}</b></span>
               {c.escalated && <Badge tone="bad">escalated, needs hub</Badge>}
               {c.remarks && <span className="text-[11px] text-[#fbbf24]">"{c.remarks}"</span>}
               <span className="text-muted">by {c.requested_by || c.requested_by_role}</span>
@@ -129,7 +129,7 @@ export default function SiteDetail() {
             {s.dispatches.slice().sort((a, b) => a.phase_seq - b.phase_seq).map((d) => (
               <div key={d.id} className="rounded-xl border border-border/40 bg-panel2 p-3.5">
                 <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
-                  <span className="font-mono text-white">{d.code}</span>
+                  <span className="font-mono text-ink">{d.code}</span>
                   <span className="text-muted">phase {d.phase_seq}, {PHASE_NAMES[d.phase_seq]}</span>
                   <Badge tone={d.status === "received" ? "accent" : d.status === "dispatched" ? "ok" : d.status === "partial" ? "warn" : "bad"}>{d.status}</Badge>
                   {d.status === "dispatched" && <Button size="sm" onClick={() => act(() => site.confirmDelivery(d.id), "Delivery confirmed")} disabled={busy}>Confirm delivery</Button>}
@@ -137,7 +137,7 @@ export default function SiteDetail() {
                 </div>
                 <div className="flex flex-wrap gap-x-3 gap-y-1">
                   {d.lines.map((l, i) => (
-                    <span key={i} className={`font-mono text-xs ${l.status === "short" ? "text-red-300" : "text-white/70"}`}>
+                    <span key={i} className={`font-mono text-xs ${l.status === "short" ? "text-red-300" : "text-ink/70"}`}>
                       {l.product_name || l.material_id} x{l.qty}{l.status === "short" && " (short)"}
                     </span>
                   ))}
@@ -152,7 +152,7 @@ export default function SiteDetail() {
         {(notifs.data || []).filter((n) => n.site_id === Number(id)).slice(0, 8).map((n) => (
           <div key={n.id} className="flex items-center gap-2 border-b border-border/50 py-2 text-sm last:border-0">
             <Badge tone={n.kind === "dispatched" ? "ok" : "warn"}>{n.kind}</Badge>
-            <span className="text-white/80">{n.message}</span>
+            <span className="text-ink/80">{n.message}</span>
           </div>
         ))}
         {(notifs.data || []).filter((n) => n.site_id === Number(id)).length === 0 && <p className="text-sm text-muted">No notifications for this site yet.</p>}
@@ -177,7 +177,7 @@ function BoqStatusCard({ siteId, onMsg, reload }) {
     <Card title="BOQ status" right={<Button size="sm" variant="ghost" onClick={() => { boqs.reload(); changes.reload(); }}>Refresh</Button>}>
       {latest ? (
         <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="font-mono text-white">{latest.code}</span>
+          <span className="font-mono text-ink">{latest.code}</span>
           <Badge tone={latest.status === "approved" ? "ok" : latest.status === "submitted" ? "warn" : "muted"}>{latest.status}</Badge>
           <Badge tone={latest.spoke_approved_by ? "ok" : "muted"}>spoke {latest.spoke_approved_by ? "ok" : "pending"}</Badge>
           <Badge tone={latest.hub_approved_by ? "ok" : "muted"}>hub {latest.hub_approved_by ? "ok" : "pending"}</Badge>
@@ -189,7 +189,7 @@ function BoqStatusCard({ siteId, onMsg, reload }) {
           <p className="text-[11px] uppercase tracking-wider text-[#fbbf24]">Hub change requests (need spoke + SE acknowledgement)</p>
           {pendingChanges.map((c) => (
             <div key={c.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-[#f59e0b]/30 bg-panel2 px-3 py-2 text-sm">
-              <span className="flex-1 text-white/80">{c.note}</span>
+              <span className="flex-1 text-ink/80">{c.note}</span>
               <Badge tone={c.spoke_acked ? "ok" : "muted"}>spoke</Badge>
               <Badge tone={c.ce_acked ? "ok" : "muted"}>SE</Badge>
               <Button size="sm" onClick={() => ack(c.id)} disabled={busy}>Acknowledge</Button>
@@ -325,7 +325,7 @@ function BomCard({ siteId, lines, editable, onSaved }) {
         {rows.map((r, i) => (
           <div key={i} className="flex items-center gap-2 text-sm">
             {r.product_id
-              ? <span className="flex-1 truncate text-white/80" title={r.product_name}>{r.product_name}</span>
+              ? <span className="flex-1 truncate text-ink/80" title={r.product_name}>{r.product_name}</span>
               : <Select value="" onChange={(e) => { const p = (products.data || []).find((x) => x.id === e.target.value); if (p) setRows(rows.map((x, j) => j === i ? { ...x, product_id: p.id, material_id: p.material_id, product_name: p.name } : x)); }}>
                   <option value="">map "{r.product_name}"...</option>
                   {(products.data || []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -366,9 +366,9 @@ function SuggestPanel({ sugg, onApply, onClose, onOrderMarket, reqMsg }) {
     <div className="mt-2 rounded-xl border border-accent/25 bg-accent/[0.06] p-3.5">
       <div className="mb-1.5 flex items-center justify-between">
         <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-accent"><Sparkle size={13} weight="fill" />AI alternatives</p>
-        <button onClick={onClose} className="text-[11px] text-muted hover:text-white">dismiss</button>
+        <button onClick={onClose} className="text-[11px] text-muted hover:text-ink">dismiss</button>
       </div>
-      {sugg.summary && <p className="mb-2 text-sm text-white/80">{sugg.summary}</p>}
+      {sugg.summary && <p className="mb-2 text-sm text-ink/80">{sugg.summary}</p>}
       {reqMsg && <p className={`mb-2 text-xs ${reqMsg.ok ? "text-emerald-300" : "text-red-300"}`}>{reqMsg.text}</p>}
       {(sugg.lines || []).length > 0 && (
         <>
@@ -377,9 +377,9 @@ function SuggestPanel({ sugg, onApply, onClose, onOrderMarket, reqMsg }) {
             <Table head={["Suggested product", "Qty", "Hub price", "Why"]}>
               {sugg.lines.map((l, i) => (
                 <tr key={i} className="border-b border-border/50">
-                  <Td className="text-white/80">{l.product_name || l.product_id}</Td>
+                  <Td className="text-ink/80">{l.product_name || l.product_id}</Td>
                   <Td mono>{l.total_qty}</Td>
-                  <Td mono className="text-white/90">{l.hub_price != null ? inr(l.hub_price) : "-"}</Td>
+                  <Td mono className="text-ink/90">{l.hub_price != null ? inr(l.hub_price) : "-"}</Td>
                   <Td className="text-[11px] text-muted">{l.reason || "-"}</Td>
                 </tr>
               ))}
@@ -394,13 +394,13 @@ function SuggestPanel({ sugg, onApply, onClose, onOrderMarket, reqMsg }) {
           <p className="mb-1.5 text-[11px] text-muted">Market prices are set by the hub. Request one and the procurement supervisor prices and orders it into your BOQ.</p>
           {Object.entries(sugg.market).map(([mid, offers]) => (
             <div key={mid} className="mb-2">
-              <p className="mb-1 text-[11px] text-white/60">{mid}</p>
+              <p className="mb-1 text-[11px] text-ink/60">{mid}</p>
               <div className="space-y-1">
                 {offers.map((o, i) => (
                   <div key={i} className="flex items-center justify-between gap-2 rounded-lg bg-panel2 px-2.5 py-1.5 text-xs">
-                    <span className="min-w-0 flex-1 truncate text-white/80">{o.product}{o.seller ? ` - ${o.seller}` : ""}</span>
+                    <span className="min-w-0 flex-1 truncate text-ink/80">{o.product}{o.seller ? ` - ${o.seller}` : ""}</span>
                     {o.price != null
-                      ? <span className="shrink-0 font-mono text-white/70">{inr(o.price)}</span>
+                      ? <span className="shrink-0 font-mono text-ink/70">{inr(o.price)}</span>
                       : <Button size="sm" variant="ghost" onClick={() => onOrderMarket(mid, o)}>Request / order</Button>}
                   </div>
                 ))}
@@ -435,7 +435,7 @@ function ComparePanel({ cmp, onFinal, busy }) {
             const d = Math.max(ce, ext) ? Math.abs(ce - ext) / Math.max(ce, ext) * 100 : 0;
             return (
               <tr key={i} className="border-b border-border/50">
-                <Td className="text-white/80">{l.product_name || key}</Td>
+                <Td className="text-ink/80">{l.product_name || key}</Td>
                 <Td mono>{ce}</Td>
                 <Td mono>{ext}</Td>
                 <Td mono className={d > cmp.threshold ? "text-red-300" : "text-muted"}>{d.toFixed(1)}%</Td>
@@ -459,7 +459,7 @@ function PhaseRow({ phase: p, busy, onComplete, onDates }) {
     <div className="rounded-xl border border-border/40 bg-panel2 px-3.5 py-2.5">
       <div className="flex items-center gap-3">
         <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-bg font-mono text-[11px] text-muted">{p.phase_seq}</span>
-        <span className="flex-1 text-sm text-white/85">{PHASE_NAMES[p.phase_seq]}</span>
+        <span className="flex-1 text-sm text-ink/85">{PHASE_NAMES[p.phase_seq]}</span>
         <Badge tone={p.status === "done" ? "ok" : p.status === "in_progress" ? "accent" : "muted"}>{p.status.replace("_", " ")}</Badge>
         <Button size="sm" variant="ghost" onClick={() => setEditing(!editing)}>{editing ? "Cancel" : "Dates"}</Button>
         {p.status === "in_progress" && <Button size="sm" onClick={onComplete} disabled={busy}>Complete</Button>}
@@ -483,7 +483,7 @@ function Info({ label, value }) {
   return (
     <div>
       <p className="text-[10px] uppercase tracking-wider text-muted">{label}</p>
-      <p className="mt-0.5 text-white">{value}</p>
+      <p className="mt-0.5 text-ink">{value}</p>
     </div>
   );
 }

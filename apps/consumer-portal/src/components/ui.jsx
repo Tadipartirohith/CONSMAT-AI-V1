@@ -7,7 +7,7 @@ export function Card({ title, right, children, className = "" }) {
     <div className={`rounded-2xl bg-panel nm-raised ${className}`}>
       {(title || right) && (
         <div className="flex items-center justify-between border-b border-border/50 px-5 py-3">
-          <h3 className="font-head text-sm font-semibold text-white">{title}</h3>
+          <h3 className="font-head text-sm font-semibold text-ink">{title}</h3>
           {right}
         </div>
       )}
@@ -18,7 +18,7 @@ export function Card({ title, right, children, className = "" }) {
 
 export function Badge({ children, tone = "muted", className = "" }) {
   const tones = {
-    muted: "bg-white/5 text-muted",
+    muted: "bg-muted/10 text-muted",
     ok: "bg-emerald-500/15 text-emerald-300",
     warn: "bg-[#f59e0b]/15 text-[#fbbf24]",
     bad: "bg-red-500/15 text-red-300",

@@ -21,12 +21,12 @@ export default function Dashboard() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-[11px] uppercase tracking-wider text-accent">Coverage · geofenced service area</p>
-            <h1 className="font-head text-2xl font-extrabold text-white">{d?.spoke?.name || "My coverage"}</h1>
+            <h1 className="font-head text-2xl font-extrabold text-ink">{d?.spoke?.name || "My coverage"}</h1>
             <p className="mt-0.5 text-xs text-muted">Hi {me?.name || "there"} - your consumers, sites and deliveries needing attention.</p>
           </div>
           <div className="text-right">
             <p className="text-[10px] uppercase tracking-wider text-muted">Regions served</p>
-            <p className="mt-1 max-w-xs text-sm text-white/90">{regions.length ? regions.join(", ") : "no regions yet"}</p>
+            <p className="mt-1 max-w-xs text-sm text-ink/90">{regions.length ? regions.join(", ") : "no regions yet"}</p>
           </div>
         </div>
       </div>

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
-import { MapTrifold, Bell, EnvelopeSimple, Handshake, Buildings, Wallet, Package, SignOut } from "@phosphor-icons/react";
+import { MapTrifold, Bell, EnvelopeSimple, Handshake, Buildings, Wallet, Package } from "@phosphor-icons/react";
 import NotificationBell from "./components/NotificationBell.jsx";
+import ProfileMenu from "./components/ProfileMenu.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Intake from "./pages/Intake.jsx";
 import Sites from "./pages/Sites.jsx";
@@ -11,7 +12,7 @@ import Inventory from "./pages/Inventory.jsx";
 import Enquiries from "./pages/Enquiries.jsx";
 import Notifications from "./pages/Notifications.jsx";
 import Login from "./pages/Login.jsx";
-import { getUser, logout } from "./auth.js";
+import { getUser } from "./auth.js";
 
 const NAV = [
   { to: "/dashboard", label: "Coverage", icon: MapTrifold },
@@ -30,9 +31,9 @@ export default function App() {
     <div className="flex min-h-[100dvh] bg-bg">
       <aside className="flex w-60 shrink-0 flex-col px-3 py-4">
         <div className="mb-6 flex items-center gap-3 px-2">
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-accent nm-raised-sm font-mono text-base font-bold text-black">C</div>
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-accent nm-raised-sm font-mono text-base font-bold text-onAccent">C</div>
           <div>
-            <p className="font-head text-sm font-bold leading-tight text-white">Consmat Field</p>
+            <p className="font-head text-sm font-bold leading-tight text-ink">Consmat Field</p>
             <p className="text-[10px] leading-tight text-muted">Spoke workspace</p>
           </div>
         </div>
@@ -46,7 +47,7 @@ export default function App() {
                   `flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm transition-all ${
                     isActive
                       ? "bg-panel2 nm-inset font-semibold text-accent"
-                      : "text-white/70 hover:bg-white/[0.04] hover:text-white"
+                      : "text-ink/70 hover:bg-muted/[0.08] hover:text-ink"
                   }`}>
                 {({ isActive }) => (<><Icon size={19} weight={isActive ? "fill" : "regular"} />{n.label}</>)}
               </NavLink>
@@ -54,22 +55,22 @@ export default function App() {
           })}
         </nav>
 
-        <div className="mt-auto flex items-center gap-3 rounded-xl bg-panel nm-raised-sm px-3.5 py-3">
+        <div className="mt-auto flex items-center gap-2.5 rounded-xl bg-panel nm-raised-sm px-3.5 py-3">
+          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-accent/20 font-mono text-xs font-bold text-accent">
+            {(user.name || "?").slice(0, 1).toUpperCase()}
+          </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-semibold text-white">{user.name}</p>
+            <p className="truncate text-xs font-semibold text-ink">{user.name}</p>
             <p className="text-[10px] capitalize text-muted">{(user.role || "").replace(/_/g, " ")}</p>
           </div>
-          <button onClick={logout} title="Sign out"
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted transition-colors hover:text-accent">
-            <SignOut size={17} />
-          </button>
         </div>
       </aside>
 
       <main className="flex-1 overflow-x-hidden px-6 py-6">
         <div className="mx-auto max-w-6xl">
-          <div className="mb-5 flex items-center justify-end">
+          <div className="mb-5 flex items-center justify-end gap-2.5">
             <NotificationBell />
+            <ProfileMenu />
           </div>
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />

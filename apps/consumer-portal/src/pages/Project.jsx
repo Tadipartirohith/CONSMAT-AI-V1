@@ -39,17 +39,17 @@ export default function Project({ me }) {
 
   return (
     <div className="space-y-5">
-      <Link to="/" className="text-sm text-muted hover:text-white">Back to My projects</Link>
+      <Link to="/" className="text-sm text-muted hover:text-ink">Back to My projects</Link>
 
       <div className="border border-border bg-panel p-5">
         <div className="flex items-center justify-between">
-          <h1 className="font-head text-2xl font-extrabold text-white">{s.label || s.code}</h1>
+          <h1 className="font-head text-2xl font-extrabold text-ink">{s.label || s.code}</h1>
           <Badge tone={s.status === "completed" ? "ok" : s.status === "active" ? "accent" : "muted"}>{s.status}</Badge>
         </div>
         <p className="mt-1 text-sm text-muted">{s.location} · {s.area_sqft} sqft · {s.floors} floor(s) · {s.construction_type}</p>
         <div className="mt-4">
           <div className="mb-1 flex justify-between text-sm">
-            <span className="text-white">{pr.currentSeq ? `Currently in Phase ${pr.currentSeq} of ${pr.total}: ${PHASE_NAMES[pr.currentSeq]}` : s.status === "completed" ? "Project complete 🎉" : "Awaiting start"}</span>
+            <span className="text-ink">{pr.currentSeq ? `Currently in Phase ${pr.currentSeq} of ${pr.total}: ${PHASE_NAMES[pr.currentSeq]}` : s.status === "completed" ? "Project complete 🎉" : "Awaiting start"}</span>
             <span className="font-mono text-accent">{pr.done}/{pr.total} phases · {pr.pct}%</span>
           </div>
           <Progress pct={pr.pct} />
@@ -57,7 +57,7 @@ export default function Project({ me }) {
         <div className="mt-4 flex items-center gap-2 rounded border border-accent/30 bg-accent/5 px-3 py-2 text-sm">
           <span className="text-lg">🚚</span>
           <span className="text-[10px] uppercase tracking-wider text-accent">Next delivery</span>
-          <span className="text-white/90">{nextDelivery}</span>
+          <span className="text-ink/90">{nextDelivery}</span>
         </div>
       </div>
 
@@ -82,7 +82,7 @@ export default function Project({ me }) {
                 </div>
                 <div className="flex-1 pb-3">
                   <div className="flex items-center gap-2">
-                    <span className={`text-sm ${p.status === "pending" ? "text-muted" : "text-white"}`}>
+                    <span className={`text-sm ${p.status === "pending" ? "text-muted" : "text-ink"}`}>
                       {p.phase_seq}. {PHASE_NAMES[p.phase_seq]}
                     </span>
                     <Badge tone={p.status === "done" ? "ok" : p.status === "in_progress" ? "warn" : "muted"}>{p.status.replace("_", " ")}</Badge>
@@ -143,7 +143,7 @@ function UpdatesFeed({ events, siteId, me }) {
                 <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.read ? "bg-transparent" : "bg-accent"}`} />
                 <span className="text-base">{e.icon}</span>
                 <div>
-                  <span className={n.read ? "text-white/70" : "text-white/90"}>{n.message}</span>
+                  <span className={n.read ? "text-ink/70" : "text-ink/90"}>{n.message}</span>
                   {n.created_at && <span className="ml-2 text-[11px] text-muted">{new Date(n.created_at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>}
                 </div>
               </div>
@@ -187,7 +187,7 @@ function PayPanel({ site: s, me }) {
       <div className="flex flex-wrap items-center gap-4">
         <div>
           <p className="text-[10px] uppercase tracking-wider text-muted">Estimate ({tier || "…"} pricing)</p>
-          <p className="font-mono text-xl font-bold text-white">{total != null ? inr(total) : "…"}</p>
+          <p className="font-mono text-xl font-bold text-ink">{total != null ? inr(total) : "…"}</p>
         </div>
         <div className="ml-auto">
           {payment ? (
@@ -196,7 +196,7 @@ function PayPanel({ site: s, me }) {
             </span>
           ) : (
             <button onClick={doPay} disabled={busy || total == null}
-              className="bg-accent px-4 py-2 text-sm font-semibold text-black hover:bg-accentHover disabled:opacity-40">
+              className="bg-accent px-4 py-2 text-sm font-semibold text-onAccent hover:bg-accentHover disabled:opacity-40">
               {busy ? "Processing…" : `Pay ${total != null ? inr(total) : ""}`}
             </button>
           )}
@@ -208,7 +208,7 @@ function PayPanel({ site: s, me }) {
             <span>Funds held safely in escrow, released to the supplier only as deliveries are confirmed.</span>
             <span className="font-mono">{relPct}% released</span>
           </div>
-          <div className="h-2 w-full overflow-hidden rounded bg-white/10">
+          <div className="h-2 w-full overflow-hidden rounded bg-muted/15">
             <div className="h-full rounded bg-accent" style={{ width: `${relPct}%` }} />
           </div>
         </div>

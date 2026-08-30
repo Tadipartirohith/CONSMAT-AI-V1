@@ -2,7 +2,7 @@ import { useState } from "react";
 import { NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import {
   Gauge, EnvelopeSimple, Buildings, Package, Storefront, TrendUp, ShoppingCart,
-  Tag, CreditCard, ChartLineUp, IdentificationBadge, UsersThree, MagnifyingGlass, SignOut,
+  Tag, CreditCard, ChartLineUp, IdentificationBadge, UsersThree, MagnifyingGlass,
 } from "@phosphor-icons/react";
 import Overview from "./pages/Overview.jsx";
 import Projects from "./pages/Projects.jsx";
@@ -18,7 +18,9 @@ import Team from "./pages/Team.jsx";
 import Teams from "./pages/Teams.jsx";
 import Enquiries from "./pages/Enquiries.jsx";
 import Login from "./pages/Login.jsx";
-import { getUser, logout } from "./auth.js";
+import ProfileMenu from "./components/ProfileMenu.jsx";
+import CommandPalette from "./components/CommandPalette.jsx";
+import { getUser } from "./auth.js";
 
 const NAV = [
   { to: "/overview", label: "Overview", icon: Gauge },
@@ -35,16 +37,18 @@ const NAV = [
   { to: "/teams", label: "Teams", icon: UsersThree, roles: ["admin", "hub_manager", "hub_supervisor", "hr", "spokesperson", "architect", "site_engineer", "finance"] },
 ];
 
-function TopBar({ title }) {
+function TopBar({ title, onSearch }) {
   return (
     <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-border/70 bg-bg/85 px-6 backdrop-blur">
-      <h1 className="font-head text-[15px] font-semibold text-white">{title}</h1>
-      <div className="ml-auto flex items-center gap-2">
-        <div className="hidden items-center gap-2 rounded-lg border border-border/80 bg-panel px-3 py-1.5 text-xs text-muted sm:flex">
+      <h1 className="font-head text-[15px] font-semibold text-ink">{title}</h1>
+      <div className="ml-auto flex items-center gap-2.5">
+        <button onClick={onSearch}
+          className="hidden items-center gap-2 rounded-lg border border-border/80 bg-panel px-3 py-1.5 text-xs text-muted nm-press hover:text-ink sm:flex">
           <MagnifyingGlass size={14} />
           <span>Search</span>
           <span className="ml-6 rounded border border-border px-1.5 py-px font-mono text-[10px] text-muted/80">Cmd K</span>
-        </div>
+        </button>
+        <ProfileMenu />
       </div>
     </header>
   );
@@ -52,6 +56,7 @@ function TopBar({ title }) {
 
 export default function App() {
   const [user, setUser] = useState(getUser());
+  const [cmdOpen, setCmdOpen] = useState(false);
   const location = useLocation();
   if (!user) return <Login onDone={() => setUser(getUser())} />;
 
@@ -61,11 +66,13 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen bg-bg">
+      <CommandPalette open={cmdOpen} setOpen={setCmdOpen} items={nav} />
+
       <aside className="flex w-60 shrink-0 flex-col border-r border-border/70 bg-panel px-3 py-4">
         <div className="mb-5 flex items-center gap-2.5 px-2">
-          <div className="grid h-9 w-9 place-items-center rounded-lg bg-accent font-mono text-base font-bold text-black nm-raised-sm">C</div>
+          <div className="grid h-9 w-9 place-items-center rounded-lg bg-accent font-mono text-base font-bold text-onAccent nm-raised-sm">C</div>
           <div>
-            <p className="font-head text-sm font-bold leading-tight text-white">Consmat Hub</p>
+            <p className="font-head text-sm font-bold leading-tight text-ink">Consmat Hub</p>
             <p className="text-[10px] leading-tight text-muted">Operations console</p>
           </div>
         </div>
@@ -77,7 +84,7 @@ export default function App() {
               <NavLink key={n.to} to={n.to}
                 className={({ isActive }) =>
                   `flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-                    isActive ? "bg-accent/[0.12] font-medium text-accent" : "text-white/70 hover:bg-white/[0.05] hover:text-white"
+                    isActive ? "bg-accent/[0.12] font-medium text-accent" : "text-ink/70 hover:bg-muted/10 hover:text-ink"
                   }`}>
                 {({ isActive }) => (<><Icon size={18} weight={isActive ? "fill" : "regular"} />{n.label}</>)}
               </NavLink>
@@ -90,18 +97,14 @@ export default function App() {
             {(user.name || "?").slice(0, 1).toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-semibold text-white">{user.name}</p>
+            <p className="truncate text-xs font-semibold text-ink">{user.name}</p>
             <p className="text-[10px] capitalize text-muted">{(user.role || "").replace(/_/g, " ")}</p>
           </div>
-          <button onClick={logout} title="Sign out"
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted transition-colors hover:text-accent">
-            <SignOut size={16} />
-          </button>
         </div>
       </aside>
 
       <main className="flex min-h-screen flex-1 flex-col overflow-x-hidden">
-        <TopBar title={title} />
+        <TopBar title={title} onSearch={() => setCmdOpen(true)} />
         <div className="mx-auto w-full max-w-6xl flex-1 px-6 py-6">
           <Routes>
             <Route path="/" element={<Navigate to="/overview" replace />} />

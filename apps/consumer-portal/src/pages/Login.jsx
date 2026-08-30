@@ -3,10 +3,10 @@ import { login } from "../auth.js";
 import { publicApi } from "../api.js";
 
 const field =
-  "w-full rounded-xl bg-panel2 nm-inset px-3.5 py-2.5 text-sm text-white placeholder:text-muted/70 outline-none focus:ring-2 focus:ring-accent/50";
+  "w-full rounded-xl bg-panel2 nm-inset px-3.5 py-2.5 text-sm text-ink placeholder:text-muted/70 outline-none focus:ring-2 focus:ring-accent/50";
 const label = "mb-1.5 block text-[11px] uppercase tracking-wider text-muted";
 const primaryBtn =
-  "w-full rounded-xl bg-accent py-2.5 text-sm font-semibold text-black nm-press hover:bg-accentHover disabled:opacity-40";
+  "w-full rounded-xl bg-accent py-2.5 text-sm font-semibold text-onAccent nm-press hover:bg-accentHover disabled:opacity-40";
 
 export default function Login({ onDone }) {
   const [mode, setMode] = useState("signin"); // signin | enquire
@@ -15,9 +15,9 @@ export default function Login({ onDone }) {
       <div className="pointer-events-none absolute -top-40 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-accent/10 blur-3xl" />
       <div className="relative w-full max-w-sm rounded-2xl bg-panel nm-raised p-7">
         <div className="mb-5 flex items-center gap-3">
-          <div className="grid h-11 w-11 place-items-center rounded-xl bg-accent nm-raised-sm font-mono text-lg font-bold text-black">C</div>
+          <div className="grid h-11 w-11 place-items-center rounded-xl bg-accent nm-raised-sm font-mono text-lg font-bold text-onAccent">C</div>
           <div>
-            <p className="font-head text-lg font-bold leading-tight text-white">Consmat</p>
+            <p className="font-head text-lg font-bold leading-tight text-ink">Consmat</p>
             <p className="text-[11px] text-muted">You build, we provide</p>
           </div>
         </div>
@@ -26,7 +26,7 @@ export default function Login({ onDone }) {
           {[["signin", "Sign in"], ["enquire", "New enquiry"]].map(([m, lbl]) => (
             <button key={m} onClick={() => setMode(m)}
               className={`rounded-lg py-2 text-sm font-medium transition-all ${
-                mode === m ? "bg-panel nm-raised-sm text-accent" : "text-muted hover:text-white"
+                mode === m ? "bg-panel nm-raised-sm text-accent" : "text-muted hover:text-ink"
               }`}>
               {lbl}
             </button>
@@ -77,10 +77,10 @@ function Enquire() {
     return (
       <div className="space-y-2 rounded-xl bg-panel2 nm-inset p-4 text-sm">
         <p className="font-semibold text-emerald-300">Thank you, {fullName || "your enquiry is in"}.</p>
-        <p className="text-white/80">
+        <p className="text-ink/80">
           {done.routed_to === "spoke"
-            ? <>Your enquiry for <b className="text-white">{f.location}</b> has been sent to our <b className="text-white">{done.spoke}</b> team, who will contact you shortly.</>
-            : <>We don't have a spoke covering <b className="text-white">{f.location}</b> yet, so your enquiry has gone to our head-office team, who will reach out about serving your area.</>}
+            ? <>Your enquiry for <b className="text-ink">{f.location}</b> has been sent to our <b className="text-ink">{done.spoke}</b> team, who will contact you shortly.</>
+            : <>We don't have a spoke covering <b className="text-ink">{f.location}</b> yet, so your enquiry has gone to our head-office team, who will reach out about serving your area.</>}
         </p>
         <button onClick={() => { setDone(null); setF({ first: "", middle: "", last: "", phone: "", email: "", location: "", message: "" }); }}
           className="text-[11px] text-accent hover:underline">Submit another enquiry</button>

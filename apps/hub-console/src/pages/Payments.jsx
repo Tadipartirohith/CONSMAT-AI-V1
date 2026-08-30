@@ -23,7 +23,7 @@ export default function Payments() {
     <div className="space-y-5">
       <div className="flex items-end justify-between">
         <div>
-          <h1 className="font-head text-2xl font-extrabold text-white">Payments</h1>
+          <h1 className="font-head text-2xl font-extrabold text-ink">Payments</h1>
           <p className="text-xs text-muted">Config-driven gateway; provider set in payment-service config.yaml.</p>
         </div>
         {cfg.data && <Badge tone="accent">{cfg.data.provider} · {cfg.data.currency}</Badge>}

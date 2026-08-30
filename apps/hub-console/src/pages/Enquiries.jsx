@@ -25,7 +25,7 @@ export default function Enquiries() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-head text-2xl font-extrabold text-white">Enquiries</h1>
+          <h1 className="font-head text-2xl font-extrabold text-ink">Enquiries</h1>
           <p className="text-xs text-muted">Customer enquiries. Hub-routed ones are for locations no spoke covers yet - grow coverage or handle directly.</p>
         </div>
         <div className="flex items-center gap-2">
@@ -44,7 +44,7 @@ export default function Enquiries() {
           <Table head={["Name", "Contact", "Location", "Routed to", "Need", "Status", ""]}>
             {rows.map((r) => (
               <tr key={r.id} className="border-b border-border/50">
-                <Td className="text-white/85">{r.name}</Td>
+                <Td className="text-ink/85">{r.name}</Td>
                 <Td className="text-muted">{[r.phone, r.email].filter(Boolean).join(" · ") || "-"}</Td>
                 <Td>{r.location}</Td>
                 <Td>{r.routed_to === "spoke" ? <Badge tone="accent">{spokeName(r.spoke_id)}</Badge> : <Badge tone="bad">hub (unserved)</Badge>}</Td>

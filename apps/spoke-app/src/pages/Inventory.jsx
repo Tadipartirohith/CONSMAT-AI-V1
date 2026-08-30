@@ -72,7 +72,7 @@ export default function Inventory() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="font-head text-2xl font-extrabold text-white">Inventory</h1>
+        <h1 className="font-head text-2xl font-extrabold text-ink">Inventory</h1>
         <p className="mt-1 text-xs text-muted">The hub's live inventory. Type the quantities you need and place a request; a product not stocked yet can be requested by name. Every request routes to the hub's procurement supervisor, who approves it and sets the vendor and rate.</p>
       </div>
       {msg && <div className={`rounded-xl px-4 py-2.5 text-sm ${msg.ok ? "bg-emerald-500/10 text-emerald-300" : "bg-red-500/10 text-red-300"}`}>{msg.text}</div>}
@@ -89,13 +89,13 @@ export default function Inventory() {
           <div className="space-y-2">
             {cart.map((c) => (
               <div key={c.key} className="flex items-center gap-3 rounded-xl bg-panel2 nm-inset px-3 py-2 text-sm">
-                <span className="flex-1 truncate text-white/90">{c.product_name}</span>
+                <span className="flex-1 truncate text-ink/90">{c.product_name}</span>
                 {c.source === "new" && <Badge tone="accent">new</Badge>}
                 <div className="flex items-center gap-1.5">
-                  <button onClick={() => bump(c.key, -1)} className="grid h-7 w-7 place-items-center rounded-lg bg-panel text-muted nm-raised-sm nm-press hover:text-white"><Minus size={13} weight="bold" /></button>
+                  <button onClick={() => bump(c.key, -1)} className="grid h-7 w-7 place-items-center rounded-lg bg-panel text-muted nm-raised-sm nm-press hover:text-ink"><Minus size={13} weight="bold" /></button>
                   <input type="number" step="any" value={c.qty} onChange={(e) => setQty(c.key, e.target.value)}
-                    className="w-16 rounded-lg bg-bg px-2 py-1 text-center font-mono text-sm text-white outline-none focus:ring-2 focus:ring-accent/50" />
-                  <button onClick={() => bump(c.key, 1)} className="grid h-7 w-7 place-items-center rounded-lg bg-panel text-muted nm-raised-sm nm-press hover:text-white"><Plus size={13} weight="bold" /></button>
+                    className="w-16 rounded-lg bg-bg px-2 py-1 text-center font-mono text-sm text-ink outline-none focus:ring-2 focus:ring-accent/50" />
+                  <button onClick={() => bump(c.key, 1)} className="grid h-7 w-7 place-items-center rounded-lg bg-panel text-muted nm-raised-sm nm-press hover:text-ink"><Plus size={13} weight="bold" /></button>
                 </div>
                 <button onClick={() => removeItem(c.key)} className="grid h-7 w-7 place-items-center rounded-lg text-muted transition-colors hover:text-red-300"><X size={14} /></button>
               </div>
@@ -122,7 +122,7 @@ export default function Inventory() {
           <div className="relative">
             <MagnifyingGlass size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
             <input value={q} placeholder="search product / brand" onChange={(e) => setQ(e.target.value)}
-              className="w-48 rounded-xl bg-panel2 nm-inset py-2 pl-9 pr-3 text-sm text-white placeholder:text-muted/70 outline-none focus:ring-2 focus:ring-accent/50" />
+              className="w-48 rounded-xl bg-panel2 nm-inset py-2 pl-9 pr-3 text-sm text-ink placeholder:text-muted/70 outline-none focus:ring-2 focus:ring-accent/50" />
           </div>
           <Select value={mat} onChange={(e) => setMat(e.target.value)}>
             <option value="">all categories</option>
@@ -136,12 +136,12 @@ export default function Inventory() {
             const hp = d.priceMap ? d.priceMap[s.product_id] : undefined;
             return (
               <tr key={s.product_id} className="border-b border-border/50">
-                <Td className="text-white/90">{s.p.name || s.product_id}</Td>
+                <Td className="text-ink/90">{s.p.name || s.product_id}</Td>
                 <Td className="text-muted">{s.p.brand || "-"}</Td>
                 <Td className="text-muted">{s.material_id}</Td>
                 <Td mono>{s.on_hand}</Td>
                 <Td mono>{Math.max(0, s.available)}</Td>
-                <Td mono className="text-white/90">{hp != null ? inr(hp) : "-"}</Td>
+                <Td mono className="text-ink/90">{hp != null ? inr(hp) : "-"}</Td>
                 <Td><Badge tone={lv.tone}>{lv.label}</Badge></Td>
                 <Td>
                   <Button size="sm" variant="ghost" disabled={inCart} onClick={() => addStocked(s)}>

@@ -43,7 +43,7 @@ export default function Procurement() {
   const p = result?.profitability;
   return (
     <div className="space-y-5">
-      <h1 className="font-head text-2xl font-extrabold text-white">Procurement</h1>
+      <h1 className="font-head text-2xl font-extrabold text-ink">Procurement</h1>
       {msg && <p className={`text-xs ${msg.ok === false ? "text-red-400" : msg.ok ? "text-emerald-400" : "text-red-400"}`}>{msg.text || msg}</p>}
 
       <SpokeOrderRequests vendors={vendors.data || []} onDone={orders.reload} />
@@ -55,7 +55,7 @@ export default function Procurement() {
             {rows.length === 0 && <p className="text-xs text-muted">Search and add products to procure.</p>}
             {rows.map((r, i) => (
               <div key={i} className="flex items-center gap-2">
-                <span className="flex-1 truncate text-sm text-white/80" title={r.product_name}>{r.product_name}</span>
+                <span className="flex-1 truncate text-sm text-ink/80" title={r.product_name}>{r.product_name}</span>
                 <div className="w-24"><Input type="number" step="any" value={r.qty} onChange={(e) => setRow(i, "qty", e.target.value)} /></div>
                 <Button size="sm" variant="ghost" onClick={() => delRow(i)}>✕</Button>
               </div>
@@ -86,9 +86,9 @@ export default function Procurement() {
                 <Unavailable items={result.plan.unavailable} vendors={vendors.data || []} onFixed={analyze} />
               )}
               <div className="mt-3 flex flex-wrap items-center gap-4 text-sm">
-                <span>Buy total: <span className="font-mono text-white">{inr(result.plan.total_cost)}</span></span>
+                <span>Buy total: <span className="font-mono text-ink">{inr(result.plan.total_cost)}</span></span>
                 {p && <>
-                  <span>Sell @ list: <span className="font-mono text-white">{inr(p.sell_total)}</span></span>
+                  <span>Sell @ list: <span className="font-mono text-ink">{inr(p.sell_total)}</span></span>
                   <span>Margin: <span className={`font-mono ${p.profitable ? "text-emerald-400" : "text-red-400"}`}>{inr(p.margin_total)} ({p.margin_pct}%)</span></span>
                   <Badge tone={p.profitable ? "ok" : "bad"}>{p.profitable ? "profitable" : "loss"}</Badge>
                 </>}
@@ -124,17 +124,17 @@ function Advice({ advice }) {
   return (
     <div className="mt-3 border border-accent/30 bg-accent/5 p-3 text-sm">
       <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-accent">Hub LLM advice</p>
-      {advice.summary && <p className="text-white/80">{advice.summary}</p>}
+      {advice.summary && <p className="text-ink/80">{advice.summary}</p>}
       {advice.profitability_note && <p className="mt-1 text-muted">{advice.profitability_note}</p>}
       {advice.alternatives?.length > 0 && (
         <div className="mt-2 border-l-2 border-[#22c55e]/50 pl-2">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-[#22c55e]">Cheaper alternatives</p>
           {advice.alternatives.map((a, i) => (
-            <p key={i} className="mt-0.5 text-white/80">↓ {typeof a === "string" ? a : a.suggestion}</p>
+            <p key={i} className="mt-0.5 text-ink/80">↓ {typeof a === "string" ? a : a.suggestion}</p>
           ))}
         </div>
       )}
-      {advice.recommendation && <p className="mt-2 text-white/80"><b>Recommendation:</b> {advice.recommendation}</p>}
+      {advice.recommendation && <p className="mt-2 text-ink/80"><b>Recommendation:</b> {advice.recommendation}</p>}
       {advice.flags?.length > 0 && <p className="mt-1 text-[#f59e0b]">⚑ {advice.flags.join(" · ")}</p>}
     </div>
   );
@@ -146,7 +146,7 @@ function Unavailable({ items, vendors, onFixed }) {
       <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-[#f59e0b]">Not procurable</p>
       {items.map((u, i) => (
         <div key={i} className="mb-2 last:mb-0 text-sm">
-          <p className="text-white/80">{u.name}: <span className="text-muted">{u.reason}</span></p>
+          <p className="text-ink/80">{u.name}: <span className="text-muted">{u.reason}</span></p>
           {u.product_id && <SetPriceInline productId={u.product_id} vendors={vendors} onDone={onFixed} />}
         </div>
       ))}
@@ -204,7 +204,7 @@ function AddDemandRow({ products, onAdd, onReload }) {
         <div className="mt-1 max-h-52 overflow-y-auto border border-border bg-panel2">
           {matches.length ? matches.map((p) => (
             <button key={p.id} type="button" onClick={() => pick(p)}
-              className="block w-full px-2.5 py-1.5 text-left text-sm text-white/80 hover:bg-white/5">
+              className="block w-full px-2.5 py-1.5 text-left text-sm text-ink/80 hover:bg-muted/10">
               {p.name}{p.brand && <span className="text-muted"> · {p.brand}</span>}
             </button>
           )) : (
@@ -284,7 +284,7 @@ function SpokeOrderRequests({ vendors, onDone }) {
           return (
             <div key={r.id} className="border border-border/60 bg-panel2 p-3">
               <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
-                <span className="font-mono text-white">{r.code}</span>
+                <span className="font-mono text-ink">{r.code}</span>
                 {r.site_ref && <Badge tone="accent">{r.site_ref}</Badge>}
                 <span className="text-muted">by {r.requested_by || r.requested_by_role}</span>
                 {r.note && <span className="text-[11px] text-muted">"{r.note}"</span>}
@@ -292,7 +292,7 @@ function SpokeOrderRequests({ vendors, onDone }) {
               <Table head={["Product", "Qty", "Rate (Rs/unit)"]}>
                 {r.lines.map((l) => (
                   <tr key={l.product_id} className="border-b border-border/50">
-                    <Td className="text-white/80">{l.product_name}</Td>
+                    <Td className="text-ink/80">{l.product_name}</Td>
                     <Td mono>{l.qty}</Td>
                     <Td><div className="w-28"><Input type="number" step="any" placeholder="rate" value={st.prices?.[l.product_id] ?? ""} onChange={(e) => setP(r.id, l.product_id, e.target.value)} /></div></Td>
                   </tr>

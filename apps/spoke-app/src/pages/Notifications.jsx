@@ -31,7 +31,7 @@ export default function Notifications() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-head text-2xl font-extrabold text-white">Notifications</h1>
+          <h1 className="font-head text-2xl font-extrabold text-ink">Notifications</h1>
           <p className="text-xs text-muted">{me?.role === "finance" ? "Finance updates for your captive projects." : "Live end-to-end updates across your spoke's projects."}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -48,7 +48,7 @@ export default function Notifications() {
                 <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.read ? "bg-transparent" : "bg-accent"}`} />
                 <span className="text-base">{ICON[n.kind] || "🔔"}</span>
                 <div className="min-w-0 flex-1">
-                  <span className={n.read ? "text-white/70" : "text-white/90"}>{n.message}</span>
+                  <span className={n.read ? "text-ink/70" : "text-ink/90"}>{n.message}</span>
                   {n.site_id ? <Link to={`/sites/${n.site_id}`} className="ml-2 text-[11px] text-accent hover:underline">SITE-{n.site_id}</Link> : null}
                 </div>
                 {n.created_at && <span className="shrink-0 text-[11px] text-muted">{new Date(n.created_at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>}

@@ -32,8 +32,8 @@ export default function Team() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-head text-2xl font-extrabold text-white">Team &amp; access</h1>
-          <p className="text-xs text-muted">Manage regions, spokes and who can do what. You are signed in as <b className="text-white/80">{ROLE_LABEL[me?.role] || me?.role}</b>.</p>
+          <h1 className="font-head text-2xl font-extrabold text-ink">Team &amp; access</h1>
+          <p className="text-xs text-muted">Manage regions, spokes and who can do what. You are signed in as <b className="text-ink/80">{ROLE_LABEL[me?.role] || me?.role}</b>.</p>
         </div>
         <Button size="sm" variant="ghost" onClick={reload}>Refresh</Button>
       </div>
@@ -49,7 +49,7 @@ export default function Team() {
           {grouped.map(({ role, list }) => (
             <div key={role} className="mb-4">
               <div className="mb-1 flex items-center gap-2">
-                <h3 className="text-sm font-semibold text-white">{ROLE_LABEL[role] || role}</h3>
+                <h3 className="text-sm font-semibold text-ink">{ROLE_LABEL[role] || role}</h3>
                 <span className="text-[11px] text-muted">{list.length}</span>
               </div>
               <Table head={["Name", "Email", "Team", "Role", "Status", ""]}>
@@ -102,7 +102,7 @@ function SpokesCard({ spokes, onFlash, onDone, canAdd }) {
         {spokes.length === 0 ? <p className="text-sm text-muted">No spokes yet.</p> : spokes.map((s) => (
           <div key={s.id} className="border border-border/60 bg-panel2 px-2.5 py-1.5 text-sm">
             <div className="flex items-center justify-between">
-              <span className="text-white/85">📍 {s.name} <span className="text-[11px] text-muted">({s.id})</span></span>
+              <span className="text-ink/85">📍 {s.name} <span className="text-[11px] text-muted">({s.id})</span></span>
               {canAdd && <button className="text-[11px] text-accent hover:underline" onClick={() => setRegionFor(regionFor === s.id ? "" : s.id)}>{regionFor === s.id ? "cancel" : "add region"}</button>}
             </div>
             <p className="mt-0.5 text-[11px] text-muted">Regions: {(s.areas || []).map((a) => a.area || a).join(", ") || "none"}</p>

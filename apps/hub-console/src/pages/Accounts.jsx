@@ -23,7 +23,7 @@ export default function Accounts() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="font-head text-2xl font-extrabold text-white">Accounts &amp; Management</h1>
+          <h1 className="font-head text-2xl font-extrabold text-ink">Accounts &amp; Management</h1>
           <p className="text-xs text-muted">Receivables, payables, escrow and cash position across the hub. All-time.</p>
         </div>
         <Button size="sm" variant="ghost" onClick={() => { payments.reload(); orders.reload(); stock.reload(); sites.reload(); }}>Refresh</Button>
@@ -41,7 +41,7 @@ export default function Accounts() {
       <div className="flex gap-1 border-b border-border">
         {TABS.map((t) => (
           <button key={t} onClick={() => setTab(t)}
-            className={`px-3 py-2 text-sm ${tab === t ? "border-b-2 border-accent text-accent" : "text-muted hover:text-white"}`}>{t}</button>
+            className={`px-3 py-2 text-sm ${tab === t ? "border-b-2 border-accent text-accent" : "text-muted hover:text-ink"}`}>{t}</button>
         ))}
       </div>
 
@@ -59,7 +59,7 @@ function Kpi({ label, value, sub, bar, max, color }) {
   return (
     <div className="border border-border bg-panel p-4">
       <p className="text-[10px] uppercase tracking-wider text-muted">{label}</p>
-      <p className="mt-1 font-head text-xl font-extrabold text-white">{value}</p>
+      <p className="mt-1 font-head text-xl font-extrabold text-ink">{value}</p>
       <div className="mt-2 h-1 w-full overflow-hidden rounded bg-panel2">
         <div className="h-full rounded" style={{ width: `${w}%`, background: color }} />
       </div>
@@ -107,7 +107,7 @@ function Overview({ a }) {
 }
 
 function Line({ label, value, tone }) {
-  const col = tone === "bad" ? "text-red-400" : tone === "warn" ? "text-[#f59e0b]" : tone === "ok" ? "text-emerald-400" : "text-white";
+  const col = tone === "bad" ? "text-red-400" : tone === "warn" ? "text-[#f59e0b]" : tone === "ok" ? "text-emerald-400" : "text-ink";
   return (
     <div className="flex items-center justify-between border-b border-border/50 py-1">
       <span className="text-muted">{label}</span>
@@ -129,7 +129,7 @@ function StackBar({ segments, total, empty }) {
         {segments.map((s) => (
           <span key={s.label} className="flex items-center gap-1.5">
             <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: s.color }} />
-            <span className="text-white/80">{inr(s.value)}</span><span className="text-muted">{s.label}</span>
+            <span className="text-ink/80">{inr(s.value)}</span><span className="text-muted">{s.label}</span>
           </span>
         ))}
       </div>
@@ -149,7 +149,7 @@ function Aging({ title, buckets, color }) {
             <div className="h-2.5 flex-1 overflow-hidden rounded bg-panel2">
               <div className="h-full rounded" style={{ width: `${(buckets[b] / max) * 100}%`, background: b === "60+" ? C.overdue : color }} />
             </div>
-            <span className="w-20 shrink-0 text-right font-mono text-white/70">{inr(buckets[b])}</span>
+            <span className="w-20 shrink-0 text-right font-mono text-ink/70">{inr(buckets[b])}</span>
           </div>
         ))}
       </div>
@@ -165,8 +165,8 @@ function RankList({ rows, color, empty }) {
       {rows.slice(0, 6).map((r) => (
         <div key={r.name} className="text-sm">
           <div className="flex items-center justify-between">
-            <span className="truncate text-white/85">{r.name}</span>
-            <span className="ml-2 shrink-0 font-mono text-white/70">{inr(r.value)}</span>
+            <span className="truncate text-ink/85">{r.name}</span>
+            <span className="ml-2 shrink-0 font-mono text-ink/70">{inr(r.value)}</span>
           </div>
           <div className="mt-0.5 h-1.5 w-full overflow-hidden rounded bg-panel2">
             <div className="h-full rounded" style={{ width: `${(r.value / max) * 100}%`, background: color }} />
@@ -230,7 +230,7 @@ function Ledger({ a }) {
           <tr key={i} className="border-b border-border/50">
             <Td className="text-muted">{t.date ? new Date(t.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "2-digit" }) : "-"}</Td>
             <Td mono>{t.code}</Td>
-            <Td className="text-white/80">{t.desc}</Td>
+            <Td className="text-ink/80">{t.desc}</Td>
             <Td mono className="text-emerald-400">{t.in ? inr(t.in) : ""}</Td>
             <Td mono className="text-[#f59e0b]">{t.out ? inr(t.out) : ""}</Td>
           </tr>

@@ -25,7 +25,7 @@ export default function Sites() {
 
   return (
     <div className="space-y-5">
-      <h1 className="font-head text-2xl font-extrabold text-white">Sites</h1>
+      <h1 className="font-head text-2xl font-extrabold text-ink">Sites</h1>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card title="Sites" className="lg:col-span-2" right={<Button size="sm" variant="ghost" onClick={sites.reload}>Refresh</Button>}>

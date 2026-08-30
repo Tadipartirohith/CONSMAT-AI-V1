@@ -13,6 +13,7 @@ export default {
         accentHover: "rgb(var(--accent-hover) / <alpha-value>)",
         muted: "rgb(var(--muted) / <alpha-value>)",
         ink: "rgb(var(--ink) / <alpha-value>)",
+        onAccent: "rgb(var(--on-accent) / <alpha-value>)",
       },
       fontFamily: {
         head: ["Geist", "system-ui", "sans-serif"],

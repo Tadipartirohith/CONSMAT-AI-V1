@@ -33,7 +33,7 @@ export default function Overview() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="font-head text-2xl font-extrabold text-white">Hub Overview</h1>
+        <h1 className="font-head text-2xl font-extrabold text-ink">Hub Overview</h1>
         <p className="text-xs text-muted">Live snapshot across projects, inventory, vendors and procurement.</p>
       </div>
 
@@ -95,7 +95,7 @@ function HealthDonut({ counts, total }) {
           </g>
         </svg>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="font-head text-3xl font-extrabold text-white">{center.big}</span>
+          <span className="font-head text-3xl font-extrabold text-ink">{center.big}</span>
           <span className="text-[11px] text-muted">{center.small}</span>
         </div>
       </div>
@@ -104,9 +104,9 @@ function HealthDonut({ counts, total }) {
           <button key={t} onClick={() => counts[t] && nav(`/projects?health=${t}`)}
             onMouseEnter={() => counts[t] && setHover({ key: t, value: counts[t], label: TONE[t].label })}
             onMouseLeave={() => setHover(null)}
-            className={`flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm ${counts[t] ? "hover:bg-white/5" : "opacity-40"}`}>
+            className={`flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm ${counts[t] ? "hover:bg-muted/10" : "opacity-40"}`}>
             <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: TONE[t].dot }} />
-            <span className="text-white/80">{counts[t] || 0}</span>
+            <span className="text-ink/80">{counts[t] || 0}</span>
             <span className="text-muted">{TONE[t].label}</span>
             {counts[t] > 0 && <span className="ml-auto text-[11px] text-accent">view</span>}
           </button>
@@ -160,7 +160,7 @@ function StockBuffer() {
             className={`border px-2 py-2 text-left ${pick === b ? "border-accent bg-accent/5" : "border-border bg-panel2"}`}>
             <div className="flex items-center gap-1.5">
               <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: BAND[b].color }} />
-              <span className="font-head text-xl font-bold text-white">{groups[b].length}</span>
+              <span className="font-head text-xl font-bold text-ink">{groups[b].length}</span>
             </div>
             <p className="mt-0.5 text-[11px] text-muted">{BAND[b].label}</p>
           </button>
@@ -172,7 +172,7 @@ function StockBuffer() {
           <button key={it.product_id} onClick={() => nav(`/inventory?material=${it.material_id}`)}
             className="block w-full text-left">
             <div className="flex items-center justify-between text-xs">
-              <span className="truncate text-white/85">{it.name}</span>
+              <span className="truncate text-ink/85">{it.name}</span>
               <span className="ml-2 shrink-0 font-mono text-muted">{it.on_hand} / {it.target} <span className="text-[10px]">(3x)</span></span>
             </div>
             <div className="mt-1 h-2 w-full overflow-hidden rounded bg-panel2">
@@ -221,9 +221,9 @@ function MarketRow() {
                 <div className="space-y-1">
                   {items.map((d) => (
                     <div key={d.material_id} className="flex items-center gap-2 text-sm">
-                      <span className="min-w-0 flex-1 truncate text-white/80">{d.name}</span>
+                      <span className="min-w-0 flex-1 truncate text-ink/80">{d.name}</span>
                       <Spark series={d.series} up={d.change_pct >= 0} />
-                      <span className="w-16 text-right font-mono text-white/70">{inr(d.current)}</span>
+                      <span className="w-16 text-right font-mono text-ink/70">{inr(d.current)}</span>
                       <span className={`w-14 text-right font-mono text-xs ${d.change_pct > 0 ? "text-red-400" : d.change_pct < 0 ? "text-emerald-400" : "text-muted"}`}>
                         {d.change_pct > 0 ? "▲" : d.change_pct < 0 ? "▼" : ""}{Math.abs(d.change_pct)}%
                       </span>
@@ -242,7 +242,7 @@ function MarketRow() {
           <div className="space-y-1.5">
             {outlook.map((r) => (
               <div key={r.seg} className="flex items-center gap-2 text-sm">
-                <span className="flex-1 text-white/80">{SEG_LABEL[r.seg] || r.seg}</span>
+                <span className="flex-1 text-ink/80">{SEG_LABEL[r.seg] || r.seg}</span>
                 <span className="text-[11px] text-muted">{r.n} items</span>
                 <Badge tone={r.dir === "up" ? "bad" : r.dir === "down" ? "ok" : "muted"}>
                   {r.dir === "up" ? "▲ rising" : r.dir === "down" ? "▼ falling" : "stable"}
@@ -284,7 +284,7 @@ function EventsFeed() {
             <div key={n.id} className="flex items-start gap-2 border-b border-border/50 pb-1.5 text-sm">
               <span className="text-base">{ICON[n.kind] || "🔔"}</span>
               <div className="min-w-0 flex-1">
-                <span className="text-white/85">{n.message}</span>
+                <span className="text-ink/85">{n.message}</span>
                 {n.site_id ? <Link to={`/projects/${n.site_id}`} className="ml-2 text-[11px] text-accent hover:underline">SITE-{n.site_id}</Link> : null}
               </div>
               {n.created_at && <span className="shrink-0 text-[11px] text-muted">{new Date(n.created_at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>}

@@ -25,7 +25,7 @@ export default function Intake() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="font-head text-2xl font-extrabold text-white">Onboarding</h1>
+        <h1 className="font-head text-2xl font-extrabold text-ink">Onboarding</h1>
         <p className="text-xs text-muted">Register a customer, auto-assign the serving spoke by location, and create their tracking login.</p>
       </div>
 
@@ -53,9 +53,9 @@ export default function Intake() {
             {result && (
               <div className="space-y-1 rounded border border-emerald-500/30 bg-emerald-500/5 p-3 text-sm">
                 <p className="text-emerald-400">✓ {result.consumer.name} onboarded ({result.consumer.tier})</p>
-                <p className="text-muted">Builder ID <span className="font-mono text-white">{result.consumer.id}</span> · spoke <span className="text-white">{result.assigned_spoke.name}</span></p>
+                <p className="text-muted">Builder ID <span className="font-mono text-ink">{result.consumer.id}</span> · spoke <span className="text-ink">{result.assigned_spoke.name}</span></p>
                 {result.login?.created ? (
-                  <p className="text-muted">Login <span className="font-mono text-white">{result.login.email}</span> · temp password <span className="font-mono text-white">{result.login.temp_password}</span></p>
+                  <p className="text-muted">Login <span className="font-mono text-ink">{result.login.email}</span> · temp password <span className="font-mono text-ink">{result.login.temp_password}</span></p>
                 ) : result.login ? (
                   <p className="text-[#f59e0b]">Login {result.login.email} could not be created ({result.login.error || "already exists"}).</p>
                 ) : null}
@@ -107,7 +107,7 @@ function SpokeCoverage({ spokes }) {
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <p className="mb-2 text-[11px] uppercase tracking-wider text-muted">Regions served by {detail.data?.name || "your spoke"}</p>
-          <p className="text-sm text-white/90">{areas.length ? areas.join(", ") : "no regions yet - add one"}</p>
+          <p className="text-sm text-ink/90">{areas.length ? areas.join(", ") : "no regions yet - add one"}</p>
         </div>
         <form onSubmit={addArea} className="flex items-end gap-2">
           <Field label="Add a region keyword"><Input value={area} required placeholder="e.g. Kompally" onChange={(e) => setArea(e.target.value)} /></Field>

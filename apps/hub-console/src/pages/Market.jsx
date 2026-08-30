@@ -29,7 +29,7 @@ export default function Market() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-head text-2xl font-extrabold text-white">Open-market watch</h1>
+          <h1 className="font-head text-2xl font-extrabold text-ink">Open-market watch</h1>
           <p className="text-xs text-muted">Products where an open-market offer beats your current avg cost. Auto-scans every 4 hours.</p>
         </div>
         <div className="flex gap-2">
@@ -110,7 +110,7 @@ function Alerts({ alerts }) {
             <div key={a.id} className="border border-border/60 bg-panel2 p-3">
               <div className="flex items-center gap-2 text-sm">
                 <Badge tone={matches.length ? "ok" : "muted"}>{matches.length} match{matches.length === 1 ? "" : "es"}</Badge>
-                <span className="text-white/80">{a.material_id || "any"} · {a.query || "any"} · price {OPS[a.op]} {inr(a.value)}{a.seller ? ` · ${a.seller}` : ""}{a.location ? ` · ${a.location}` : ""}</span>
+                <span className="text-ink/80">{a.material_id || "any"} · {a.query || "any"} · price {OPS[a.op]} {inr(a.value)}{a.seller ? ` · ${a.seller}` : ""}{a.location ? ` · ${a.location}` : ""}</span>
                 <button onClick={() => del(a.id)} className="ml-auto text-[11px] text-red-400 hover:underline">delete</button>
               </div>
               {matches.length > 0 && (

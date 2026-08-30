@@ -26,7 +26,7 @@ export default function Enquiries() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-head text-2xl font-extrabold text-white">Enquiries</h1>
+          <h1 className="font-head text-2xl font-extrabold text-ink">Enquiries</h1>
           <p className="text-xs text-muted">Leads routed to your spoke by location. Contact them, then convert to an onboarded customer.</p>
         </div>
         <div className="flex items-center gap-2">
@@ -41,7 +41,7 @@ export default function Enquiries() {
           <Table head={["Name", "Contact", "Location", "Need", "Status", ""]}>
             {rows.map((r) => (
               <tr key={r.id} className="border-b border-border/50">
-                <Td className="text-white/85">{r.name}</Td>
+                <Td className="text-ink/85">{r.name}</Td>
                 <Td className="text-muted">{[r.phone, r.email].filter(Boolean).join(" · ") || "-"}</Td>
                 <Td>{r.location}</Td>
                 <Td className="text-muted">{r.message || "-"}</Td>

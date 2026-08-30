@@ -8,7 +8,7 @@ export function Card({ title, right, children, className = "" }) {
     <div className={`rounded-2xl bg-panel nm-raised ${className}`}>
       {(title || right) && (
         <div className="flex items-center justify-between gap-3 border-b border-border/70 px-5 py-3.5">
-          <h3 className="font-head text-sm font-semibold text-white">{title}</h3>
+          <h3 className="font-head text-sm font-semibold text-ink">{title}</h3>
           {right}
         </div>
       )}
@@ -21,7 +21,7 @@ export function Stat({ label, value, sub, accent }) {
   return (
     <div className="rounded-2xl bg-panel nm-raised p-5">
       <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted">{label}</p>
-      <p className={`mt-1.5 font-mono text-2xl font-semibold tracking-tight ${accent ? "text-accent" : "text-white"}`}>{value}</p>
+      <p className={`mt-1.5 font-mono text-2xl font-semibold tracking-tight ${accent ? "text-accent" : "text-ink"}`}>{value}</p>
       {sub && <p className="mt-1 text-xs text-muted">{sub}</p>}
     </div>
   );
@@ -29,8 +29,8 @@ export function Stat({ label, value, sub, accent }) {
 
 export function Button({ children, onClick, type = "button", variant = "primary", disabled, size = "md" }) {
   const styles = {
-    primary: "bg-accent text-black font-semibold nm-press hover:bg-accentHover",
-    ghost: "bg-panel text-white/85 nm-raised-sm nm-press hover:text-white hover:bg-panel2",
+    primary: "bg-accent text-onAccent font-semibold nm-press hover:bg-accentHover",
+    ghost: "bg-panel text-ink/85 nm-raised-sm nm-press hover:text-ink hover:bg-panel2",
     danger: "bg-panel text-red-400 nm-raised-sm nm-press hover:text-red-300",
   };
   const sizes = { md: "px-4 py-2 text-sm", sm: "px-3 py-1.5 text-xs" };
@@ -52,7 +52,7 @@ export function Field({ label, children }) {
 }
 
 const inputCls =
-  "w-full rounded-lg bg-panel2 nm-inset px-3 py-2 text-sm text-white placeholder:text-muted/60 outline-none focus:ring-2 focus:ring-accent/45";
+  "w-full rounded-lg bg-panel2 nm-inset px-3 py-2 text-sm text-ink placeholder:text-muted/60 outline-none focus:ring-2 focus:ring-accent/45";
 
 export function Input(props) {
   return <input {...props} className={inputCls} />;
@@ -83,7 +83,7 @@ export function Td({ children, mono, className = "" }) {
 
 export function Badge({ children, tone = "muted", className = "" }) {
   const tones = {
-    muted: "bg-white/[0.06] text-muted",
+    muted: "bg-muted/[0.12] text-muted",
     ok: "bg-emerald-500/15 text-emerald-300",
     warn: "bg-amber-400/15 text-amber-300",
     bad: "bg-red-500/15 text-red-300",
@@ -94,14 +94,14 @@ export function Badge({ children, tone = "muted", className = "" }) {
 
 // ---- polish primitives ----
 export function Skeleton({ className = "" }) {
-  return <div className={`animate-pulse rounded-lg bg-white/[0.06] ${className}`} />;
+  return <div className={`animate-pulse rounded-lg bg-muted/[0.12] ${className}`} />;
 }
 
 export function Empty({ icon, title, hint }) {
   return (
     <div className="flex flex-col items-center gap-2 py-10 text-center">
       {icon && <div className="grid h-11 w-11 place-items-center rounded-xl bg-panel2 nm-inset text-muted">{icon}</div>}
-      <p className="text-sm font-medium text-white/90">{title}</p>
+      <p className="text-sm font-medium text-ink/90">{title}</p>
       {hint && <p className="max-w-xs text-xs text-muted">{hint}</p>}
     </div>
   );

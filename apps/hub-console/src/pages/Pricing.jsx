@@ -34,7 +34,7 @@ export default function Pricing() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-head text-2xl font-extrabold text-white">Pricing & Margins</h1>
+          <h1 className="font-head text-2xl font-extrabold text-ink">Pricing & Margins</h1>
           <p className="text-xs text-muted">Set a margin per product. Precedence: product &gt; material &gt; tier &gt; global.</p>
         </div>
         <div className="flex items-center gap-2">
@@ -50,7 +50,7 @@ export default function Pricing() {
             <button key={m.id} onClick={() => setCat(m.id)}
               className="flex flex-col items-start gap-1 border border-border bg-panel p-4 text-left hover:border-accent">
               <span className="text-2xl">{ICON[m.id] || "📦"}</span>
-              <span className="text-sm font-semibold text-white">{m.name}</span>
+              <span className="text-sm font-semibold text-ink">{m.name}</span>
               <span className="text-[11px] text-muted">{(products.data || []).filter((p) => p.material_id === m.id).length} products</span>
             </button>
           ))}

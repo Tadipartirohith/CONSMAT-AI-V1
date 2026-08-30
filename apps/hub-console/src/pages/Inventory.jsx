@@ -56,7 +56,7 @@ export default function Inventory() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h1 className="font-head text-2xl font-extrabold text-white">Inventory</h1>
+        <h1 className="font-head text-2xl font-extrabold text-ink">Inventory</h1>
         <div className="flex gap-2">
           <Button size="sm" onClick={() => setReceiving(true)}>Receive stock</Button>
           <Button size="sm" variant="ghost" onClick={() => setAdding(true)}>Add product</Button>
@@ -72,7 +72,7 @@ export default function Inventory() {
             if (mats.length === 0) return null;
             return (
               <div key={seg.id}>
-                <h2 className="mb-2 mt-1 flex items-center gap-2 text-sm font-bold text-white">
+                <h2 className="mb-2 mt-1 flex items-center gap-2 text-sm font-bold text-ink">
                   <span>{seg.icon}</span>{seg.name}<span className="text-[11px] font-normal text-muted">{seg.tag}</span>
                 </h2>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
@@ -80,7 +80,7 @@ export default function Inventory() {
                     <button key={m.id} onClick={() => setCat(m.id)}
                       className="flex flex-col items-start gap-1 border border-border bg-panel p-4 text-left hover:border-accent">
                       <span className="text-2xl">{ICON[m.id] || seg.icon}</span>
-                      <span className="text-sm font-semibold text-white">{m.name}</span>
+                      <span className="text-sm font-semibold text-ink">{m.name}</span>
                       <span className="text-[11px] text-muted">{countByMat[m.id] || 0} brands</span>
                       {lowByMat[m.id] > 0 && <Badge tone="warn">{lowByMat[m.id]} low</Badge>}
                     </button>
@@ -138,14 +138,14 @@ function ReceiveStock({ products, onClose, onDone }) {
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" onClick={onClose}>
       <div className="w-full max-w-md border border-border bg-panel p-5" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="font-head text-lg font-bold text-white">Receive stock (inbound)</h3>
-          <button onClick={onClose} className="text-muted hover:text-white">✕</button>
+          <h3 className="font-head text-lg font-bold text-ink">Receive stock (inbound)</h3>
+          <button onClick={onClose} className="text-muted hover:text-ink">✕</button>
         </div>
         <form onSubmit={save} className="space-y-3">
           <Field label="Product - search by name or brand">
             {chosen ? (
               <div className="flex items-center gap-2 border border-border bg-panel2 px-2.5 py-1.5 text-sm">
-                <span className="flex-1 text-white/80">{chosen.name} <span className="text-muted">({chosen.brand || "no brand"})</span></span>
+                <span className="flex-1 text-ink/80">{chosen.name} <span className="text-muted">({chosen.brand || "no brand"})</span></span>
                 <button type="button" className="text-[11px] text-accent hover:underline" onClick={() => { setPid(""); setQ(""); }}>change</button>
               </div>
             ) : (
@@ -155,7 +155,7 @@ function ReceiveStock({ products, onClose, onDone }) {
                   <div className="mt-1 max-h-44 overflow-auto border border-border bg-panel2">
                     {matches.map((p) => (
                       <button type="button" key={p.id} onClick={() => { setPid(p.id); setQ(p.name); }}
-                        className="block w-full px-2.5 py-1.5 text-left text-sm text-white/80 hover:bg-white/5">
+                        className="block w-full px-2.5 py-1.5 text-left text-sm text-ink/80 hover:bg-muted/10">
                         {p.name} <span className="text-muted">· {p.brand || "no brand"} · {p.material_id}</span>
                       </button>
                     ))}
@@ -198,7 +198,7 @@ function CategoryView({ material, products, stockOf, onBack, onProcure }) {
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" variant="ghost" onClick={onBack}>Back to Categories</Button>
         <span className="text-xl">{ICON[material?.id] || "📦"}</span>
-        <h2 className="font-head text-lg font-bold text-white">{material?.name}</h2>
+        <h2 className="font-head text-lg font-bold text-ink">{material?.name}</h2>
         <span className="text-[11px] text-muted">{list.length} brands</span>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <div className="w-56"><Input value={q} placeholder="search name or brand…" onChange={(e) => setQ(e.target.value)} /></div>
@@ -296,10 +296,10 @@ function ProcureStock({ product, onClose, onDone }) {
       <div className="max-h-[90vh] w-full max-w-lg overflow-auto border border-border bg-panel p-5" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-center justify-between">
           <div>
-            <h3 className="font-head text-lg font-bold text-white">Procure {product.name}</h3>
+            <h3 className="font-head text-lg font-bold text-ink">Procure {product.name}</h3>
             <p className="text-[11px] text-muted">{product.brand || "no brand"} · {product.material_name || product.material_id}</p>
           </div>
-          <button onClick={onClose} className="text-muted hover:text-white">✕</button>
+          <button onClick={onClose} className="text-muted hover:text-ink">✕</button>
         </div>
 
         <div className="mb-3">
@@ -311,7 +311,7 @@ function ProcureStock({ product, onClose, onDone }) {
               {rows.map((r) => (
                 <button key={r.vendor_id} type="button" onClick={() => { setVendorId(r.vendor_id); setRate(String(r.price)); }}
                   className={`flex w-full items-center justify-between border px-2.5 py-1.5 text-left text-sm ${vendorId === r.vendor_id ? "border-accent bg-accent/5" : "border-border bg-panel2"}`}>
-                  <span className="text-white/85">{r.vendor_name}{r.city ? <span className="text-muted"> · {r.city}</span> : null}</span>
+                  <span className="text-ink/85">{r.vendor_name}{r.city ? <span className="text-muted"> · {r.city}</span> : null}</span>
                   <span className="font-mono text-accent">{inr(r.price)}<span className="text-[10px] text-muted">/unit</span></span>
                 </button>
               ))}
@@ -330,8 +330,8 @@ function ProcureStock({ product, onClose, onDone }) {
             <div className="space-y-1">
               {offers.slice(0, 6).map((o) => (
                 <div key={o.id} className="flex items-center justify-between border border-border/60 bg-panel2 px-2.5 py-1.5 text-sm">
-                  <span className="min-w-0 truncate text-white/80">{o.seller} <span className="text-muted">· {o.product_name}</span></span>
-                  <span className="ml-2 shrink-0 font-mono text-white/70">{inr(o.price)}</span>
+                  <span className="min-w-0 truncate text-ink/80">{o.seller} <span className="text-muted">· {o.product_name}</span></span>
+                  <span className="ml-2 shrink-0 font-mono text-ink/70">{inr(o.price)}</span>
                 </div>
               ))}
             </div>
@@ -370,8 +370,8 @@ function AddProduct({ materials, products, lockedCat, onClose, onDone }) {
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" onClick={onClose}>
       <div className="w-full max-w-md border border-border bg-panel p-5" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="font-head text-lg font-bold text-white">Add new product</h3>
-          <button onClick={onClose} className="text-muted hover:text-white">✕</button>
+          <h3 className="font-head text-lg font-bold text-ink">Add new product</h3>
+          <button onClick={onClose} className="text-muted hover:text-ink">✕</button>
         </div>
         <form onSubmit={save} className="space-y-3">
           <Field label="Category">

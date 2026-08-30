@@ -8,7 +8,7 @@ export default function Home({ me, meName }) {
   if (!me) {
     return (
       <div className="mt-16 text-center">
-        <h1 className="font-head text-2xl font-extrabold text-white">Welcome to Consmat</h1>
+        <h1 className="font-head text-2xl font-extrabold text-ink">Welcome to Consmat</h1>
         <p className="mt-2 text-sm text-muted">Select your name in the top-right to see your construction projects.</p>
       </div>
     );
@@ -19,7 +19,7 @@ export default function Home({ me, meName }) {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="font-head text-2xl font-extrabold text-white">Hi{meName ? `, ${meName}` : ""}</h1>
+        <h1 className="font-head text-2xl font-extrabold text-ink">Hi{meName ? `, ${meName}` : ""}</h1>
         <p className="text-xs text-muted">Track your construction projects and material deliveries.</p>
       </div>
 
@@ -34,7 +34,7 @@ export default function Home({ me, meName }) {
                 <Link key={s.id} to={`/projects/${s.id}`}
                   className="block border border-border bg-panel p-4 transition-colors hover:border-accent/50">
                   <div className="flex items-center justify-between">
-                    <p className="font-semibold text-white">{s.label || s.code}</p>
+                    <p className="font-semibold text-ink">{s.label || s.code}</p>
                     <Badge tone={s.status === "completed" ? "ok" : s.status === "active" ? "accent" : "muted"}>{s.status}</Badge>
                   </div>
                   <p className="mt-0.5 text-xs text-muted">{s.location} · {s.area_sqft} sqft · {s.floors} floor(s)</p>

@@ -7,7 +7,7 @@ export function Card({ title, right, children, className = "" }) {
     <div className={`rounded-2xl bg-panel nm-raised ${className}`}>
       {(title || right) && (
         <div className="flex items-center justify-between border-b border-border/50 px-5 py-3">
-          <h3 className="font-head text-sm font-semibold text-white">{title}</h3>
+          <h3 className="font-head text-sm font-semibold text-ink">{title}</h3>
           {right}
         </div>
       )}
@@ -20,7 +20,7 @@ export function Stat({ label, value, sub, accent }) {
   return (
     <div className="rounded-2xl bg-panel nm-raised p-5">
       <p className="text-[10px] uppercase tracking-wider text-muted">{label}</p>
-      <p className={`mt-1 font-mono text-2xl font-bold ${accent ? "text-accent" : "text-white"}`}>{value}</p>
+      <p className={`mt-1 font-mono text-2xl font-bold ${accent ? "text-accent" : "text-ink"}`}>{value}</p>
       {sub && <p className="mt-0.5 text-xs text-muted">{sub}</p>}
     </div>
   );
@@ -28,8 +28,8 @@ export function Stat({ label, value, sub, accent }) {
 
 export function Button({ children, onClick, type = "button", variant = "primary", disabled, size = "md" }) {
   const styles = {
-    primary: "bg-accent text-black font-semibold nm-press hover:bg-accentHover",
-    ghost: "bg-panel text-white/85 nm-raised-sm nm-press hover:text-white hover:bg-panel2",
+    primary: "bg-accent text-onAccent font-semibold nm-press hover:bg-accentHover",
+    ghost: "bg-panel text-ink/85 nm-raised-sm nm-press hover:text-ink hover:bg-panel2",
     danger: "bg-panel text-red-400 nm-raised-sm nm-press hover:text-red-300",
   };
   const sizes = { md: "px-4 py-2 text-sm", sm: "px-3 py-1.5 text-xs" };
@@ -51,7 +51,7 @@ export function Field({ label, children }) {
 }
 
 const inputCls =
-  "w-full rounded-xl bg-panel2 nm-inset px-3.5 py-2 text-sm text-white placeholder:text-muted/70 outline-none focus:ring-2 focus:ring-accent/50";
+  "w-full rounded-xl bg-panel2 nm-inset px-3.5 py-2 text-sm text-ink placeholder:text-muted/70 outline-none focus:ring-2 focus:ring-accent/50";
 
 export function Input(props) {
   return <input {...props} className={inputCls} />;
@@ -82,7 +82,7 @@ export function Td({ children, mono, className = "" }) {
 
 export function Badge({ children, tone = "muted", className = "" }) {
   const tones = {
-    muted: "bg-white/5 text-muted",
+    muted: "bg-muted/10 text-muted",
     ok: "bg-emerald-500/15 text-emerald-300",
     warn: "bg-[#f59e0b]/15 text-[#fbbf24]",
     bad: "bg-red-500/15 text-red-300",
