@@ -26,6 +26,7 @@ class VendorOut(BaseModel):
     gstin: str
     is_hub_self: bool
     active: bool
+    blocked: bool = False
     created_at: datetime | None = None
 
 

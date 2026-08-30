@@ -63,6 +63,9 @@ class Vendor(Base):
     gstin: Mapped[str] = mapped_column(String(24), default="")
     is_hub_self: Mapped[bool] = mapped_column(Boolean, default=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # blacklisted: a blocked vendor is excluded from all procurement (market view, plans, orders),
+    # regardless of `active`. Distinct from deactivation, which is a soft remove that keeps history.
+    blocked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     prices: Mapped[list["VendorPrice"]] = relationship(

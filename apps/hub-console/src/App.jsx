@@ -11,6 +11,7 @@ import Pricing from "./pages/Pricing.jsx";
 import Payments from "./pages/Payments.jsx";
 import Accounts from "./pages/Accounts.jsx";
 import Team from "./pages/Team.jsx";
+import Teams from "./pages/Teams.jsx";
 import Enquiries from "./pages/Enquiries.jsx";
 import Login from "./pages/Login.jsx";
 import { getUser, logout } from "./auth.js";
@@ -26,7 +27,8 @@ const NAV = [
   { to: "/pricing", label: "Pricing" },
   { to: "/payments", label: "Payments" },
   { to: "/accounts", label: "Accounts", roles: ["admin", "hub_manager", "hub_supervisor"] },
-  { to: "/team", label: "Team & access", roles: ["admin", "hub_manager", "hub_supervisor"] },
+  { to: "/team", label: "Team & access", roles: ["admin", "hub_manager", "hub_supervisor", "hr"] },
+  { to: "/teams", label: "Teams", roles: ["admin", "hub_manager", "hub_supervisor", "hr", "spokesperson", "architect", "site_engineer", "finance"] },
 ];
 
 export default function App() {
@@ -75,6 +77,7 @@ export default function App() {
           <Route path="/payments" element={<Payments />} />
           <Route path="/accounts" element={<Accounts />} />
           <Route path="/team" element={<Team />} />
+          <Route path="/teams" element={<Teams />} />
           <Route path="/enquiries" element={<Enquiries />} />
           <Route path="*" element={<Navigate to="/overview" replace />} />
         </Routes>

@@ -60,7 +60,7 @@ def _require(db: Session, vendor_id: str) -> models.Vendor:
 
 def update_vendor(db: Session, vendor_id: str, **fields) -> models.Vendor:
     v = _require(db, vendor_id)
-    for k in ("name", "city", "phone", "gstin", "active"):
+    for k in ("name", "city", "phone", "gstin", "active", "blocked"):
         if k in fields and fields[k] is not None:
             setattr(v, k, fields[k])
     db.commit()
@@ -71,6 +71,17 @@ def update_vendor(db: Session, vendor_id: str, **fields) -> models.Vendor:
 def deactivate_vendor(db: Session, vendor_id: str) -> models.Vendor:
     v = _require(db, vendor_id)
     v.active = False
+    db.commit()
+    db.refresh(v)
+    return v
+
+
+def set_vendor_blocked(db: Session, vendor_id: str, blocked: bool) -> models.Vendor:
+    """Blacklist (or lift the blacklist on) a vendor. A blocked vendor is excluded from procurement."""
+    v = _require(db, vendor_id)
+    if v.is_hub_self and blocked:
+        raise ProcurementError("The hub's own supply cannot be blacklisted")
+    v.blocked = blocked
     db.commit()
     db.refresh(v)
     return v
@@ -332,7 +343,8 @@ def market_prices(db: Session, material_id: str) -> list[dict]:
     rows = db.execute(
         select(models.VendorPrice, models.Vendor)
         .join(models.Vendor, models.Vendor.id == models.VendorPrice.vendor_id)
-        .where(models.VendorPrice.material_id == material_id, models.Vendor.active.is_(True))
+        .where(models.VendorPrice.material_id == material_id, models.Vendor.active.is_(True),
+               models.Vendor.blocked.is_(False))
         .order_by(models.VendorPrice.price.asc())
     ).all()
     return [
@@ -349,7 +361,8 @@ def product_offers(db: Session, product_id: str) -> list[dict]:
     rows = db.execute(
         select(models.VendorPrice, models.Vendor)
         .join(models.Vendor, models.Vendor.id == models.VendorPrice.vendor_id)
-        .where(models.VendorPrice.product_id == product_id, models.Vendor.active.is_(True))
+        .where(models.VendorPrice.product_id == product_id, models.Vendor.active.is_(True),
+               models.Vendor.blocked.is_(False))
         .order_by(models.VendorPrice.price.asc())
     ).all()
     return [

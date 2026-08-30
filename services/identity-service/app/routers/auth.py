@@ -29,8 +29,8 @@ def me(user: dict = Depends(auth.current_user), db: Session = Depends(get_db)):
     return u
 
 
-# Team management: any hub role that can manage at least ops (supervisor and up) may reach these.
-TEAM = auth.require_role("admin", "hub_manager", "hub_supervisor")
+# Team management: any hub role that can manage at least ops (supervisor and up), plus HR, may reach these.
+TEAM = auth.require_role("admin", "hub_manager", "hub_supervisor", "hr")
 
 
 @router.get("/roles")
@@ -55,7 +55,7 @@ def create_user(body: schemas.UserIn, actor: dict = Depends(auth.current_user),
     actor_role = actor.get("role", "")
     if actor_role == "service":
         actor_role_for_check = None
-    elif actor_role in ("admin", "hub_manager", "hub_supervisor"):
+    elif actor_role in ("admin", "hub_manager", "hub_supervisor", "hr"):
         actor_role_for_check = actor_role
     else:
         raise HTTPException(403, "Not allowed to create users")

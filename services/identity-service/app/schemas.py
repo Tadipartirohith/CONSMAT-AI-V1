@@ -37,3 +37,48 @@ class UserUpdate(BaseModel):
     active: bool | None = None
     org_ref: str | None = None
     name: str | None = None
+
+
+# ---- Teams ----
+
+class TeamIn(BaseModel):
+    name: str = Field(min_length=1)
+    description: str = ""
+    spoke_id: str = ""
+
+
+class TeamUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    spoke_id: str | None = None
+    active: bool | None = None
+
+
+class TeamOut(BaseModel):
+    id: int
+    name: str
+    description: str = ""
+    spoke_id: str = ""
+    active: bool = True
+    member_count: int = 0
+
+
+class MemberOut(BaseModel):
+    user_id: str
+    name: str = ""
+    role: str
+    granted_by: str = ""
+
+
+class TeamDetailOut(BaseModel):
+    id: int
+    name: str
+    description: str = ""
+    spoke_id: str = ""
+    active: bool = True
+    members: list[MemberOut] = []
+
+
+class MemberIn(BaseModel):
+    user_id: str = Field(min_length=3)   # email
+    role: str = "member"                 # admin | member | viewer

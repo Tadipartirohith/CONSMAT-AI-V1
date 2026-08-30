@@ -52,6 +52,18 @@ def deactivate_vendor(vendor_id: str, db: Session = Depends(get_db)):
     return _run(service.deactivate_vendor, db=db, vendor_id=vendor_id)
 
 
+@router.post("/vendors/{vendor_id}/block", response_model=schemas.VendorDetailOut, dependencies=[Depends(HUB_WRITE)])
+def block_vendor(vendor_id: str, db: Session = Depends(get_db)):
+    """Blacklist a vendor: excluded from all procurement (market view, plans, orders). Reversible."""
+    return _run(service.set_vendor_blocked, db=db, vendor_id=vendor_id, blocked=True)
+
+
+@router.post("/vendors/{vendor_id}/unblock", response_model=schemas.VendorDetailOut, dependencies=[Depends(HUB_WRITE)])
+def unblock_vendor(vendor_id: str, db: Session = Depends(get_db)):
+    """Lift a vendor's blacklist."""
+    return _run(service.set_vendor_blocked, db=db, vendor_id=vendor_id, blocked=False)
+
+
 @router.post("/vendor-requests", response_model=schemas.VendorRequestOut, status_code=201, dependencies=[Depends(HUB_REQUEST)])
 def create_vendor_request(body: schemas.VendorRequestIn, user: dict = Depends(current_user), db: Session = Depends(get_db)):
     """Operator requests a vendor add/remove; a supervisor or manager approves it."""

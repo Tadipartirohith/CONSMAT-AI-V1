@@ -35,6 +35,14 @@ export default function Vendors() {
     try { await proc.decideVendor(id, approve); setMsg(approve ? "Approved." : "Rejected."); requests.reload(); vendors.reload(); }
     catch (e) { setMsg(e.message); }
   };
+  const toggleBlock = async (v) => {
+    setMsg(null);
+    try {
+      if (v.blocked) { await proc.unblockVendor(v.id); setMsg(`${v.name} removed from the blacklist.`); }
+      else { await proc.blockVendor(v.id); setMsg(`${v.name} blacklisted - excluded from all procurement.`); }
+      vendors.reload();
+    } catch (e) { setMsg(e.message); }
+  };
 
 
   return (
@@ -69,15 +77,28 @@ export default function Vendors() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card title="Vendor registry" className="lg:col-span-2" right={<Button size="sm" variant="ghost" onClick={vendors.reload}>Refresh</Button>}>
-          <Table head={["ID", "Name", "City", "Type", ""]}>
+          <Table head={["ID", "Name", "City", "Status", ""]}>
             {(vendors.data || []).map((v) => (
-              <tr key={v.id} className="border-b border-border/50">
+              <tr key={v.id} className={`border-b border-border/50 ${v.blocked ? "opacity-60" : ""}`}>
                 <Td mono className="text-muted">{v.id}</Td>
                 <Td>{v.name}</Td>
                 <Td>{v.city || "-"}</Td>
-                <Td>{v.is_hub_self ? <Badge tone="accent">hub</Badge> : <Badge>{v.active ? "active" : "inactive"}</Badge>}</Td>
-                <Td>{!v.is_hub_self && v.active && (
-                  <Button size="sm" variant="ghost" onClick={() => removeVendor(v)}>{isApprover ? "Remove" : "Request remove"}</Button>
+                <Td>
+                  {v.is_hub_self ? <Badge tone="accent">hub</Badge>
+                    : v.blocked ? <Badge tone="bad">blacklisted</Badge>
+                    : <Badge tone={v.active ? "ok" : "muted"}>{v.active ? "active" : "inactive"}</Badge>}
+                </Td>
+                <Td>{!v.is_hub_self && (
+                  <div className="flex gap-2">
+                    {v.active && !v.blocked && (
+                      <Button size="sm" variant="ghost" onClick={() => removeVendor(v)}>{isApprover ? "Remove" : "Request remove"}</Button>
+                    )}
+                    {isApprover && (
+                      <Button size="sm" variant={v.blocked ? "ghost" : "danger"} onClick={() => toggleBlock(v)}>
+                        {v.blocked ? "Unblock" : "Block"}
+                      </Button>
+                    )}
+                  </div>
                 )}</Td>
               </tr>
             ))}

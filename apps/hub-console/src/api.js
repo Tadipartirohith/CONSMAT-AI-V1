@@ -43,6 +43,8 @@ export const proc = {
   vendor: (id) => req("proc", `/vendors/${id}`),
   addVendor: (b) => req("proc", "/vendors", body(b)),
   deactivateVendor: (id) => req("proc", `/vendors/${id}`, { method: "DELETE" }),
+  blockVendor: (id) => req("proc", `/vendors/${id}/block`, { method: "POST" }),
+  unblockVendor: (id) => req("proc", `/vendors/${id}/unblock`, { method: "POST" }),
   vendorRequests: (status) => req("proc", `/vendor-requests${status ? `?status=${status}` : ""}`),
   requestVendor: (b) => req("proc", "/vendor-requests", body(b)),
   decideVendor: (id, approve) => req("proc", `/vendor-requests/${id}/decide`, body({ approve })),
@@ -96,8 +98,20 @@ export const team = {
   updateUser: (email, b) => req("id", `/users/${encodeURIComponent(email)}`, { method: "PATCH", body: JSON.stringify(b) }),
 };
 
+// Teams (OpenStack-style projects): membership grants, assignable by a team admin, HR, or org admin.
+export const teams = {
+  list: () => req("id", "/teams"),
+  get: (id) => req("id", `/teams/${id}`),
+  create: (b) => req("id", "/teams", body(b)),
+  update: (id, b) => req("id", `/teams/${id}`, { method: "PATCH", body: JSON.stringify(b) }),
+  addMember: (id, b) => req("id", `/teams/${id}/members`, body(b)),
+  setMemberRole: (id, email, role) => req("id", `/teams/${id}/members/${encodeURIComponent(email)}`, { method: "PATCH", body: JSON.stringify({ user_id: email, role }) }),
+  removeMember: (id, email) => req("id", `/teams/${id}/members/${encodeURIComponent(email)}`, { method: "DELETE" }),
+};
+export const TEAM_ROLES = ["admin", "member", "viewer"];
+
 export const ROLE_LABEL = {
-  admin: "Admin", hub_manager: "Hub manager", hub_supervisor: "Hub supervisor",
+  admin: "Admin", hub_manager: "Hub manager", hr: "HR", hub_supervisor: "Hub supervisor",
   spokesperson: "Spokesperson", architect: "Architect", site_engineer: "Site engineer",
   finance: "Finance", vendor: "Vendor", consumer: "Consumer", service: "Service",
 };
