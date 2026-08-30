@@ -2,27 +2,33 @@ import { useState } from "react";
 import { login } from "../auth.js";
 import { publicApi } from "../api.js";
 
-const field = "w-full border border-border bg-panel2 px-2.5 py-1.5 text-sm text-white outline-none focus:border-accent";
-const label = "mb-1 block text-[11px] uppercase tracking-wider text-muted";
+const field =
+  "w-full rounded-xl bg-panel2 nm-inset px-3.5 py-2.5 text-sm text-white placeholder:text-muted/70 outline-none focus:ring-2 focus:ring-accent/50";
+const label = "mb-1.5 block text-[11px] uppercase tracking-wider text-muted";
+const primaryBtn =
+  "w-full rounded-xl bg-accent py-2.5 text-sm font-semibold text-black nm-raised-sm nm-press hover:brightness-105 disabled:opacity-40";
 
 export default function Login({ onDone }) {
-  const [mode, setMode] = useState("signin");   // signin | enquire
+  const [mode, setMode] = useState("signin"); // signin | enquire
   return (
-    <div className="grid min-h-screen place-items-center px-4">
-      <div className="w-full max-w-sm border border-border bg-panel p-6">
-        <div className="mb-4 flex items-center gap-2">
-          <div className="grid h-8 w-8 place-items-center bg-accent font-mono text-sm font-bold text-black">C</div>
+    <div className="relative grid min-h-[100dvh] place-items-center overflow-hidden px-4">
+      <div className="pointer-events-none absolute -top-40 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-accent/10 blur-3xl" />
+      <div className="relative w-full max-w-sm rounded-2xl bg-panel nm-raised p-7">
+        <div className="mb-5 flex items-center gap-3">
+          <div className="grid h-11 w-11 place-items-center rounded-xl bg-accent nm-raised-sm font-mono text-lg font-bold text-black">C</div>
           <div>
-            <p className="font-bold text-white">Consmat</p>
-            <p className="text-[10px] text-muted">You Build, We Provide</p>
+            <p className="font-head text-lg font-bold leading-tight text-white">Consmat</p>
+            <p className="text-[11px] text-muted">You build, we provide</p>
           </div>
         </div>
 
-        <div className="mb-4 flex gap-1 border-b border-border">
-          {["signin", "enquire"].map((m) => (
+        <div className="mb-5 grid grid-cols-2 gap-1 rounded-xl bg-panel2 nm-inset p-1">
+          {[["signin", "Sign in"], ["enquire", "New enquiry"]].map(([m, lbl]) => (
             <button key={m} onClick={() => setMode(m)}
-              className={`px-3 py-2 text-sm ${mode === m ? "border-b-2 border-accent text-accent" : "text-muted hover:text-white"}`}>
-              {m === "signin" ? "Sign in" : "New enquiry"}
+              className={`rounded-lg py-2 text-sm font-medium transition-all ${
+                mode === m ? "bg-panel nm-raised-sm text-accent" : "text-muted hover:text-white"
+              }`}>
+              {lbl}
             </button>
           ))}
         </div>
@@ -44,16 +50,14 @@ function SignIn({ onDone }) {
     catch (e) { setErr(e.message); setBusy(false); }
   };
   return (
-    <form onSubmit={submit} className="space-y-3">
+    <form onSubmit={submit} className="space-y-4">
       <label className="block"><span className={label}>Email</span>
         <input value={email} onChange={(e) => setEmail(e.target.value)} className={field} /></label>
       <label className="block"><span className={label}>Password</span>
         <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={field} /></label>
-      <button type="submit" disabled={busy} className="w-full bg-accent px-3 py-2 text-sm font-semibold text-black hover:bg-accentHover disabled:opacity-40">
-        {busy ? "Signing in…" : "Sign in"}
-      </button>
-      {err && <p className="text-xs text-red-400">{err}</p>}
-      <p className="border-t border-border pt-3 text-[11px] text-muted">Demo: <span className="text-accent">demo@consmat.com</span> · consmat123</p>
+      <button type="submit" disabled={busy} className={primaryBtn}>{busy ? "Signing in..." : "Sign in"}</button>
+      {err && <p className="text-xs text-red-300">{err}</p>}
+      <p className="pt-1 text-center text-[11px] text-muted">Demo: <span className="text-accent">demo@consmat.com</span> / consmat123</p>
     </form>
   );
 }
@@ -71,12 +75,12 @@ function Enquire() {
   };
   if (done) {
     return (
-      <div className="space-y-2 rounded border border-emerald-500/30 bg-emerald-500/5 p-3 text-sm">
-        <p className="text-emerald-400">✓ Thank you, {fullName || "your enquiry is in"}!</p>
+      <div className="space-y-2 rounded-xl bg-panel2 nm-inset p-4 text-sm">
+        <p className="font-semibold text-emerald-300">Thank you, {fullName || "your enquiry is in"}.</p>
         <p className="text-white/80">
           {done.routed_to === "spoke"
-            ? <>Your enquiry for <b>{f.location}</b> has been sent to our <b>{done.spoke}</b> team, who will contact you shortly.</>
-            : <>We don't have a spoke covering <b>{f.location}</b> yet, so your enquiry has gone to our head-office team, who will reach out about serving your area.</>}
+            ? <>Your enquiry for <b className="text-white">{f.location}</b> has been sent to our <b className="text-white">{done.spoke}</b> team, who will contact you shortly.</>
+            : <>We don't have a spoke covering <b className="text-white">{f.location}</b> yet, so your enquiry has gone to our head-office team, who will reach out about serving your area.</>}
         </p>
         <button onClick={() => { setDone(null); setF({ first: "", middle: "", last: "", phone: "", email: "", location: "", message: "" }); }}
           className="text-[11px] text-accent hover:underline">Submit another enquiry</button>
@@ -84,14 +88,14 @@ function Enquire() {
     );
   }
   return (
-    <form onSubmit={submit} className="space-y-3">
+    <form onSubmit={submit} className="space-y-3.5">
       <p className="text-[11px] text-muted">Tell us about your project. We'll route you to the team covering your area.</p>
       <div className="grid grid-cols-3 gap-2">
-        <label className="block"><span className={label}>First name</span>
+        <label className="block"><span className={label}>First</span>
           <input value={f.first} required onChange={(e) => setF({ ...f, first: e.target.value })} className={field} /></label>
-        <label className="block"><span className={label}>Middle name</span>
+        <label className="block"><span className={label}>Middle</span>
           <input value={f.middle} onChange={(e) => setF({ ...f, middle: e.target.value })} className={field} /></label>
-        <label className="block"><span className={label}>Last name</span>
+        <label className="block"><span className={label}>Last</span>
           <input value={f.last} required onChange={(e) => setF({ ...f, last: e.target.value })} className={field} /></label>
       </div>
       <div className="grid grid-cols-2 gap-2">
@@ -104,10 +108,8 @@ function Enquire() {
         <input value={f.location} required placeholder="e.g. Kompally, Hyderabad" onChange={(e) => setF({ ...f, location: e.target.value })} className={field} /></label>
       <label className="block"><span className={label}>Please share your requirement</span>
         <textarea value={f.message} rows={2} onChange={(e) => setF({ ...f, message: e.target.value })} className={field} /></label>
-      <button type="submit" disabled={busy} className="w-full bg-accent px-3 py-2 text-sm font-semibold text-black hover:bg-accentHover disabled:opacity-40">
-        {busy ? "Sending…" : "Submit enquiry"}
-      </button>
-      {err && <p className="text-xs text-red-400">{err}</p>}
+      <button type="submit" disabled={busy} className={primaryBtn}>{busy ? "Sending..." : "Submit enquiry"}</button>
+      {err && <p className="text-xs text-red-300">{err}</p>}
     </form>
   );
 }
