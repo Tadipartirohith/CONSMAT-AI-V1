@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { site } from "../api.js";
-import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync } from "../components/ui.jsx";
+import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync, PageSkeleton } from "../components/ui.jsx";
 
 const FIN_STATUS = ["pending", "in_progress", "approved", "rejected"];
 
@@ -13,6 +13,7 @@ export default function Finance() {
   // Finance handles captive projects (client projects are funded by the customer's own payment).
   const captive = (sites.data || []).filter((s) => s.project_type === "captive");
 
+  if (sites.loading && !sites.data) return <PageSkeleton stats={0} rows={6} />;
   return (
     <div className="space-y-5">
       <div>

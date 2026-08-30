@@ -40,6 +40,14 @@ jobs:
         working-directory: services/${{ matrix.service }}
         run: python -m pytest -q
 
+  design-tokens:
+    name: design tokens in sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check every app matches apps/shared
+        run: bash scripts/check-design-tokens.sh
+
   frontend-build:
     name: build (${{ matrix.app }})
     runs-on: ubuntu-latest

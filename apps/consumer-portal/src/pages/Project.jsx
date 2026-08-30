@@ -1,7 +1,39 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { site, price, pay, progressOf, PHASE_NAMES, inr } from "../api.js";
-import { Card, Badge, Progress, useAsync } from "../components/ui.jsx";
+import { Card, Badge, Progress, useAsync, PageSkeleton } from "../components/ui.jsx";
+
+// Project cover: shows the architect's uploaded design image when there is one, otherwise a
+// branded gradient. Real imagery, sourced from the project's own uploaded documents.
+function ProjectCover({ siteId, title, status, subtitle }) {
+  const [src, setSrc] = useState(null);
+  useEffect(() => {
+    let url; let cancelled = false;
+    (async () => {
+      try {
+        const docs = await site.documents(siteId, "design");
+        const img = (docs || []).find((d) => /\.(png|jpe?g|webp|gif)$/i.test(d.filename || ""));
+        if (img) { url = await site.imageUrl(img.id); if (!cancelled) setSrc(url); }
+      } catch { /* fall back to the gradient */ }
+    })();
+    return () => { cancelled = true; if (url) URL.revokeObjectURL(url); };
+  }, [siteId]);
+  return (
+    <div className="relative overflow-hidden rounded-2xl nm-raised" style={{ aspectRatio: "16 / 6" }}>
+      {src
+        ? <img src={src} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        : <div className="absolute inset-0 bg-gradient-to-br from-accent/35 via-panel to-panel2" />}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-5">
+        <div>
+          <h1 className="font-head text-2xl font-extrabold text-white">{title}</h1>
+          {subtitle && <p className="mt-0.5 text-xs text-white/80">{subtitle}</p>}
+        </div>
+        <Badge tone={status === "completed" ? "ok" : status === "active" ? "accent" : "muted"}>{status}</Badge>
+      </div>
+    </div>
+  );
+}
 
 const EVENT = {
   started: { icon: "🏗️" }, dispatched: { icon: "🚚" }, phase_done: { icon: "✅" },
@@ -15,7 +47,7 @@ export default function Project({ me }) {
   const s = detail.data;
 
   if (detail.error) return <p className="text-sm text-red-400">{detail.error}</p>;
-  if (!s) return <p className="text-sm text-muted">Loading…</p>;
+  if (!s) return <PageSkeleton stats={0} rows={8} />;
   if (me && s.consumer_id !== me) {
     return <p className="text-sm text-muted">This project belongs to another account.</p>;
   }
@@ -41,21 +73,16 @@ export default function Project({ me }) {
     <div className="space-y-5">
       <Link to="/" className="text-sm text-muted hover:text-ink">Back to My projects</Link>
 
-      <div className="border border-border bg-panel p-5">
-        <div className="flex items-center justify-between">
-          <h1 className="font-head text-2xl font-extrabold text-ink">{s.label || s.code}</h1>
-          <Badge tone={s.status === "completed" ? "ok" : s.status === "active" ? "accent" : "muted"}>{s.status}</Badge>
+      <ProjectCover siteId={id} title={s.label || s.code} status={s.status}
+        subtitle={`${s.location} · ${s.area_sqft} sqft · ${s.floors} floor(s) · ${s.construction_type}`} />
+
+      <div className="rounded-2xl bg-panel nm-raised p-5">
+        <div className="mb-1 flex justify-between text-sm">
+          <span className="text-ink">{pr.currentSeq ? `Currently in Phase ${pr.currentSeq} of ${pr.total}: ${PHASE_NAMES[pr.currentSeq]}` : s.status === "completed" ? "Project complete" : "Awaiting start"}</span>
+          <span className="font-mono text-accent">{pr.done}/{pr.total} phases · {pr.pct}%</span>
         </div>
-        <p className="mt-1 text-sm text-muted">{s.location} · {s.area_sqft} sqft · {s.floors} floor(s) · {s.construction_type}</p>
-        <div className="mt-4">
-          <div className="mb-1 flex justify-between text-sm">
-            <span className="text-ink">{pr.currentSeq ? `Currently in Phase ${pr.currentSeq} of ${pr.total}: ${PHASE_NAMES[pr.currentSeq]}` : s.status === "completed" ? "Project complete 🎉" : "Awaiting start"}</span>
-            <span className="font-mono text-accent">{pr.done}/{pr.total} phases · {pr.pct}%</span>
-          </div>
-          <Progress pct={pr.pct} />
-        </div>
-        <div className="mt-4 flex items-center gap-2 rounded border border-accent/30 bg-accent/5 px-3 py-2 text-sm">
-          <span className="text-lg">🚚</span>
+        <Progress pct={pr.pct} />
+        <div className="mt-4 flex items-center gap-2 rounded-lg border border-accent/25 bg-accent/[0.06] px-3 py-2 text-sm">
           <span className="text-[10px] uppercase tracking-wider text-accent">Next delivery</span>
           <span className="text-ink/90">{nextDelivery}</span>
         </div>

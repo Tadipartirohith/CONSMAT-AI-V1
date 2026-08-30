@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { site } from "../api.js";
-import { Card, Table, Td, Badge, Button, Select, useAsync } from "../components/ui.jsx";
+import { Card, Table, Td, Badge, Button, Select, useAsync, PageSkeleton } from "../components/ui.jsx";
 
 const NEXT = { new: "contacted", contacted: "converted" };
 const TONE = { new: "warn", contacted: "accent", converted: "ok", closed: "muted" };
@@ -21,6 +21,7 @@ export default function Enquiries() {
   };
   const rows = enquiries.data || [];
 
+  if (enquiries.loading && !enquiries.data) return <PageSkeleton stats={0} rows={8} />;
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">

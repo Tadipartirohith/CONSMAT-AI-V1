@@ -36,6 +36,12 @@ export const site = {
     const a = document.createElement("a"); a.href = url; a.download = filename || `document-${docId}`;
     document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   },
+  // Auth-fetch a document as an object URL for inline display (e.g. a project cover image).
+  imageUrl: async (docId) => {
+    const res = await fetch(`/site/documents/${docId}`, { headers: { ...authHeader() } });
+    if (!res.ok) throw new Error("image load failed");
+    return URL.createObjectURL(await res.blob());
+  },
 };
 
 // Public (no login) - a prospective customer submits an enquiry that gets geofence-routed.

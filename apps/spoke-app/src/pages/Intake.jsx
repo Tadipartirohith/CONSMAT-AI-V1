@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { site, TIERS } from "../api.js";
 import { getUser } from "../auth.js";
-import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync } from "../components/ui.jsx";
+import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync, PageSkeleton } from "../components/ui.jsx";
 import LocationField from "../components/LocationField.jsx";
 
 export default function Intake() {
@@ -22,6 +22,7 @@ export default function Intake() {
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
 
+  if (spokes.loading && !spokes.data) return <PageSkeleton stats={0} rows={6} />;
   return (
     <div className="space-y-5">
       <div>

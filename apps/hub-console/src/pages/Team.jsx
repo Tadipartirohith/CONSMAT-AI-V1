@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { team, site, ROLE_LABEL } from "../api.js";
 import { getUser } from "../auth.js";
-import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync } from "../components/ui.jsx";
+import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync, PageSkeleton } from "../components/ui.jsx";
 
 const FIELD_ROLES = ["spokesperson", "architect", "site_engineer", "finance"];  // roles that belong to a spoke team
 
@@ -28,6 +28,7 @@ export default function Team() {
     return order.filter((r) => g[r]).map((r) => ({ role: r, list: g[r] }));
   }, [users.data, roles.data]);
 
+  if (users.loading && !users.data) return <PageSkeleton stats={0} rows={8} />;
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { site, inv, proc, PHASE_NAMES, inr } from "../api.js";
-import { Card, Table, Td, Badge, Button, Input, Select, useAsync } from "../components/ui.jsx";
+import { Card, Table, Td, Badge, Button, Input, Select, useAsync, PageSkeleton } from "../components/ui.jsx";
 
 const TABS = ["Overview", "Bill of materials", "Phase needs"];
 
@@ -15,7 +15,7 @@ export default function ProjectDetail() {
   const s = detail.data;
 
   if (detail.error) return <p className="text-sm text-red-400">{detail.error}</p>;
-  if (!s) return <p className="text-sm text-muted">Loading…</p>;
+  if (!s) return <PageSkeleton stats={0} rows={8} />;
 
   return (
     <div className="space-y-5">

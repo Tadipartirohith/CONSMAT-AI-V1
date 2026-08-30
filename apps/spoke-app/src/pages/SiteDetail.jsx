@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { site, inv, proc, PHASE_NAMES, inr } from "../api.js";
-import { Card, Table, Td, Badge, Button, Input, Select, useAsync } from "../components/ui.jsx";
+import { Card, Table, Td, Badge, Button, Input, Select, useAsync, PageSkeleton } from "../components/ui.jsx";
 import { getUser } from "../auth.js";
 import { ArrowLeft, Compass, HardHat, Handshake, File, CheckCircle, Warning, X, Sparkle } from "@phosphor-icons/react";
 
@@ -47,7 +47,7 @@ export default function SiteDetail() {
   };
 
   if (detail.error) return <p className="text-sm text-red-300">{detail.error}</p>;
-  if (!s) return <p className="text-sm text-muted">Loading...</p>;
+  if (!s) return <PageSkeleton stats={0} rows={8} />;
 
   const planned = s.bom_lines.length > 0;
   const editable = s.status === "planning" || s.status === "planned";

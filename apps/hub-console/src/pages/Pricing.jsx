@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { inv, price, TIERS, inr } from "../api.js";
-import { Card, Table, Td, Badge, Button, Input, Select, useAsync } from "../components/ui.jsx";
+import { Card, Table, Td, Badge, Button, Input, Select, useAsync, PageSkeleton } from "../components/ui.jsx";
 
 const ICON = { cement: "🧱", steel: "🔩", sand: "🏖️", aggregate: "🪨", bricks: "🟥" };
 
@@ -30,6 +30,7 @@ export default function Pricing() {
   const stockOf = (pid) => (pstock.data || []).find((s) => s.product_id === pid);
   const reload = () => margins.reload();
 
+  if (pstock.loading && !pstock.data) return <PageSkeleton stats={0} rows={8} />;
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">

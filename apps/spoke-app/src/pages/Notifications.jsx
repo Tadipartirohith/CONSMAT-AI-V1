@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { site } from "../api.js";
 import { getUser } from "../auth.js";
-import { Card, Badge, Button, useAsync } from "../components/ui.jsx";
+import { Card, Badge, Button, useAsync, PageSkeleton } from "../components/ui.jsx";
 
 const ICON = {
   design_uploaded: "📐", design_updated: "📐", boq_submitted: "📋", boq_diff_flagged: "⚠️",
@@ -27,6 +27,7 @@ export default function Notifications() {
     try { await site.markAllReadSpoke(spoke); notifs.reload(); } finally { setBusy(false); }
   };
 
+  if (notifs.loading && !notifs.data) return <PageSkeleton stats={0} rows={8} />;
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
