@@ -131,13 +131,20 @@ function AddMemberForm({ assignable, spokes, onFlash, onDone }) {
 
 function MemberRow({ u, me, canManage, assignable, branchName, isField, onFlash, onDone }) {
   const [busy, setBusy] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
   const isSelf = u.id === me?.sub || u.id === me?.id;
+  const isAdmin = u.role === "admin";
   const roleOptions = [...new Set([u.role, ...assignable])];
 
   const patch = async (b, ok) => {
     setBusy(true);
     try { await team.updateUser(u.id, b); onFlash(true, ok); onDone(); }
     catch (e) { onFlash(false, e.message); } finally { setBusy(false); }
+  };
+  const del = async () => {
+    setBusy(true);
+    try { await team.deleteUser(u.id); onFlash(true, `${u.name} deleted.`); onDone(); }
+    catch (e) { onFlash(false, e.message); } finally { setBusy(false); setConfirmDel(false); }
   };
 
   return (
@@ -146,20 +153,32 @@ function MemberRow({ u, me, canManage, assignable, branchName, isField, onFlash,
       <Td mono className="text-muted">{u.id}</Td>
       <Td className="text-muted">{isField ? (branchName || u.org_ref || "-") : "-"}</Td>
       <Td>
-        {canManage ? (
+        {canManage && !isAdmin ? (
           <Select value={u.role} disabled={busy} onChange={(e) => patch({ role: e.target.value }, `${u.name} is now ${ROLE_LABEL[e.target.value] || e.target.value}.`)}>
             {roleOptions.map((r) => <option key={r} value={r}>{ROLE_LABEL[r] || r}</option>)}
           </Select>
-        ) : <Badge tone="muted">{ROLE_LABEL[u.role] || u.role}</Badge>}
+        ) : <Badge tone={isAdmin ? "accent" : "muted"}>{ROLE_LABEL[u.role] || u.role}</Badge>}
       </Td>
       <Td><Badge tone={u.active ? "ok" : "bad"}>{u.active ? "active" : "disabled"}</Badge></Td>
       <Td>
-        {canManage && !isSelf ? (
-          <Button size="sm" variant="ghost" disabled={busy}
-            onClick={() => patch({ active: !u.active }, `${u.name} ${u.active ? "deactivated" : "reactivated"}.`)}>
-            {u.active ? "Deactivate" : "Reactivate"}
-          </Button>
-        ) : <span className="text-[11px] text-muted">{isSelf ? "You" : "-"}</span>}
+        {isAdmin ? <span className="text-[11px] text-muted">Permanent</span>
+          : isSelf ? <span className="text-[11px] text-muted">You</span>
+          : canManage ? (
+            <div className="flex items-center gap-1.5">
+              <Button size="sm" variant="ghost" disabled={busy}
+                onClick={() => patch({ active: !u.active }, `${u.name} ${u.active ? "deactivated" : "reactivated"}.`)}>
+                {u.active ? "Deactivate" : "Reactivate"}
+              </Button>
+              {confirmDel ? (
+                <>
+                  <Button size="sm" variant="danger" disabled={busy} onClick={del}>Confirm delete</Button>
+                  <button onClick={() => setConfirmDel(false)} className="text-[11px] text-muted hover:text-ink">cancel</button>
+                </>
+              ) : (
+                <Button size="sm" variant="danger" onClick={() => setConfirmDel(true)}>Delete</Button>
+              )}
+            </div>
+          ) : <span className="text-[11px] text-muted">-</span>}
       </Td>
     </tr>
   );

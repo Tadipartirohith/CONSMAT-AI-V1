@@ -89,6 +89,8 @@ def update_user(db: Session, email: str, actor_role: str, actor_email: str, *,
         _require_can_manage(actor_role, role)  # ...and out-rank the NEW role too
         user.role = role
     if active is not None:
+        if not active and user.role == "admin":
+            raise IdentityError("The admin account is permanent and cannot be deactivated")
         if not active and user.id == actor_email:
             raise IdentityError("You cannot deactivate your own account")
         user.active = active
@@ -110,6 +112,24 @@ def authenticate(db: Session, email: str, password: str) -> models.User:
 
 def list_users(db: Session) -> list[models.User]:
     return list(db.execute(select(models.User).order_by(models.User.role)).scalars())
+
+
+def delete_user(db: Session, email: str, actor_role: str, actor_email: str) -> None:
+    """Permanently delete a user. The admin account is protected; the actor must out-rank the target."""
+    email = email.strip().lower()
+    user = db.get(models.User, email)
+    if user is None:
+        raise IdentityError(f"Unknown user: {email}")
+    if user.role == "admin":
+        raise IdentityError("The admin account is permanent and cannot be deleted")
+    if user.id == (actor_email or "").strip().lower():
+        raise IdentityError("You cannot delete your own account")
+    _require_can_manage(actor_role, user.role)
+    # drop the user's team memberships first (they reference the user id).
+    for m in db.execute(select(models.TeamMember).where(models.TeamMember.user_id == email)).scalars():
+        db.delete(m)
+    db.delete(user)
+    db.commit()
 
 
 # ---- Teams (OpenStack-style projects) + membership grants ----

@@ -96,6 +96,7 @@ export const team = {
   roles: () => req("id", "/roles"),
   createUser: (b) => req("id", "/users", body(b)),
   updateUser: (email, b) => req("id", `/users/${encodeURIComponent(email)}`, { method: "PATCH", body: JSON.stringify(b) }),
+  deleteUser: (email) => req("id", `/users/${encodeURIComponent(email)}`, { method: "DELETE" }),
 };
 
 // Teams (OpenStack-style projects): membership grants, assignable by a team admin, HR, or org admin.

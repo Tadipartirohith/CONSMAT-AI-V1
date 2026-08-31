@@ -68,6 +68,17 @@ def create_user(body: schemas.UserIn, actor: dict = Depends(auth.current_user),
         raise HTTPException(409, str(e))
 
 
+@router.delete("/users/{email}", status_code=204)
+def delete_user(email: str, actor: dict = Depends(TEAM), db: Session = Depends(get_db)):
+    """Permanently delete a user account. The admin account cannot be deleted."""
+    try:
+        service.delete_user(db, email, actor.get("role", ""), actor.get("sub", ""))
+    except service.PermissionError_ as e:
+        raise HTTPException(403, str(e))
+    except service.IdentityError as e:
+        raise HTTPException(409, str(e))
+
+
 @router.patch("/users/{email}", response_model=schemas.UserOut)
 def update_user(email: str, body: schemas.UserUpdate, actor: dict = Depends(TEAM),
                 db: Session = Depends(get_db)):
