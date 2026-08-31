@@ -91,7 +91,7 @@ export default function Projects() {
       {msg && <p className={`text-xs ${msg.ok ? "text-emerald-400" : "text-red-400"}`}>{msg.text}</p>}
 
       {/* Filter bar: any active filter switches to a flat cross-area table. */}
-      <div className="flex flex-wrap items-center gap-2 border border-border bg-panel px-3 py-2">
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-panel px-3 py-2">
         <span className="text-[11px] uppercase tracking-wider text-muted">Filter</span>
         <div className="w-44"><Input value={f.q} placeholder="search name / location" onChange={(e) => setF({ q: e.target.value })} /></div>
         <Select value={f.spoke} onChange={(e) => setF({ spoke: e.target.value })}>
@@ -144,7 +144,7 @@ export default function Projects() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {areas.length === 0 && <p className="text-sm text-muted">No projects yet.</p>}
           {areas.map((a) => (
-            <button key={a.id} onClick={() => setF({ area: a.id })} className="border border-border bg-panel p-4 text-left hover:border-accent">
+            <button key={a.id} onClick={() => setF({ area: a.id })} className="rounded-xl border border-border bg-panel p-4 text-left hover:border-accent">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-ink">📍 {a.name}</span>
                 <span className="text-[11px] text-muted">{a.sites.length} project(s)</span>

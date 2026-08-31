@@ -58,7 +58,7 @@ function FinanceRow({ s, partners, onMsg }) {
   };
 
   return (
-    <div className="border border-border/60 bg-panel2 p-3">
+    <div className="rounded-xl border border-border/60 bg-panel2 p-3">
       <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
         <Link to={`/sites/${s.id}`} className="font-mono text-accent hover:underline">{s.code}</Link>
         <span className="text-ink/80">{s.label || "-"}</span>

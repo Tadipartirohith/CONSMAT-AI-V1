@@ -33,7 +33,7 @@ export default function Home({ me, meName }) {
               const pr = progressOf(s);
               return (
                 <Link key={s.id} to={`/projects/${s.id}`}
-                  className="block border border-border bg-panel p-4 transition-colors hover:border-accent/50">
+                  className="block rounded-xl border border-border bg-panel p-4 transition-colors hover:border-accent/50">
                   <div className="flex items-center justify-between">
                     <p className="font-semibold text-ink">{s.label || s.code}</p>
                     <Badge tone={s.status === "completed" ? "ok" : s.status === "active" ? "accent" : "muted"}>{s.status}</Badge>

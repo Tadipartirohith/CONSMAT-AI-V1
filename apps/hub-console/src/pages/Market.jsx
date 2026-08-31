@@ -108,7 +108,7 @@ function Alerts({ alerts }) {
       {(alerts.data || []).length === 0 ? <p className="text-sm text-muted">No alerts yet.</p> : (
         <div className="space-y-3">
           {(alerts.data || []).map(({ alert: a, matches }) => (
-            <div key={a.id} className="border border-border/60 bg-panel2 p-3">
+            <div key={a.id} className="rounded-xl border border-border/60 bg-panel2 p-3">
               <div className="flex items-center gap-2 text-sm">
                 <Badge tone={matches.length ? "ok" : "muted"}>{matches.length} match{matches.length === 1 ? "" : "es"}</Badge>
                 <span className="text-ink/80">{a.material_id || "any"} · {a.query || "any"} · price {OPS[a.op]} {inr(a.value)}{a.seller ? ` · ${a.seller}` : ""}{a.location ? ` · ${a.location}` : ""}</span>

@@ -166,7 +166,7 @@ function ControlTower({ s, needs, stock }) {
   const awaiting = delivered.filter((d) => d.status === "dispatched").length;
 
   const Tile = ({ label, value, sub, tone }) => (
-    <div className="border border-border bg-panel p-3">
+    <div className="rounded-xl border border-border bg-panel p-3">
       <p className="text-[10px] uppercase tracking-wider text-muted">{label}</p>
       <p className={`mt-0.5 font-head text-lg font-bold ${tone || "text-ink"}`}>{value}</p>
       {sub && <p className="text-[11px] text-muted">{sub}</p>}
@@ -204,7 +204,7 @@ function Overview({ s, notifs }) {
         {s.dispatches.length === 0 ? <p className="text-sm text-muted">No dispatches yet.</p> : (
           <div className="space-y-2">
             {s.dispatches.slice().sort((a, b) => a.phase_seq - b.phase_seq).map((d) => (
-              <div key={d.id} className="border border-border/60 bg-panel2 p-2.5 text-sm">
+              <div key={d.id} className="rounded-xl border border-border/60 bg-panel2 p-2.5 text-sm">
                 <div className="mb-1 flex items-center gap-2">
                   <span className="font-mono text-ink">{d.code}</span>
                   <span className="text-muted">phase {d.phase_seq}</span>
@@ -358,7 +358,7 @@ function PhaseNeedsTab({ s }) {
       {needs.error ? <p className="text-sm text-red-400">{needs.error}</p> : (
         <div className="space-y-2">
           {(needs.data || []).map((p) => (
-            <div key={p.phase_seq} className="border border-border/60 bg-panel2 p-2.5">
+            <div key={p.phase_seq} className="rounded-xl border border-border/60 bg-panel2 p-2.5">
               <div className="mb-1 flex items-center gap-2 text-sm">
                 <span className="font-mono text-muted">{p.phase_seq}</span>
                 <span className="text-ink/80">{PHASE_NAMES[p.phase_seq]}</span>

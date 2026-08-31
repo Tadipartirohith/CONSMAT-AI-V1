@@ -49,7 +49,7 @@ export default function Pricing() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {(materials.data || []).map((m) => (
             <button key={m.id} onClick={() => setCat(m.id)}
-              className="flex flex-col items-start gap-1 border border-border bg-panel p-4 text-left hover:border-accent">
+              className="flex flex-col items-start gap-1 rounded-xl border border-border bg-panel p-4 text-left hover:border-accent">
               <span className="text-2xl">{ICON[m.id] || "📦"}</span>
               <span className="text-sm font-semibold text-ink">{m.name}</span>
               <span className="text-[11px] text-muted">{(products.data || []).filter((p) => p.material_id === m.id).length} products</span>

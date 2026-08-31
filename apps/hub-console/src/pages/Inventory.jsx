@@ -79,7 +79,7 @@ export default function Inventory() {
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                   {mats.map((m) => (
                     <button key={m.id} onClick={() => setCat(m.id)}
-                      className="flex flex-col items-start gap-1 border border-border bg-panel p-4 text-left hover:border-accent">
+                      className="flex flex-col items-start gap-1 rounded-xl border border-border bg-panel p-4 text-left hover:border-accent">
                       <span className="text-2xl">{ICON[m.id] || seg.icon}</span>
                       <span className="text-sm font-semibold text-ink">{m.name}</span>
                       <span className="text-[11px] text-muted">{countByMat[m.id] || 0} brands</span>
@@ -137,7 +137,7 @@ function ReceiveStock({ products, onClose, onDone }) {
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" onClick={onClose}>
-      <div className="w-full max-w-md border border-border bg-panel p-5" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-md rounded-xl border border-border bg-panel p-5" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-center justify-between">
           <h3 className="font-head text-lg font-bold text-ink">Receive stock (inbound)</h3>
           <button onClick={onClose} className="text-muted hover:text-ink">✕</button>
@@ -145,7 +145,7 @@ function ReceiveStock({ products, onClose, onDone }) {
         <form onSubmit={save} className="space-y-3">
           <Field label="Product - search by name or brand">
             {chosen ? (
-              <div className="flex items-center gap-2 border border-border bg-panel2 px-2.5 py-1.5 text-sm">
+              <div className="flex items-center gap-2 rounded-xl border border-border bg-panel2 px-2.5 py-1.5 text-sm">
                 <span className="flex-1 text-ink/80">{chosen.name} <span className="text-muted">({chosen.brand || "no brand"})</span></span>
                 <button type="button" className="text-[11px] text-accent hover:underline" onClick={() => { setPid(""); setQ(""); }}>change</button>
               </div>
@@ -153,7 +153,7 @@ function ReceiveStock({ products, onClose, onDone }) {
               <>
                 <Input value={q} placeholder="e.g. bharathi / ultratech 53 / red clay" onChange={(e) => setQ(e.target.value)} />
                 {matches.length > 0 && (
-                  <div className="mt-1 max-h-44 overflow-auto border border-border bg-panel2">
+                  <div className="mt-1 max-h-44 overflow-auto rounded-xl border border-border bg-panel2">
                     {matches.map((p) => (
                       <button type="button" key={p.id} onClick={() => { setPid(p.id); setQ(p.name); }}
                         className="block w-full px-2.5 py-1.5 text-left text-sm text-ink/80 hover:bg-muted/10">
@@ -294,7 +294,7 @@ function ProcureStock({ product, onClose, onDone }) {
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" onClick={onClose}>
-      <div className="max-h-[90vh] w-full max-w-lg overflow-auto border border-border bg-panel p-5" onClick={(e) => e.stopPropagation()}>
+      <div className="max-h-[90vh] w-full max-w-lg overflow-auto rounded-xl border border-border bg-panel p-5" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-center justify-between">
           <div>
             <h3 className="font-head text-lg font-bold text-ink">Procure {product.name}</h3>
@@ -330,7 +330,7 @@ function ProcureStock({ product, onClose, onDone }) {
             : (
             <div className="space-y-1">
               {offers.slice(0, 6).map((o) => (
-                <div key={o.id} className="flex items-center justify-between border border-border/60 bg-panel2 px-2.5 py-1.5 text-sm">
+                <div key={o.id} className="flex items-center justify-between rounded-xl border border-border/60 bg-panel2 px-2.5 py-1.5 text-sm">
                   <span className="min-w-0 truncate text-ink/80">{o.seller} <span className="text-muted">· {o.product_name}</span></span>
                   <span className="ml-2 shrink-0 font-mono text-ink/70">{inr(o.price)}</span>
                 </div>
@@ -369,7 +369,7 @@ function AddProduct({ materials, products, lockedCat, onClose, onDone }) {
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" onClick={onClose}>
-      <div className="w-full max-w-md border border-border bg-panel p-5" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-md rounded-xl border border-border bg-panel p-5" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-center justify-between">
           <h3 className="font-head text-lg font-bold text-ink">Add new product</h3>
           <button onClick={onClose} className="text-muted hover:text-ink">✕</button>

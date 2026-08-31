@@ -202,7 +202,7 @@ function AddDemandRow({ products, onAdd, onReload }) {
 
       {/* live suggestions */}
       {ql && !selected && (
-        <div className="mt-1 max-h-52 overflow-y-auto border border-border bg-panel2">
+        <div className="mt-1 max-h-52 overflow-y-auto rounded-xl border border-border bg-panel2">
           {matches.length ? matches.map((p) => (
             <button key={p.id} type="button" onClick={() => pick(p)}
               className="block w-full px-2.5 py-1.5 text-left text-sm text-ink/80 hover:bg-muted/10">
@@ -283,7 +283,7 @@ function SpokeOrderRequests({ vendors, onDone }) {
         {reqs.data.map((r) => {
           const st = state[r.id] || {};
           return (
-            <div key={r.id} className="border border-border/60 bg-panel2 p-3">
+            <div key={r.id} className="rounded-xl border border-border/60 bg-panel2 p-3">
               <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
                 <span className="font-mono text-ink">{r.code}</span>
                 {r.site_ref && <Badge tone="accent">{r.site_ref}</Badge>}

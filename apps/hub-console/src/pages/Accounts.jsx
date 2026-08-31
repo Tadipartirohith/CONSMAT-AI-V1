@@ -52,7 +52,7 @@ export default function Accounts() {
 function Kpi({ label, value, sub, bar, max, color }) {
   const w = max > 0 ? Math.min(100, Math.max(3, (bar / max) * 100)) : 0;
   return (
-    <div className="border border-border bg-panel p-4">
+    <div className="rounded-xl border border-border bg-panel p-4">
       <p className="text-[10px] uppercase tracking-wider text-muted">{label}</p>
       <p className="mt-1 font-head text-xl font-extrabold text-ink">{value}</p>
       <div className="mt-2 h-1 w-full overflow-hidden rounded bg-panel2">
