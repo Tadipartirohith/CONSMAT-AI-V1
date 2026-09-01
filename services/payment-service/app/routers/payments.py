@@ -13,6 +13,8 @@ from ..db import get_db
 PAYER = require_role("consumer", "hub_manager", "hub_supervisor", "spokesperson")
 # Escrow release is triggered by the site-service (role=service) on delivery confirmation, or by hub/field staff.
 RELEASE = require_role("service", "hub_manager", "hub_supervisor", "spokesperson", "site_engineer", "architect")
+# Billing: hub/spoke staff issue client progress invoices and mark them paid.
+BILLER = require_role("hub_manager", "hub_supervisor", "spokesperson", "site_engineer", "architect")
 router = APIRouter(tags=["payments"], dependencies=[Depends(current_user)])
 
 
@@ -59,3 +61,22 @@ def get_payment(payment_id: int, db: Session = Depends(get_db)):
     if pay is None:
         raise HTTPException(404, f"Unknown payment: PAY-{payment_id}")
     return pay
+
+
+# ---- Client progress invoices (billing) - PDF stage 13 ----
+
+@router.get("/invoices", response_model=list[schemas.InvoiceOut])
+def list_invoices(ref: str | None = None, consumer_id: str | None = None, db: Session = Depends(get_db)):
+    return service.list_invoices(db, ref=ref, consumer_id=consumer_id)
+
+
+@router.post("/invoices", response_model=schemas.InvoiceOut, status_code=201, dependencies=[Depends(BILLER)])
+def create_invoice(body: schemas.InvoiceIn, db: Session = Depends(get_db)):
+    return _run(service.create_invoice, db=db, ref=body.ref, consumer_id=body.consumer_id,
+                amount=body.amount, phase_seq=body.phase_seq, title=body.title, note=body.note,
+                currency=body.currency)
+
+
+@router.post("/invoices/{invoice_id}/pay", response_model=schemas.InvoiceOut, dependencies=[Depends(BILLER)])
+def pay_invoice(invoice_id: int, payment_id: int | None = None, db: Session = Depends(get_db)):
+    return _run(service.mark_invoice_paid, db=db, invoice_id=invoice_id, payment_id=payment_id)

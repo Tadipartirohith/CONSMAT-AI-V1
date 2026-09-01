@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { site, inv, proc, PHASE_NAMES, inr } from "../api.js";
+import { site, inv, proc, PHASE_NAMES, inr, LAB_MATERIALS } from "../api.js";
 import { Card, Table, Td, Badge, Button, Input, Select, useAsync, PageSkeleton } from "../components/ui.jsx";
 import { getUser } from "../auth.js";
-import { ArrowLeft, Compass, HardHat, Handshake, File, CheckCircle, Warning, X, Sparkle } from "@phosphor-icons/react";
+import { ArrowLeft, Compass, HardHat, Handshake, File, CheckCircle, Warning, X, Sparkle, Flask, Certificate, ClipboardText, SealCheck } from "@phosphor-icons/react";
 
 // What each field role owns on a site. The architect is the design authority: the Bill of Materials
 // (which products and how much) and the phase schedule come from the architect's drawings; the site
@@ -132,8 +132,13 @@ export default function SiteDetail() {
                   <span className="font-mono text-ink">{d.code}</span>
                   <span className="text-muted">phase {d.phase_seq}, {PHASE_NAMES[d.phase_seq]}</span>
                   <Badge tone={d.status === "received" ? "accent" : d.status === "dispatched" ? "ok" : d.status === "partial" ? "warn" : "bad"}>{d.status}</Badge>
-                  {d.status === "dispatched" && <Button size="sm" onClick={() => act(() => site.confirmDelivery(d.id), "Delivery confirmed")} disabled={busy}>Confirm delivery</Button>}
-                  {d.status === "received" && <span className="flex items-center gap-1 text-[11px] text-accent"><CheckCircle size={13} weight="fill" />confirmed</span>}
+                  {d.status === "dispatched" && <ConfirmDelivery busy={busy} onConfirm={(qc) => act(() => site.confirmDelivery(d.id, qc), "Delivery confirmed")} />}
+                  {d.status === "received" && (
+                    d.qc_result === "fail"
+                      ? <Badge tone="bad">quality flagged</Badge>
+                      : <span className="flex items-center gap-1 text-[11px] text-accent"><CheckCircle size={13} weight="fill" />{d.qc_result === "pass" ? "QC passed" : "confirmed"}</span>
+                  )}
+                  {d.status === "received" && d.qc_note && <span className="text-[11px] text-muted">"{d.qc_note}"</span>}
                 </div>
                 <div className="flex flex-wrap gap-x-3 gap-y-1">
                   {d.lines.map((l, i) => (
@@ -147,6 +152,10 @@ export default function SiteDetail() {
           </div>
         )}
       </Card>
+
+      <QualityCard siteId={id} />
+
+      <CompletionCard site={s} busy={busy} onAction={act} />
 
       <Card title="Notifications" right={<Button size="sm" variant="ghost" onClick={notifs.reload}>Refresh</Button>}>
         {(notifs.data || []).filter((n) => n.site_id === Number(id)).slice(0, 8).map((n) => (
@@ -485,5 +494,136 @@ function Info({ label, value }) {
       <p className="text-[10px] uppercase tracking-wider text-muted">{label}</p>
       <p className="mt-0.5 text-ink">{value}</p>
     </div>
+  );
+}
+
+// Goods-receipt inspection (GRN): confirm delivery with a quality verdict.
+function ConfirmDelivery({ onConfirm, busy }) {
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState("");
+  if (!open) return <Button size="sm" onClick={() => setOpen(true)} disabled={busy}>Confirm delivery</Button>;
+  return (
+    <span className="flex flex-wrap items-center gap-1.5">
+      <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="inspection note (optional)" className="h-7 w-48 text-xs" />
+      <Button size="sm" onClick={() => onConfirm({ qc_result: "pass", qc_note: note })} disabled={busy}>Accept (QC pass)</Button>
+      <Button size="sm" variant="ghost" onClick={() => onConfirm({ qc_result: "fail", qc_note: note })} disabled={busy}>Flag issue</Button>
+    </span>
+  );
+}
+
+// Quality control: material lab tests (cement / steel / sand / bricks / tiles ...).
+function QualityCard({ siteId }) {
+  const tests = useAsync(() => site.labTests(siteId), [siteId]);
+  const [f, setF] = useState({ material: "cement", test_type: "", result: "pending", report_ref: "", remarks: "" });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  const canEdit = ["site_engineer", "architect", "spokesperson", "admin"].includes(getUser()?.role);
+  const add = async () => {
+    setBusy(true); setErr(null);
+    try { await site.addLabTest(siteId, f); setF({ material: "cement", test_type: "", result: "pending", report_ref: "", remarks: "" }); tests.reload(); }
+    catch (e) { setErr(e.message); } finally { setBusy(false); }
+  };
+  const setResult = async (tid, result) => { try { await site.updateLabTest(tid, { result }); tests.reload(); } catch (e) { setErr(e.message); } };
+  const rows = tests.data || [];
+  const tone = (r) => (r === "pass" ? "ok" : r === "fail" ? "bad" : "warn");
+  return (
+    <Card title={<span className="flex items-center gap-2"><Flask size={16} weight="duotone" className="text-accent" />Material quality tests</span>}
+      right={<Button size="sm" variant="ghost" onClick={tests.reload}>Refresh</Button>}>
+      {rows.length === 0 ? <p className="text-sm text-muted">No lab tests recorded yet. Cement, steel, sand, bricks and tiles should be lab-tested against spec.</p> : (
+        <div className="space-y-1.5">
+          {rows.map((t) => (
+            <div key={t.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-border/40 bg-panel2 px-3 py-2 text-sm">
+              <span className="font-medium capitalize text-ink">{t.material}</span>
+              {t.test_type && <span className="text-muted">{t.test_type}</span>}
+              <Badge tone={tone(t.result)}>{t.result}</Badge>
+              {t.report_ref && <span className="text-[11px] text-muted">ref {t.report_ref}</span>}
+              {t.remarks && <span className="text-[11px] text-ink/70">{t.remarks}</span>}
+              {t.tested_by && <span className="ml-auto text-[11px] text-muted">by {t.tested_by}</span>}
+              {canEdit && t.result === "pending" && (
+                <span className="flex gap-1">
+                  <Button size="sm" onClick={() => setResult(t.id, "pass")}>Pass</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setResult(t.id, "fail")}>Fail</Button>
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {canEdit && (
+        <div className="mt-3 flex flex-wrap items-end gap-2 border-t border-border/50 pt-3">
+          <Select value={f.material} onChange={(e) => setF({ ...f, material: e.target.value })} className="w-32">
+            {LAB_MATERIALS.map((m) => <option key={m} value={m} className="capitalize">{m}</option>)}
+          </Select>
+          <Input value={f.test_type} onChange={(e) => setF({ ...f, test_type: e.target.value })} placeholder="test (e.g. compressive strength)" className="w-56" />
+          <Input value={f.report_ref} onChange={(e) => setF({ ...f, report_ref: e.target.value })} placeholder="report ref" className="w-28" />
+          <Select value={f.result} onChange={(e) => setF({ ...f, result: e.target.value })} className="w-28">
+            <option value="pending">pending</option><option value="pass">pass</option><option value="fail">fail</option>
+          </Select>
+          <Button size="sm" onClick={add} disabled={busy}>Add test</Button>
+        </div>
+      )}
+      {err && <p className="mt-2 text-xs text-red-300">{err}</p>}
+    </Card>
+  );
+}
+
+// Final inspection: snag list + handover / completion certificate.
+function CompletionCard({ site: s, busy, onAction }) {
+  const snags = useAsync(() => site.snags(s.id), [s.id]);
+  const [desc, setDesc] = useState("");
+  const [busy2, setBusy2] = useState(false);
+  const [err, setErr] = useState(null);
+  const canEdit = ["site_engineer", "architect", "spokesperson", "admin"].includes(getUser()?.role);
+  const allPhasesDone = s.phases.length > 0 && s.phases.every((p) => p.status === "done");
+  const openSnags = (snags.data || []).filter((x) => x.status === "open");
+  const addSnag = async () => {
+    if (!desc.trim()) return;
+    setBusy2(true); setErr(null);
+    try { await site.addSnag(s.id, desc); setDesc(""); snags.reload(); } catch (e) { setErr(e.message); } finally { setBusy2(false); }
+  };
+  const resolve = async (sid) => { try { await site.resolveSnag(sid); snags.reload(); } catch (e) { setErr(e.message); } };
+  const doHandover = () => onAction(async () => { await site.handover(s.id); snags.reload(); }, "Handover");
+  if (!allPhasesDone && !s.handed_over && (snags.data || []).length === 0) return null;
+  return (
+    <Card title={<span className="flex items-center gap-2"><Certificate size={16} weight="duotone" className="text-accent" />Final inspection & handover</span>}
+      right={<Button size="sm" variant="ghost" onClick={snags.reload}>Refresh</Button>}>
+      {s.handed_over ? (
+        <div className="flex flex-col items-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-6 text-center">
+          <SealCheck size={40} weight="duotone" className="text-emerald-400" />
+          <p className="font-head text-lg font-bold text-ink">Project handed over</p>
+          <p className="text-sm text-muted">Completion certificate</p>
+          <p className="font-mono text-xl font-bold tracking-wide text-accent">{s.completion_ref}</p>
+        </div>
+      ) : (
+        <>
+          <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-muted">Phases</span>
+            <Badge tone={allPhasesDone ? "ok" : "warn"}>{allPhasesDone ? "all complete" : "in progress"}</Badge>
+            <span className="text-muted">Open snags</span>
+            <Badge tone={openSnags.length ? "bad" : "ok"}>{openSnags.length}</Badge>
+          </div>
+          <div className="space-y-1.5">
+            {(snags.data || []).map((x) => (
+              <div key={x.id} className="flex items-center gap-2 rounded-xl border border-border/40 bg-panel2 px-3 py-2 text-sm">
+                <ClipboardText size={14} className={x.status === "fixed" ? "text-emerald-400" : "text-[#fbbf24]"} />
+                <span className={x.status === "fixed" ? "text-muted line-through" : "text-ink/80"}>{x.description}</span>
+                <Badge tone={x.status === "fixed" ? "ok" : "warn"} className="ml-auto">{x.status}</Badge>
+                {canEdit && x.status === "open" && <Button size="sm" onClick={() => resolve(x.id)}>Mark fixed</Button>}
+              </div>
+            ))}
+            {(snags.data || []).length === 0 && <p className="text-sm text-muted">No snags logged. Add any defects found during final inspection.</p>}
+          </div>
+          {canEdit && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/50 pt-3">
+              <Input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="log a snag (defect to fix before handover)" className="flex-1 min-w-[220px]" />
+              <Button size="sm" variant="ghost" onClick={addSnag} disabled={busy2}>Add snag</Button>
+              <Button size="sm" onClick={doHandover} disabled={busy || !allPhasesDone || openSnags.length > 0}>Hand over & issue certificate</Button>
+            </div>
+          )}
+          {!allPhasesDone && <p className="mt-2 text-[11px] text-muted">Handover unlocks once every construction phase is complete and all snags are fixed.</p>}
+        </>
+      )}
+      {err && <p className="mt-2 text-xs text-red-300">{err}</p>}
+    </Card>
   );
 }

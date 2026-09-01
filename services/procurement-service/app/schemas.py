@@ -25,6 +25,7 @@ class VendorOut(BaseModel):
     phone: str
     gstin: str
     is_hub_self: bool
+    kind: str = "supplier"
     active: bool
     blocked: bool = False
     created_at: datetime | None = None
@@ -40,6 +41,7 @@ class VendorIn(BaseModel):
     phone: str = ""
     gstin: str = ""
     is_hub_self: bool = False
+    kind: str = Field(default="supplier", pattern="^(supplier|oem)$")
 
 
 class VendorUpdate(BaseModel):
@@ -265,7 +267,65 @@ class OrderOut(BaseModel):
     code: str
     status: str
     total_cost: float
+    supplier_invoice: float | None = None
+    match_status: str = "awaiting_invoice"
     note: str
     created_at: datetime | None = None
     received_at: datetime | None = None
     lines: list[OrderLineOut] = []
+
+
+class SupplierInvoiceIn(BaseModel):
+    amount: float = Field(ge=0)
+
+
+class RfqIn(BaseModel):
+    material_id: str = Field(min_length=1)
+    product_id: str = ""
+    product_name: str = ""
+    qty: float = 0
+    note: str = ""
+
+
+class RfqQuoteIn(BaseModel):
+    vendor_id: str = Field(min_length=1)
+    unit_price: float = Field(ge=0)
+    delivery_days: int = 0
+    payment_terms: str = ""
+    quality_note: str = ""
+
+
+class RfqQuoteOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    rfq_id: int
+    vendor_id: str
+    vendor_name: str
+    unit_price: float
+    delivery_days: int
+    payment_terms: str
+    quality_note: str
+    created_at: datetime | None = None
+
+
+class RfqOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    code: str
+    material_id: str
+    product_id: str
+    product_name: str
+    qty: float
+    note: str
+    status: str
+    created_by: str
+    awarded_vendor_id: str
+    awarded_quote_id: int | None = None
+    order_id: int | None = None
+    created_at: datetime | None = None
+    closed_at: datetime | None = None
+    quotes: list[RfqQuoteOut] = []
+
+
+class AwardIn(BaseModel):
+    quote_id: int

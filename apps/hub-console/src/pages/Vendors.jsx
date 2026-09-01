@@ -13,13 +13,13 @@ export default function Vendors() {
   const market = useAsync(() => proc.market(material), [material]);
   const [msg, setMsg] = useState(null);
 
-  const [nv, setNv] = useState({ name: "", city: "" });
+  const [nv, setNv] = useState({ name: "", city: "", kind: "supplier" });
   const addVendor = async (e) => {
     e.preventDefault(); setMsg(null);
     try {
-      if (isApprover) { await proc.addVendor({ name: nv.name, city: nv.city }); setMsg("Vendor added."); }
+      if (isApprover) { await proc.addVendor({ name: nv.name, city: nv.city, kind: nv.kind }); setMsg("Vendor added."); }
       else { await proc.requestVendor({ action: "add", name: nv.name, city: nv.city }); setMsg("Add request submitted for approval."); }
-      setNv({ name: "", city: "" }); vendors.reload(); requests.reload();
+      setNv({ name: "", city: "", kind: "supplier" }); vendors.reload(); requests.reload();
     } catch (e) { setMsg(e.message); }
   };
   const removeVendor = async (v) => {
@@ -78,12 +78,13 @@ export default function Vendors() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card title="Vendor registry" className="lg:col-span-2" right={<Button size="sm" variant="ghost" onClick={vendors.reload}>Refresh</Button>}>
-          <Table head={["ID", "Name", "City", "Status", ""]}>
+          <Table head={["ID", "Name", "City", "Channel", "Status", ""]}>
             {(vendors.data || []).map((v) => (
               <tr key={v.id} className={`border-b border-border/50 ${v.blocked ? "opacity-60" : ""}`}>
                 <Td mono className="text-muted">{v.id}</Td>
                 <Td>{v.name}</Td>
                 <Td>{v.city || "-"}</Td>
+                <Td>{v.is_hub_self ? <span className="text-[11px] text-muted">-</span> : <Badge tone={v.kind === "oem" ? "accent" : "muted"}>{v.kind || "supplier"}</Badge>}</Td>
                 <Td>
                   {v.is_hub_self ? <Badge tone="accent">hub</Badge>
                     : v.blocked ? <Badge tone="bad">blacklisted</Badge>
@@ -111,6 +112,14 @@ export default function Vendors() {
             <form onSubmit={addVendor} className="space-y-3">
               <Field label="Name"><Input value={nv.name} required onChange={(e) => setNv({ ...nv, name: e.target.value })} /></Field>
               <Field label="City"><Input value={nv.city} onChange={(e) => setNv({ ...nv, city: e.target.value })} /></Field>
+              {isApprover && (
+                <Field label="Channel">
+                  <Select value={nv.kind} onChange={(e) => setNv({ ...nv, kind: e.target.value })}>
+                    <option value="supplier">Supplier (materials)</option>
+                    <option value="oem">OEM (manufacturer)</option>
+                  </Select>
+                </Field>
+              )}
               <Button type="submit">{isApprover ? "Add vendor" : "Submit request"}</Button>
               {!isApprover && <p className="text-[11px] text-muted">A supervisor or manager will approve this.</p>}
             </form>

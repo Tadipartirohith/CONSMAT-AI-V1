@@ -76,6 +76,20 @@ STAGE_SCHEDULING = "scheduling"
 STAGE_ACTIVE = "active"
 STAGE_COMPLETED = "completed"
 
+# quality control: material inspection (GRN) + lab tests - PDF stage 3 (lab) + 11 (inspection)
+QC_PENDING = "pending"
+QC_PASS = "pass"
+QC_FAIL = "fail"
+QC_RESULTS = (QC_PENDING, QC_PASS, QC_FAIL)
+LAB_MATERIALS = ("cement", "steel", "sand", "bricks", "tiles", "aggregate", "concrete", "other")
+
+# snag list + handover (PDF stage 14: final inspection, snag correction, completion certificate)
+SNAG_OPEN = "open"
+SNAG_FIXED = "fixed"
+
+# consumer segment (PDF2 B2B/B2C ecosystem)
+CONSUMER_SEGMENTS = ("homeowner", "contractor", "company", "developer", "builder", "retailer", "designer")
+
 
 class Spoke(Base):
     __tablename__ = "spokes"
@@ -125,6 +139,8 @@ class Consumer(Base):
     email: Mapped[str] = mapped_column(String(160), default="")   # customer login id (identity user)
     # Fund type chosen at onboarding (captive|client). Each new project defaults to it, still overridable.
     fund_type: Mapped[str] = mapped_column(String(12), default="")
+    # B2B/B2C segment (homeowner/contractor/company/developer/builder/retailer/designer) - PDF2 ecosystem
+    segment: Mapped[str] = mapped_column(String(20), default="")
     spoke_id: Mapped[str] = mapped_column(ForeignKey("spokes.id"), index=True)
     spoke: Mapped["Spoke"] = relationship(back_populates="consumers")
     sites: Mapped[list["Site"]] = relationship(back_populates="consumer")
@@ -145,6 +161,9 @@ class Site(Base):
     stage: Mapped[str] = mapped_column(String(24), default=STAGE_ONBOARDED)
     budget: Mapped[Decimal | None] = mapped_column(Numeric(16, 2), nullable=True)  # hub-issued
     payment_received: Mapped[bool] = mapped_column(Boolean, default=False)  # client-project delivery gate
+    # Handover / completion certificate (set on final handover once all phases done and no open snags)
+    handed_over: Mapped[bool] = mapped_column(Boolean, default=False)
+    completion_ref: Mapped[str] = mapped_column(String(40), default="")
     total_area: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -241,6 +260,9 @@ class Dispatch(Base):
     site_id: Mapped[int] = mapped_column(ForeignKey("sites.id"), index=True)
     phase_seq: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(String(16), default=DSP_DISPATCHED)
+    # Goods-receipt inspection (GRN): the SE records the quality verdict when confirming delivery.
+    qc_result: Mapped[str] = mapped_column(String(10), default=QC_PENDING)
+    qc_note: Mapped[str] = mapped_column(String(400), default="")
     received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     site: Mapped["Site"] = relationship(back_populates="dispatches")
@@ -383,3 +405,29 @@ class DispatchLine(Base):
     qty: Mapped[Decimal] = mapped_column(Numeric(16, 3), nullable=False)
     status: Mapped[str] = mapped_column(String(16), default=DSP_DISPATCHED)  # dispatched|short
     dispatch: Mapped["Dispatch"] = relationship(back_populates="lines")
+
+
+class LabTest(Base):
+    """Material quality lab test (cement/steel/sand/bricks/tiles...) - PDF stage 3 / page-2 QC step."""
+    __tablename__ = "lab_tests"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    site_id: Mapped[int] = mapped_column(ForeignKey("sites.id"), index=True)
+    material: Mapped[str] = mapped_column(String(40), default="cement")
+    test_type: Mapped[str] = mapped_column(String(80), default="")
+    result: Mapped[str] = mapped_column(String(10), default=QC_PENDING)  # pending|pass|fail
+    report_ref: Mapped[str] = mapped_column(String(80), default="")
+    remarks: Mapped[str] = mapped_column(String(400), default="")
+    tested_by: Mapped[str] = mapped_column(String(120), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Snag(Base):
+    """A defect logged during final inspection; all must be fixed before handover - PDF stage 14."""
+    __tablename__ = "snags"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    site_id: Mapped[int] = mapped_column(ForeignKey("sites.id"), index=True)
+    description: Mapped[str] = mapped_column(String(400), default="")
+    status: Mapped[str] = mapped_column(String(10), default=SNAG_OPEN)  # open|fixed
+    raised_by: Mapped[str] = mapped_column(String(120), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    fixed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

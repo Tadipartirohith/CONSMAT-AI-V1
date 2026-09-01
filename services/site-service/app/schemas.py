@@ -53,6 +53,7 @@ class IntakeIn(BaseModel):
     phone: str = ""
     email: str = ""
     fund_type: str = Field(default="", pattern="^(captive|client|)$")
+    segment: str = ""
 
 
 class ConsumerUpdate(BaseModel):
@@ -76,6 +77,7 @@ class ConsumerOut(BaseModel):
     phone: str
     email: str = ""
     fund_type: str = ""
+    segment: str = ""
     spoke_id: str
 
 
@@ -186,6 +188,8 @@ class DispatchOut(BaseModel):
     code: str
     phase_seq: int
     status: str
+    qc_result: str = "pending"
+    qc_note: str = ""
     received_at: datetime | None = None
     created_at: datetime | None = None
     lines: list[DispatchLineOut] = []
@@ -206,6 +210,8 @@ class SiteOut(BaseModel):
     stage: str = ""
     budget: float | None = None
     payment_received: bool = False
+    handed_over: bool = False
+    completion_ref: str = ""
     total_area: float
     bom_lines: list[BOMLineOut] = []
     phases: list[PhaseProgressOut] = []
@@ -344,3 +350,50 @@ class PhaseRef(BaseModel):
     seq: int
     name: str
     repeats_per_floor: bool
+
+
+class ConfirmIn(BaseModel):
+    qc_result: str = Field(default="pass", pattern="^(pass|fail|pending)$")
+    qc_note: str = ""
+
+
+class LabTestIn(BaseModel):
+    material: str = Field(min_length=1)
+    test_type: str = ""
+    result: str = Field(default="pending", pattern="^(pending|pass|fail)$")
+    report_ref: str = ""
+    remarks: str = ""
+
+
+class LabTestUpdate(BaseModel):
+    result: str | None = Field(default=None, pattern="^(pending|pass|fail)$")
+    remarks: str | None = None
+    report_ref: str | None = None
+
+
+class LabTestOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    site_id: int
+    material: str
+    test_type: str
+    result: str
+    report_ref: str
+    remarks: str
+    tested_by: str
+    created_at: datetime | None = None
+
+
+class SnagIn(BaseModel):
+    description: str = Field(min_length=1)
+
+
+class SnagOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    site_id: int
+    description: str
+    status: str
+    raised_by: str
+    created_at: datetime | None = None
+    fixed_at: datetime | None = None

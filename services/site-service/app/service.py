@@ -172,16 +172,18 @@ def update_enquiry(db: Session, enquiry_id: int, *, status: str | None = None,
 
 
 def create_consumer(db: Session, name: str, tier: str, spoke_id: str, phone: str = "",
-                    email: str = "", fund_type: str = "") -> models.Consumer:
+                    email: str = "", fund_type: str = "", segment: str = "") -> models.Consumer:
     if tier not in models.CONSUMER_TIERS:
         raise SiteError(f"tier must be one of {models.CONSUMER_TIERS}")
     if fund_type and fund_type not in models.PROJECT_TYPES:
         raise SiteError(f"fund_type must be one of {models.PROJECT_TYPES}")
+    if segment and segment not in models.CONSUMER_SEGMENTS:
+        raise SiteError(f"segment must be one of {models.CONSUMER_SEGMENTS}")
     if db.get(models.Spoke, spoke_id) is None:
         raise SiteError(f"Unknown spoke: {spoke_id}")
     cid = _unique_id(db, models.Consumer, _slug(name, "c"))
     c = models.Consumer(id=cid, name=name.strip(), tier=tier, spoke_id=spoke_id, phone=phone,
-                        email=email.strip().lower(), fund_type=fund_type or "")
+                        email=email.strip().lower(), fund_type=fund_type or "", segment=segment or "")
     db.add(c)
     db.commit()
     db.refresh(c)
@@ -189,15 +191,16 @@ def create_consumer(db: Session, name: str, tier: str, spoke_id: str, phone: str
 
 
 def intake(db: Session, name: str, tier: str, location: str, phone: str = "", email: str = "",
-           fund_type: str = "") -> dict:
-    """Onboarding: classify the consumer (tier), pick a fund type (captive/client), auto-assign the
-    serving spoke by geofence (location), and provision a `consumer` login. Fails if no spoke covers
-    the location."""
+           fund_type: str = "", segment: str = "") -> dict:
+    """Onboarding: classify the consumer (tier + B2B/B2C segment), pick a fund type (captive/client),
+    auto-assign the serving spoke by geofence (location), and provision a `consumer` login. Fails if no
+    spoke covers the location."""
     spoke = geofence.resolve_spoke(db, location)
     if spoke is None:
         raise SiteError(f"No spoke covers '{location}'. Add coverage to a spoke or assign manually.")
     login_email = (email or "").strip().lower()
-    consumer = create_consumer(db, name, tier, spoke.id, phone, email=login_email, fund_type=fund_type)
+    consumer = create_consumer(db, name, tier, spoke.id, phone, email=login_email,
+                               fund_type=fund_type, segment=segment)
     if not login_email:
         login_email = f"{consumer.id}@consmat.com"
         consumer.email = login_email
@@ -1267,8 +1270,11 @@ def mark_all_read_spoke(db: Session, spoke_id: str) -> dict:
     return {"marked": n}
 
 
-def confirm_receipt(db: Session, dispatch_id: int, actor_role: str, actor_name: str) -> models.Dispatch:
+def confirm_receipt(db: Session, dispatch_id: int, actor_role: str, actor_name: str,
+                    qc_result: str = models.QC_PASS, qc_note: str = "") -> models.Dispatch:
     """The SE/spoke (or hub staff) confirms the stock reached the site; feeds back into dispatch status.
+    The confirmation doubles as a goods-receipt inspection (GRN): the actor records a quality verdict
+    (pass/fail) that is stored on the dispatch and surfaced on the customer's timeline.
 
     Customers never confirm; they only track progress. The confirmation is surfaced to everyone
     (audience 'all') so the customer sees the delivery as confirmed on their timeline."""
@@ -1280,12 +1286,18 @@ def confirm_receipt(db: Session, dispatch_id: int, actor_role: str, actor_name: 
         raise SiteError("Only the spoke/SE or hub staff can confirm a delivery")
     if d.status not in (models.DSP_DISPATCHED, models.DSP_RECEIVED):
         raise SiteError("Only a fully-delivered shipment can be confirmed (shortfalls are still pending)")
+    if qc_result not in models.QC_RESULTS:
+        raise SiteError(f"qc_result must be one of {models.QC_RESULTS}")
     site = db.get(models.Site, d.site_id)
     if d.received_at is None:
         d.received_at = db.execute(select(func.now())).scalar()
         d.status = models.DSP_RECEIVED
+        d.qc_result = qc_result
+        d.qc_note = qc_note.strip()[:400]
+        verdict = "quality-checked and accepted" if qc_result == models.QC_PASS else \
+            ("received with a quality issue flagged" if qc_result == models.QC_FAIL else "received")
         _notify(db, site, "received",
-                f"Phase {d.phase_seq} ({_PHASE_NAME.get(d.phase_seq, '')}) materials delivery confirmed"
+                f"Phase {d.phase_seq} ({_PHASE_NAME.get(d.phase_seq, '')}) materials {verdict}"
                 f"{f' by {actor_name}' if actor_name else ''}.", phase_seq=d.phase_seq, audience="all")
     db.commit()
     db.refresh(d)
@@ -1369,3 +1381,104 @@ def run_scheduler_tick(db: Session, *, today=None, notice_days: int = 3, dispatc
                                 "dispatch": dispatch.code})
     db.commit()
     return {"ran_at": str(today), "actions": actions}
+
+
+# ---- Quality control: material lab tests (PDF stage 3 / page-2 QC) ----
+
+def list_lab_tests(db: Session, site_id: int) -> list[models.LabTest]:
+    return list(db.execute(
+        select(models.LabTest).where(models.LabTest.site_id == site_id)
+        .order_by(models.LabTest.created_at.desc())).scalars())
+
+
+def add_lab_test(db: Session, site_id: int, *, material: str, test_type: str = "",
+                 result: str = models.QC_PENDING, report_ref: str = "", remarks: str = "",
+                 tested_by: str = "") -> models.LabTest:
+    if db.get(models.Site, site_id) is None:
+        raise SiteError(f"Unknown site: SITE-{site_id}")
+    if result not in models.QC_RESULTS:
+        raise SiteError(f"result must be one of {models.QC_RESULTS}")
+    t = models.LabTest(site_id=site_id, material=(material or "cement").strip().lower()[:40],
+                       test_type=test_type.strip()[:80], result=result,
+                       report_ref=report_ref.strip()[:80], remarks=remarks.strip()[:400],
+                       tested_by=tested_by[:120])
+    db.add(t)
+    db.commit()
+    db.refresh(t)
+    return t
+
+
+def update_lab_test(db: Session, test_id: int, *, result: str | None = None,
+                    remarks: str | None = None, report_ref: str | None = None) -> models.LabTest:
+    t = db.get(models.LabTest, test_id)
+    if t is None:
+        raise SiteError(f"Unknown lab test: {test_id}")
+    if result is not None:
+        if result not in models.QC_RESULTS:
+            raise SiteError(f"result must be one of {models.QC_RESULTS}")
+        t.result = result
+    if remarks is not None:
+        t.remarks = remarks.strip()[:400]
+    if report_ref is not None:
+        t.report_ref = report_ref.strip()[:80]
+    db.commit()
+    db.refresh(t)
+    return t
+
+
+# ---- Snag list + handover / completion certificate (PDF stage 14) ----
+
+def list_snags(db: Session, site_id: int) -> list[models.Snag]:
+    return list(db.execute(
+        select(models.Snag).where(models.Snag.site_id == site_id)
+        .order_by(models.Snag.created_at.desc())).scalars())
+
+
+def add_snag(db: Session, site_id: int, description: str, raised_by: str = "") -> models.Snag:
+    if db.get(models.Site, site_id) is None:
+        raise SiteError(f"Unknown site: SITE-{site_id}")
+    if not description.strip():
+        raise SiteError("A snag needs a description")
+    s = models.Snag(site_id=site_id, description=description.strip()[:400], raised_by=raised_by[:120])
+    db.add(s)
+    db.commit()
+    db.refresh(s)
+    return s
+
+
+def resolve_snag(db: Session, snag_id: int) -> models.Snag:
+    s = db.get(models.Snag, snag_id)
+    if s is None:
+        raise SiteError(f"Unknown snag: {snag_id}")
+    s.status = models.SNAG_FIXED
+    s.fixed_at = db.execute(select(func.now())).scalar()
+    db.commit()
+    db.refresh(s)
+    return s
+
+
+def handover(db: Session, site_id: int, actor_name: str = "") -> models.Site:
+    """Final handover: requires every construction phase complete and no open snags, then issues a
+    completion certificate reference and marks the project handed over."""
+    site = db.get(models.Site, site_id)
+    if site is None:
+        raise SiteError(f"Unknown site: SITE-{site_id}")
+    if site.handed_over:
+        raise SiteError("Project is already handed over")
+    phases = list(site.phases)
+    if not phases or any(p.status != models.PH_DONE for p in phases):
+        raise SiteError("All construction phases must be complete before handover")
+    open_snags = [s for s in list_snags(db, site_id) if s.status == models.SNAG_OPEN]
+    if open_snags:
+        raise SiteError(f"{len(open_snags)} snag(s) still open; fix them before handover")
+    site.handed_over = True
+    site.status = "completed"
+    site.stage = models.STAGE_COMPLETED
+    site.completion_ref = f"CC-{site.id:05d}"
+    _notify(db, site, "handover",
+            f"Final inspection passed and the project has been handed over. "
+            f"Completion certificate {site.completion_ref} issued"
+            f"{f' by {actor_name}' if actor_name else ''}.", audience="all")
+    db.commit()
+    db.refresh(site)
+    return site

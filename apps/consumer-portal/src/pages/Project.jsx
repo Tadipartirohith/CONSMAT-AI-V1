@@ -76,6 +76,15 @@ export default function Project({ me }) {
       <ProjectCover siteId={id} title={s.label || s.code} status={s.status}
         subtitle={`${s.location} · ${s.area_sqft} sqft · ${s.floors} floor(s) · ${s.construction_type}`} />
 
+      {s.handed_over && (
+        <div className="flex flex-col items-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.07] p-6 text-center">
+          <span className="text-3xl">🏅</span>
+          <p className="font-head text-lg font-bold text-ink">Project handed over</p>
+          <p className="text-sm text-muted">Your completion certificate</p>
+          <p className="font-mono text-xl font-bold tracking-wide text-accent">{s.completion_ref}</p>
+        </div>
+      )}
+
       <div className="rounded-2xl bg-panel nm-raised p-5">
         <div className="mb-1 flex justify-between text-sm">
           <span className="text-ink">{pr.currentSeq ? `Currently in Phase ${pr.currentSeq} of ${pr.total}: ${PHASE_NAMES[pr.currentSeq]}` : s.status === "completed" ? "Project complete" : "Awaiting start"}</span>
@@ -91,6 +100,8 @@ export default function Project({ me }) {
       <BuildingPlans siteId={id} />
 
       {s.bom_lines.length > 0 && <PayPanel site={s} me={me} />}
+
+      <InvoicesPanel me={me} siteCode={s.code} />
 
       <UpdatesFeed events={events} siteId={Number(id)} me={me} />
 
@@ -120,7 +131,7 @@ export default function Project({ me }) {
                   {nextPhase && p.phase_seq === nextPhase.phase_seq && delivered.length === 0 && (
                     <p className="mt-0.5 text-xs text-accent">🚚 Materials expected {etaDate ? `around ${fmt(etaDate)}` : "soon"}</p>
                   )}
-                  {d && d.status === "received" && <p className="mt-0.5 text-xs text-emerald-400">📦 Delivered &amp; confirmed{d.received_at ? ` · ${fmt(new Date(d.received_at))}` : ""}</p>}
+                  {d && d.status === "received" && <p className="mt-0.5 text-xs text-emerald-400">📦 Delivered{d.qc_result === "fail" ? " · quality issue flagged" : d.qc_result === "pass" ? " &amp; quality-checked" : " &amp; confirmed"}{d.received_at ? ` · ${fmt(new Date(d.received_at))}` : ""}</p>}
                 </div>
               </li>
             );
@@ -243,6 +254,26 @@ function PayPanel({ site: s, me }) {
       {quote.error && <p className="mt-2 text-xs text-red-400">Could not price project: {quote.error}</p>}
       {err && <p className="mt-2 text-xs text-red-400">{err}</p>}
       {released && <p className="mt-2 text-xs text-muted">All deliveries confirmed - your escrow has been fully released.</p>}
+    </Card>
+  );
+}
+
+function InvoicesPanel({ me, siteCode }) {
+  const invoices = useAsync(() => pay.invoices(me), [me]);
+  const rows = (invoices.data || []).filter((v) => !siteCode || v.ref === siteCode);
+  if (rows.length === 0) return null;
+  return (
+    <Card title="Invoices">
+      <div className="space-y-2">
+        {rows.map((v) => (
+          <div key={v.id} className="flex flex-wrap items-center gap-2 border-b border-border/50 pb-2 text-sm last:border-0 last:pb-0">
+            <span className="font-mono text-muted">{v.code}</span>
+            <span className="text-ink/90">{v.title || "Progress bill"}</span>
+            <span className="ml-auto font-mono text-ink">{inr(v.amount)}</span>
+            <Badge tone={v.status === "paid" ? "ok" : "warn"}>{v.status}</Badge>
+          </div>
+        ))}
+      </div>
     </Card>
   );
 }

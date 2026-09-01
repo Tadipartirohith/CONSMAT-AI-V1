@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { site, TIERS } from "../api.js";
+import { site, TIERS, SEGMENTS } from "../api.js";
 import { getUser } from "../auth.js";
 import { Card, Table, Td, Badge, Button, Field, Input, Select, useAsync, PageSkeleton } from "../components/ui.jsx";
 import LocationField from "../components/LocationField.jsx";
@@ -11,13 +11,13 @@ export default function Intake() {
   const [err, setErr] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  const [form, setForm] = useState({ name: "", tier: "individual", location: "", phone: "", email: "", fund_type: "captive" });
+  const [form, setForm] = useState({ name: "", tier: "individual", location: "", phone: "", email: "", fund_type: "captive", segment: "homeowner" });
   const submit = async (e) => {
     e.preventDefault(); setErr(null); setResult(null); setBusy(true);
     try {
       const r = await site.intake(form);
       setResult(r);
-      setForm({ name: "", tier: "individual", location: "", phone: "", email: "", fund_type: "captive" });
+      setForm({ name: "", tier: "individual", location: "", phone: "", email: "", fund_type: "captive", segment: "homeowner" });
       consumers.reload();
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
@@ -34,11 +34,18 @@ export default function Intake() {
         <Card title="New client">
           <form onSubmit={submit} className="space-y-3">
             <Field label="Customer name"><Input value={form.name} required onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-            <Field label="Customer tier">
-              <Select value={form.tier} onChange={(e) => setForm({ ...form, tier: e.target.value })}>
-                {TIERS.map((t) => <option key={t} value={t}>{t}</option>)}
-              </Select>
-            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Customer tier">
+                <Select value={form.tier} onChange={(e) => setForm({ ...form, tier: e.target.value })}>
+                  {TIERS.map((t) => <option key={t} value={t}>{t}</option>)}
+                </Select>
+              </Field>
+              <Field label="Segment (B2B / B2C)">
+                <Select value={form.segment} onChange={(e) => setForm({ ...form, segment: e.target.value })}>
+                  {SEGMENTS.map((s) => <option key={s} value={s} className="capitalize">{s}</option>)}
+                </Select>
+              </Field>
+            </div>
             <Field label="Location (site area)"><LocationField value={form.location} onChange={(v) => setForm({ ...form, location: v })} /></Field>
             <Field label="Email (customer login)"><Input type="email" value={form.email} placeholder="customer@email.com - blank = auto id" onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
             <Field label="Phone"><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
@@ -66,12 +73,13 @@ export default function Intake() {
         </Card>
 
         <Card title="Customers" className="lg:col-span-2" right={<Button size="sm" variant="ghost" onClick={consumers.reload}>Refresh</Button>}>
-          <Table head={["Builder ID", "Name", "Tier", "Fund type", "Login", "Phone"]}>
+          <Table head={["Builder ID", "Name", "Tier", "Segment", "Fund type", "Login", "Phone"]}>
             {(consumers.data || []).map((c) => (
               <tr key={c.id} className="border-b border-border/50">
                 <Td mono className="text-muted">{c.id}</Td>
                 <Td>{c.name}</Td>
                 <Td><Badge tone="accent">{c.tier}</Badge></Td>
+                <Td>{c.segment ? <span className="text-[11px] capitalize text-ink/80">{c.segment}</span> : <span className="text-[11px] text-muted">-</span>}</Td>
                 <Td>{c.fund_type ? <Badge tone={c.fund_type === "captive" ? "accent" : "ok"}>{c.fund_type}</Badge> : <span className="text-[11px] text-muted">-</span>}</Td>
                 <Td mono className="text-muted">{c.email || `${c.id}@consmat.com`}</Td>
                 <Td>{c.phone || "-"}</Td>

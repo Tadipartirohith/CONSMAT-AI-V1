@@ -104,19 +104,139 @@ export default function Procurement() {
       </div>
 
       <Card title="Procurement orders" right={<Button size="sm" variant="ghost" onClick={orders.reload}>Refresh</Button>}>
-        <Table head={["Order", "Status", "Total", "Lines", ""]}>
+        <Table head={["Order", "Status", "Total", "3-way match", "Lines", ""]}>
           {(orders.data || []).map((o) => (
             <tr key={o.id} className="border-b border-border/50">
               <Td mono>{o.code}</Td>
               <Td><Badge tone={o.status === "received" ? "ok" : "warn"}>{o.status}</Badge></Td>
               <Td mono>{inr(o.total_cost)}</Td>
+              <Td><MatchCell order={o} busy={busy} onDone={orders.reload} onMsg={setMsg} /></Td>
               <Td className="text-muted">{o.lines.map((l) => `${l.product_name || l.material_id}×${l.qty}`).join(", ")}</Td>
               <Td>{o.status !== "received" && <Button size="sm" onClick={() => receive(o.id)} disabled={busy}>Receive</Button>}</Td>
             </tr>
           ))}
           {orders.data?.length === 0 && <tr><Td className="text-muted">No orders yet.</Td></tr>}
         </Table>
+        <p className="mt-2 text-[11px] leading-relaxed text-muted">3-way match reconciles the PO (ordered) against goods received and the supplier's invoice before payment.</p>
       </Card>
+
+      <RfqPanel vendors={vendors.data || []} products={products.data || []} />
+    </div>
+  );
+}
+
+// 3-way match cell: shows match status; lets the hub record the supplier invoice amount.
+const MATCH_TONE = { matched: "ok", mismatch: "bad", awaiting_grn: "warn", awaiting_invoice: "muted" };
+function MatchCell({ order: o, busy, onDone, onMsg }) {
+  const [amt, setAmt] = useState("");
+  const [open, setOpen] = useState(false);
+  const save = async () => {
+    try { await proc.recordInvoice(o.id, Number(amt)); setOpen(false); setAmt(""); onDone(); }
+    catch (e) { onMsg({ ok: false, text: e.message }); }
+  };
+  const label = (o.match_status || "awaiting_invoice").replace(/_/g, " ");
+  return (
+    <div className="flex items-center gap-2">
+      <Badge tone={MATCH_TONE[o.match_status] || "muted"}>{label}</Badge>
+      {o.supplier_invoice != null && <span className="text-[11px] text-muted">{inr(o.supplier_invoice)}</span>}
+      {open ? (
+        <span className="flex items-center gap-1">
+          <div className="w-24"><Input type="number" step="any" value={amt} placeholder="invoice ₹" onChange={(e) => setAmt(e.target.value)} /></div>
+          <Button size="sm" onClick={save} disabled={busy || !amt}>Save</Button>
+        </span>
+      ) : (
+        <Button size="sm" variant="ghost" onClick={() => setOpen(true)}>{o.supplier_invoice != null ? "Edit" : "Invoice"}</Button>
+      )}
+    </div>
+  );
+}
+
+// RFQ: create a request for quotation, record vendor quotes, compare, and award (stages 6-8).
+function RfqPanel({ vendors, products }) {
+  const rfqs = useAsync(() => proc.rfqs());
+  const [nf, setNf] = useState({ product_id: "", qty: "", note: "" });
+  const [msg, setMsg] = useState(null);
+  const activeVendors = vendors.filter((v) => v.active && !v.blocked);
+  const create = async () => {
+    const prod = products.find((p) => p.id === nf.product_id);
+    if (!prod) { setMsg("Pick a product first."); return; }
+    try {
+      await proc.createRfq({ material_id: prod.material_id, product_id: prod.id, product_name: prod.name, qty: Number(nf.qty) || 0, note: nf.note });
+      setNf({ product_id: "", qty: "", note: "" }); setMsg(null); rfqs.reload();
+    } catch (e) { setMsg(e.message); }
+  };
+  return (
+    <Card title="RFQ - request for quotation" right={<Button size="sm" variant="ghost" onClick={rfqs.reload}>Refresh</Button>}>
+      <div className="mb-4 flex flex-wrap items-end gap-2 rounded-xl border border-border/40 bg-panel2 p-3">
+        <Field label="Product">
+          <Select value={nf.product_id} onChange={(e) => setNf({ ...nf, product_id: e.target.value })} className="w-56">
+            <option value="">select product...</option>
+            {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </Select>
+        </Field>
+        <Field label="Qty"><div className="w-24"><Input type="number" step="any" value={nf.qty} onChange={(e) => setNf({ ...nf, qty: e.target.value })} /></div></Field>
+        <Field label="Note"><Input value={nf.note} onChange={(e) => setNf({ ...nf, note: e.target.value })} placeholder="spec / terms" /></Field>
+        <Button size="sm" onClick={create}>Raise RFQ</Button>
+        {msg && <span className="text-xs text-red-400">{msg}</span>}
+      </div>
+      <div className="space-y-3">
+        {(rfqs.data || []).map((r) => <RfqCard key={r.id} rfq={r} vendors={activeVendors} onDone={rfqs.reload} />)}
+        {rfqs.data?.length === 0 && <p className="text-sm text-muted">No RFQs yet. Raise one to collect and compare vendor quotes.</p>}
+      </div>
+    </Card>
+  );
+}
+
+function RfqCard({ rfq: r, vendors, onDone }) {
+  const [q, setQ] = useState({ vendor_id: "", unit_price: "", delivery_days: "", payment_terms: "", quality_note: "" });
+  const [msg, setMsg] = useState(null);
+  const cheapest = r.quotes.length ? Math.min(...r.quotes.map((x) => x.unit_price)) : null;
+  const addQuote = async () => {
+    if (!q.vendor_id || !q.unit_price) { setMsg("Vendor and price required."); return; }
+    try {
+      await proc.addQuote(r.id, { vendor_id: q.vendor_id, unit_price: Number(q.unit_price), delivery_days: Number(q.delivery_days) || 0, payment_terms: q.payment_terms, quality_note: q.quality_note });
+      setQ({ vendor_id: "", unit_price: "", delivery_days: "", payment_terms: "", quality_note: "" }); setMsg(null); onDone();
+    } catch (e) { setMsg(e.message); }
+  };
+  const award = async (quoteId) => { try { await proc.awardRfq(r.id, quoteId); onDone(); } catch (e) { setMsg(e.message); } };
+  return (
+    <div className="rounded-xl border border-border/40 bg-panel2 p-3.5">
+      <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
+        <span className="font-mono text-ink">{r.code}</span>
+        <span className="text-ink/80">{r.product_name || r.material_id}</span>
+        {r.qty > 0 && <span className="text-muted">× {r.qty}</span>}
+        <Badge tone={r.status === "awarded" ? "ok" : r.status === "open" ? "accent" : "muted"}>{r.status}</Badge>
+        {r.note && <span className="text-[11px] text-muted">{r.note}</span>}
+        {r.order_id && <span className="text-[11px] text-emerald-400">→ PO-{r.order_id}</span>}
+      </div>
+      {r.quotes.length > 0 && (
+        <Table head={["Vendor", "Unit", "Delivery", "Terms", "Quality", ""]}>
+          {r.quotes.slice().sort((a, b) => a.unit_price - b.unit_price).map((x) => (
+            <tr key={x.id} className="border-b border-border/50">
+              <Td>{x.vendor_name}</Td>
+              <Td mono>{inr(x.unit_price)} {x.unit_price === cheapest && <Badge tone="ok">lowest</Badge>}</Td>
+              <Td className="text-muted">{x.delivery_days ? `${x.delivery_days}d` : "-"}</Td>
+              <Td className="text-muted">{x.payment_terms || "-"}</Td>
+              <Td className="text-muted">{x.quality_note || "-"}</Td>
+              <Td>{r.status === "open" && <Button size="sm" onClick={() => award(x.id)}>Award</Button>}</Td>
+            </tr>
+          ))}
+        </Table>
+      )}
+      {r.status === "open" && (
+        <div className="mt-2 flex flex-wrap items-end gap-2 border-t border-border/50 pt-2">
+          <Select value={q.vendor_id} onChange={(e) => setQ({ ...q, vendor_id: e.target.value })} className="w-40">
+            <option value="">vendor...</option>
+            {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}{v.kind === "oem" ? " (OEM)" : ""}</option>)}
+          </Select>
+          <div className="w-24"><Input type="number" step="any" value={q.unit_price} placeholder="unit ₹" onChange={(e) => setQ({ ...q, unit_price: e.target.value })} /></div>
+          <div className="w-20"><Input type="number" value={q.delivery_days} placeholder="days" onChange={(e) => setQ({ ...q, delivery_days: e.target.value })} /></div>
+          <div className="w-32"><Input value={q.payment_terms} placeholder="payment terms" onChange={(e) => setQ({ ...q, payment_terms: e.target.value })} /></div>
+          <div className="w-32"><Input value={q.quality_note} placeholder="quality note" onChange={(e) => setQ({ ...q, quality_note: e.target.value })} /></div>
+          <Button size="sm" variant="ghost" onClick={addQuote}>Add quote</Button>
+        </div>
+      )}
+      {msg && <p className="mt-2 text-xs text-red-400">{msg}</p>}
     </div>
   );
 }

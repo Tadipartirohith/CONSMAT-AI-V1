@@ -42,3 +42,30 @@ class ConfigOut(BaseModel):
     provider: str
     currency: str
     enabled: bool
+
+
+class InvoiceIn(BaseModel):
+    ref: str = ""
+    consumer_id: str = ""
+    amount: float = Field(gt=0)
+    phase_seq: int = 0
+    title: str = ""
+    note: str = ""
+    currency: str = ""
+
+
+class InvoiceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    code: str
+    ref: str
+    consumer_id: str
+    phase_seq: int
+    title: str
+    amount: float
+    currency: str
+    status: str
+    note: str
+    payment_id: int | None = None
+    created_at: datetime | None = None
+    paid_at: datetime | None = None

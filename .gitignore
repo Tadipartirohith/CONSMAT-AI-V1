@@ -30,3 +30,7 @@ Thumbs.db
 
 # --- Docker / local ---
 *.pid
+
+# ruflo/claude-flow runtime artifacts
+.claude-flow/
+**/.claude-flow/

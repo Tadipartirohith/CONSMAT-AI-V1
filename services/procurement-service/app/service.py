@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from . import catalog_client, models, price_scout
@@ -24,16 +24,18 @@ def _slug(name: str) -> str:
 
 
 def create_vendor(db: Session, name: str, *, city: str = "", phone: str = "", gstin: str = "",
-                  is_hub_self: bool = False) -> models.Vendor:
+                  is_hub_self: bool = False, kind: str = "supplier") -> models.Vendor:
     if not name.strip():
         raise ProcurementError("Vendor name is required")
+    if kind not in models.VENDOR_KINDS:
+        raise ProcurementError(f"kind must be one of {models.VENDOR_KINDS}")
     base = "v_" + _slug(name)
     vid, n = base, 1
     while db.get(models.Vendor, vid) is not None:
         n += 1
         vid = f"{base}{n}"
     vendor = models.Vendor(id=vid, name=name.strip(), city=city, phone=phone, gstin=gstin,
-                           is_hub_self=is_hub_self)
+                           is_hub_self=is_hub_self, kind=kind)
     db.add(vendor)
     db.commit()
     db.refresh(vendor)
@@ -538,3 +540,87 @@ def market_index(db: Session, today) -> list[dict]:
                     "series": series})
     out.sort(key=lambda x: (x["segment"], x["name"]))
     return out
+
+
+# ---- RFQ: request for quotation -> compare -> award (PDF stages 6-8) ----
+
+def create_rfq(db: Session, *, material_id: str, product_id: str = "", product_name: str = "",
+               qty: float = 0, note: str = "", created_by: str = "") -> models.Rfq:
+    if not material_id.strip():
+        raise ProcurementError("An RFQ needs a material")
+    r = models.Rfq(material_id=material_id.strip(), product_id=product_id.strip(),
+                   product_name=product_name.strip()[:200], qty=_dec(qty), note=note.strip()[:300],
+                   created_by=created_by[:120])
+    db.add(r)
+    db.commit()
+    db.refresh(r)
+    return r
+
+
+def list_rfqs(db: Session, status: str | None = None) -> list[models.Rfq]:
+    stmt = select(models.Rfq).order_by(models.Rfq.created_at.desc())
+    if status:
+        stmt = stmt.where(models.Rfq.status == status)
+    return list(db.execute(stmt).scalars())
+
+
+def get_rfq(db: Session, rfq_id: int) -> models.Rfq | None:
+    return db.get(models.Rfq, rfq_id)
+
+
+def add_quote(db: Session, rfq_id: int, *, vendor_id: str, unit_price: float,
+              delivery_days: int = 0, payment_terms: str = "", quality_note: str = "") -> models.RfqQuote:
+    rfq = db.get(models.Rfq, rfq_id)
+    if rfq is None:
+        raise ProcurementError(f"Unknown RFQ: {rfq_id}")
+    if rfq.status != models.RFQ_OPEN:
+        raise ProcurementError("This RFQ is closed to new quotes")
+    vendor = db.get(models.Vendor, vendor_id)
+    if vendor is None:
+        raise ProcurementError(f"Unknown vendor: {vendor_id}")
+    if vendor.blocked:
+        raise ProcurementError(f"Vendor {vendor.name} is blacklisted")
+    q = models.RfqQuote(rfq_id=rfq_id, vendor_id=vendor.id, vendor_name=vendor.name,
+                        unit_price=_dec(unit_price), delivery_days=int(delivery_days or 0),
+                        payment_terms=payment_terms.strip()[:80], quality_note=quality_note.strip()[:200])
+    db.add(q)
+    db.commit()
+    db.refresh(q)
+    return q
+
+
+def award_rfq(db: Session, rfq_id: int, quote_id: int, *, decided_by: str = "") -> models.Rfq:
+    """Finalize a vendor: pick a quote, raise a purchase order for it, and close the RFQ."""
+    from . import orders
+    rfq = db.get(models.Rfq, rfq_id)
+    if rfq is None:
+        raise ProcurementError(f"Unknown RFQ: {rfq_id}")
+    if rfq.status != models.RFQ_OPEN:
+        raise ProcurementError("This RFQ has already been decided")
+    quote = db.get(models.RfqQuote, quote_id)
+    if quote is None or quote.rfq_id != rfq_id:
+        raise ProcurementError("That quote does not belong to this RFQ")
+    order = orders.create_order(db, [{
+        "material_id": rfq.material_id, "product_id": rfq.product_id,
+        "product_name": rfq.product_name, "vendor_id": quote.vendor_id,
+        "qty": float(rfq.qty) or 0.0, "unit_cost": float(quote.unit_price)}],
+        note=f"Awarded from {rfq.code} to {quote.vendor_name}")
+    rfq.status = models.RFQ_AWARDED
+    rfq.awarded_vendor_id = quote.vendor_id
+    rfq.awarded_quote_id = quote.id
+    rfq.order_id = order.id
+    rfq.closed_at = db.execute(select(func.now())).scalar()
+    db.commit()
+    db.refresh(rfq)
+    return rfq
+
+
+def record_supplier_invoice(db: Session, order_id: int, amount: float) -> "models.ProcurementOrder":
+    """Record the supplier's invoice amount against a PO, enabling the 3-way match check."""
+    o = db.get(models.ProcurementOrder, order_id)
+    if o is None:
+        raise ProcurementError(f"Unknown order: PO-{order_id}")
+    o.supplier_invoice = _dec(amount)
+    db.commit()
+    db.refresh(o)
+    return o

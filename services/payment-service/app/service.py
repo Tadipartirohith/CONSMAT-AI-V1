@@ -96,3 +96,44 @@ def list_payments(db: Session, *, consumer_id: str | None = None, ref: str | Non
 
 def get_payment(db: Session, payment_id: int) -> models.Payment | None:
     return db.get(models.Payment, payment_id)
+
+
+# ---- Client progress invoices (billing) - PDF stage 13 ----
+
+def create_invoice(db: Session, *, ref: str, consumer_id: str, amount, phase_seq: int = 0,
+                   title: str = "", note: str = "", currency: str = "") -> models.Invoice:
+    amount = _dec(amount)
+    if amount <= 0:
+        raise PaymentError("Invoice amount must be positive")
+    inv = models.Invoice(ref=ref, consumer_id=consumer_id, amount=amount, phase_seq=int(phase_seq or 0),
+                         title=title.strip()[:160], note=note.strip()[:255],
+                         currency=(currency or payment_config().get("currency", "INR")),
+                         status=models.INV_ISSUED)
+    db.add(inv)
+    db.commit()
+    db.refresh(inv)
+    return inv
+
+
+def list_invoices(db: Session, *, ref: str | None = None,
+                  consumer_id: str | None = None) -> list[models.Invoice]:
+    stmt = select(models.Invoice).order_by(models.Invoice.created_at.desc())
+    if ref:
+        stmt = stmt.where(models.Invoice.ref == ref)
+    if consumer_id:
+        stmt = stmt.where(models.Invoice.consumer_id == consumer_id)
+    return list(db.execute(stmt).scalars())
+
+
+def mark_invoice_paid(db: Session, invoice_id: int, *, payment_id: int | None = None) -> models.Invoice:
+    inv = db.get(models.Invoice, invoice_id)
+    if inv is None:
+        raise PaymentError(f"Unknown invoice: INV-{invoice_id}")
+    if inv.status == models.INV_PAID:
+        raise PaymentError("Invoice is already paid")
+    inv.status = models.INV_PAID
+    inv.payment_id = payment_id
+    inv.paid_at = db.execute(select(func.now())).scalar()
+    db.commit()
+    db.refresh(inv)
+    return inv

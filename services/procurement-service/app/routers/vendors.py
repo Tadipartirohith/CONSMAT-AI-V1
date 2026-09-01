@@ -25,7 +25,7 @@ def _run(fn, **kwargs):
 @router.post("/vendors", response_model=schemas.VendorDetailOut, status_code=201, dependencies=[Depends(HUB_WRITE)])
 def create_vendor(body: schemas.VendorIn, db: Session = Depends(get_db)):
     return _run(service.create_vendor, db=db, name=body.name, city=body.city, phone=body.phone,
-                gstin=body.gstin, is_hub_self=body.is_hub_self)
+                gstin=body.gstin, is_hub_self=body.is_hub_self, kind=body.kind)
 
 
 @router.get("/vendors", response_model=list[schemas.VendorOut])

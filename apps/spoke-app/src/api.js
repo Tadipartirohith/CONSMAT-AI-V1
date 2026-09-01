@@ -82,8 +82,18 @@ export const site = {
   markAllReadSpoke: (spokeId) => req("site", `/notifications/read-all?spoke_id=${encodeURIComponent(spokeId)}`, { method: "POST" }),
   start: (id) => req("site", `/sites/${id}/start`, { method: "POST" }),
   completePhase: (id, seq) => req("site", `/sites/${id}/phases/${seq}/complete`, { method: "POST" }),
-  confirmDelivery: (dispatchId) => req("site", `/dispatches/${dispatchId}/confirm`, { method: "POST" }),
+  confirmDelivery: (dispatchId, qc = {}) =>
+    req("site", `/dispatches/${dispatchId}/confirm`, body({ qc_result: qc.qc_result || "pass", qc_note: qc.qc_note || "" })),
   backfill: (id) => req("site", `/sites/${id}/backfill`, { method: "POST" }),
+  // Quality control: material lab tests + goods-receipt inspection
+  labTests: (id) => req("site", `/sites/${id}/lab-tests`),
+  addLabTest: (id, b) => req("site", `/sites/${id}/lab-tests`, body(b)),
+  updateLabTest: (id, b) => req("site", `/lab-tests/${id}`, { method: "PATCH", body: JSON.stringify(b) }),
+  // Snag list + handover / completion certificate
+  snags: (id) => req("site", `/sites/${id}/snags`),
+  addSnag: (id, description) => req("site", `/sites/${id}/snags`, body({ description })),
+  resolveSnag: (id) => req("site", `/snags/${id}/resolve`, { method: "POST" }),
+  handover: (id) => req("site", `/sites/${id}/handover`, { method: "POST" }),
 };
 
 export const inv = {
@@ -114,5 +124,7 @@ export const proc = {
 };
 
 export const TIERS = ["individual", "contractor", "commercial", "government"];
+export const SEGMENTS = ["homeowner", "contractor", "company", "developer", "builder", "retailer", "designer"];
+export const LAB_MATERIALS = ["cement", "steel", "sand", "bricks", "tiles", "aggregate", "concrete", "other"];
 export const CTYPES = ["economy", "standard", "premium"];
 export const inr = (n) => "₹" + Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 });

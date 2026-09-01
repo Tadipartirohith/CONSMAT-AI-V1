@@ -55,6 +55,12 @@ export const proc = {
   createOrder: (b) => req("proc", "/procurement/orders", body(b)),
   orders: () => req("proc", "/procurement/orders"),
   receive: (id) => req("proc", `/procurement/orders/${id}/receive`, { method: "POST" }),
+  recordInvoice: (id, amount) => req("proc", `/procurement/orders/${id}/invoice`, body({ amount })),
+  // RFQ: request for quotation -> compare -> award (stages 6-8)
+  rfqs: (status) => req("proc", `/rfqs${status ? `?status=${status}` : ""}`),
+  createRfq: (b) => req("proc", "/rfqs", body(b)),
+  addQuote: (id, b) => req("proc", `/rfqs/${id}/quotes`, body(b)),
+  awardRfq: (id, quoteId) => req("proc", `/rfqs/${id}/award`, body({ quote_id: quoteId })),
   llmStatus: () => req("proc", "/procurement/llm-status"),
   scout: (material_id) => req("proc", "/procurement/scout", body({ material_id })),
   externalOffers: (m) => req("proc", `/external-offers${m ? `?material_id=${m}` : ""}`),
@@ -89,7 +95,13 @@ export const pay = {
   config: () => req("pay", "/payments/config"),
   list: () => req("pay", "/payments"),
   create: (b) => req("pay", "/payments", body(b)),
+  // Client progress invoices (billing)
+  invoices: (ref) => req("pay", `/invoices${ref ? `?ref=${encodeURIComponent(ref)}` : ""}`),
+  createInvoice: (b) => req("pay", "/invoices", body(b)),
+  payInvoice: (id) => req("pay", `/invoices/${id}/pay`, { method: "POST" }),
 };
+
+export const SEGMENTS = ["homeowner", "contractor", "company", "developer", "builder", "retailer", "designer"];
 
 export const team = {
   users: () => req("id", "/users"),

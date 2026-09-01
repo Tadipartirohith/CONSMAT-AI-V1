@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { site, inv, proc, PHASE_NAMES, inr } from "../api.js";
+import { site, inv, proc, pay, PHASE_NAMES, inr } from "../api.js";
 import { Card, Table, Td, Badge, Button, Input, Select, useAsync, PageSkeleton } from "../components/ui.jsx";
 
 const TABS = ["Overview", "Bill of materials", "Phase needs"];
@@ -141,6 +141,53 @@ function BudgetFinance({ s, onChanged }) {
         )}
       </div>
       {msg && <p className={`mt-1 text-xs ${msg.ok ? "text-emerald-400" : "text-red-400"}`}>{msg.text}</p>}
+      <ClientBilling s={s} />
+    </div>
+  );
+}
+
+// Client progress billing: issue an invoice per milestone; mark paid on collection.
+function ClientBilling({ s }) {
+  const invoices = useAsync(() => pay.invoices(s.code), [s.code]);
+  const [f, setF] = useState({ amount: "", title: "" });
+  const [open, setOpen] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const issue = async () => {
+    if (!f.amount) return;
+    try {
+      await pay.createInvoice({ ref: s.code, consumer_id: s.consumer_id, amount: Number(f.amount), title: f.title || "Progress bill" });
+      setF({ amount: "", title: "" }); setOpen(false); setMsg(null); invoices.reload();
+    } catch (e) { setMsg(e.message); }
+  };
+  const markPaid = async (id) => { try { await pay.payInvoice(id); invoices.reload(); } catch (e) { setMsg(e.message); } };
+  const rows = invoices.data || [];
+  return (
+    <div className="mt-3 border-t border-border/60 pt-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[11px] uppercase tracking-wider text-muted">Client invoices</span>
+        <Button size="sm" variant="ghost" onClick={() => setOpen((v) => !v)}>Issue invoice</Button>
+      </div>
+      {open && (
+        <div className="mt-2 flex flex-wrap items-end gap-2">
+          <div className="w-28"><Input type="number" step="any" value={f.amount} placeholder="amount ₹" onChange={(e) => setF({ ...f, amount: e.target.value })} /></div>
+          <Input value={f.title} placeholder="title (e.g. foundation milestone)" onChange={(e) => setF({ ...f, title: e.target.value })} className="w-56" />
+          <Button size="sm" onClick={issue}>Issue</Button>
+        </div>
+      )}
+      {rows.length > 0 && (
+        <div className="mt-2 space-y-1">
+          {rows.map((v) => (
+            <div key={v.id} className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="font-mono text-muted">{v.code}</span>
+              <span className="text-ink/80">{v.title || "Progress bill"}</span>
+              <span className="font-mono text-ink">{inr(v.amount)}</span>
+              <Badge tone={v.status === "paid" ? "ok" : "warn"}>{v.status}</Badge>
+              {v.status !== "paid" && <Button size="sm" variant="ghost" onClick={() => markPaid(v.id)}>Mark paid</Button>}
+            </div>
+          ))}
+        </div>
+      )}
+      {msg && <p className="mt-1 text-xs text-red-400">{msg}</p>}
     </div>
   );
 }

@@ -123,7 +123,8 @@ def update_consumer(consumer_id: str, body: schemas.ConsumerUpdate, db: Session 
 def intake(body: schemas.IntakeIn, db: Session = Depends(get_db)):
     """Consumer intake: classify (tier) and auto-assign the serving spoke by geofence (location)."""
     result = _run(service.intake, db=db, name=body.name, tier=body.tier,
-                  location=body.location, phone=body.phone, email=body.email, fund_type=body.fund_type)
+                  location=body.location, phone=body.phone, email=body.email,
+                  fund_type=body.fund_type, segment=body.segment)
     c, s = result["consumer"], result["spoke"]
     return {
         "consumer": {"id": c.id, "name": c.name, "tier": c.tier, "phone": c.phone,
@@ -421,10 +422,61 @@ def read_all_notifications(consumer_id: str | None = None, spoke_id: str | None 
 
 
 @router.post("/dispatches/{dispatch_id}/confirm", response_model=schemas.DispatchOut, dependencies=[Depends(BACKFILL)])
-def confirm_receipt(dispatch_id: int, user: dict = Depends(current_user), db: Session = Depends(get_db)):
-    """SE/spoke (or hub staff) confirms a delivery reached the site -> dispatch status 'received'."""
+def confirm_receipt(dispatch_id: int, body: schemas.ConfirmIn | None = None,
+                    user: dict = Depends(current_user), db: Session = Depends(get_db)):
+    """SE/spoke (or hub staff) confirms a delivery reached the site -> dispatch status 'received'.
+    Doubles as a goods-receipt inspection (GRN): the body carries the quality verdict (pass/fail)."""
+    body = body or schemas.ConfirmIn()
     return _run(service.confirm_receipt, db=db, dispatch_id=dispatch_id,
-                actor_role=user.get("role", ""), actor_name=user.get("name", ""))
+                actor_role=user.get("role", ""), actor_name=user.get("name", ""),
+                qc_result=body.qc_result, qc_note=body.qc_note)
+
+
+# ---- Quality control: material lab tests (cement/steel/sand/bricks/tiles) ----
+
+@router.get("/sites/{site_id}/lab-tests", response_model=list[schemas.LabTestOut])
+def list_lab_tests(site_id: int, db: Session = Depends(get_db)):
+    return service.list_lab_tests(db, site_id)
+
+
+@router.post("/sites/{site_id}/lab-tests", response_model=schemas.LabTestOut, status_code=201,
+             dependencies=[Depends(FIELD)])
+def add_lab_test(site_id: int, body: schemas.LabTestIn, user: dict = Depends(current_user),
+                 db: Session = Depends(get_db)):
+    return _run(service.add_lab_test, db=db, site_id=site_id, material=body.material,
+                test_type=body.test_type, result=body.result, report_ref=body.report_ref,
+                remarks=body.remarks, tested_by=user.get("name", ""))
+
+
+@router.patch("/lab-tests/{test_id}", response_model=schemas.LabTestOut, dependencies=[Depends(FIELD)])
+def update_lab_test(test_id: int, body: schemas.LabTestUpdate, db: Session = Depends(get_db)):
+    return _run(service.update_lab_test, db=db, test_id=test_id, result=body.result,
+                remarks=body.remarks, report_ref=body.report_ref)
+
+
+# ---- Snag list + handover / completion certificate ----
+
+@router.get("/sites/{site_id}/snags", response_model=list[schemas.SnagOut])
+def list_snags(site_id: int, db: Session = Depends(get_db)):
+    return service.list_snags(db, site_id)
+
+
+@router.post("/sites/{site_id}/snags", response_model=schemas.SnagOut, status_code=201,
+             dependencies=[Depends(FIELD)])
+def add_snag(site_id: int, body: schemas.SnagIn, user: dict = Depends(current_user),
+             db: Session = Depends(get_db)):
+    return _run(service.add_snag, db=db, site_id=site_id, description=body.description,
+                raised_by=user.get("name", ""))
+
+
+@router.post("/snags/{snag_id}/resolve", response_model=schemas.SnagOut, dependencies=[Depends(FIELD)])
+def resolve_snag(snag_id: int, db: Session = Depends(get_db)):
+    return _run(service.resolve_snag, db=db, snag_id=snag_id)
+
+
+@router.post("/sites/{site_id}/handover", response_model=schemas.SiteOut, dependencies=[Depends(FIELD)])
+def handover(site_id: int, user: dict = Depends(current_user), db: Session = Depends(get_db)):
+    return _run(service.handover, db=db, site_id=site_id, actor_name=user.get("name", ""))
 
 
 @router.post("/scheduler/tick", dependencies=[Depends(BACKFILL)])

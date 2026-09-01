@@ -61,6 +61,7 @@ export const pay = {
   forRef: (ref, consumerId) =>
     req("/pay", `/payments?ref=${encodeURIComponent(ref)}&consumer_id=${encodeURIComponent(consumerId)}`),
   create: (b) => req("/pay", "/payments", body(b)),
+  invoices: (consumerId) => req("/pay", `/invoices?consumer_id=${encodeURIComponent(consumerId)}`),
 };
 
 export const PHASE_NAMES = {

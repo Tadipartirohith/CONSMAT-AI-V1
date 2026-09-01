@@ -29,6 +29,14 @@ VR_REJECTED = "rejected"
 VR_ADD = "add"
 VR_REMOVE = "remove"
 
+# Vendor channel (PDF2: OEMs are a distinct sourcing channel from general material suppliers)
+VENDOR_KINDS = ("supplier", "oem")
+
+# RFQ (request for quotation) lifecycle - PDF stages 6-8: enquiry, quotation comparison, finalization
+RFQ_OPEN = "open"
+RFQ_AWARDED = "awarded"
+RFQ_CLOSED = "closed"
+
 
 class VendorRequest(Base):
     """A request to add or remove a vendor. An operator (hub_ops) submits it; a hub supervisor or
@@ -62,6 +70,8 @@ class Vendor(Base):
     phone: Mapped[str] = mapped_column(String(32), default="")
     gstin: Mapped[str] = mapped_column(String(24), default="")
     is_hub_self: Mapped[bool] = mapped_column(Boolean, default=False)
+    # sourcing channel: 'supplier' (general materials) or 'oem' (original-equipment manufacturer)
+    kind: Mapped[str] = mapped_column(String(12), default="supplier", nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     # blacklisted: a blocked vendor is excluded from all procurement (market view, plans, orders),
     # regardless of `active`. Distinct from deactivation, which is a soft remove that keeps history.
@@ -144,6 +154,8 @@ class ProcurementOrder(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     status: Mapped[str] = mapped_column(String(12), default=PO_APPROVED, nullable=False)
     total_cost: Mapped[Decimal] = mapped_column(Numeric(16, 2), default=Decimal("0"))
+    # Supplier's invoice amount, recorded for the 3-way match (ordered <-> received/GRN <-> invoiced).
+    supplier_invoice: Mapped[Decimal | None] = mapped_column(Numeric(16, 2), nullable=True)
     note: Mapped[str] = mapped_column(String(255), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -155,6 +167,18 @@ class ProcurementOrder(Base):
     @property
     def code(self) -> str:
         return f"PO-{self.id}"
+
+    @property
+    def match_status(self) -> str:
+        """3-way match: PO total (ordered) vs goods received (GRN) vs supplier invoice."""
+        received = self.status == PO_RECEIVED or self.received_at is not None
+        if self.supplier_invoice is None:
+            return "awaiting_invoice"
+        total = float(self.total_cost or 0)
+        ok_amount = abs(float(self.supplier_invoice) - total) <= max(1.0, 0.01 * total)
+        if not received:
+            return "awaiting_grn"
+        return "matched" if ok_amount else "mismatch"
 
 
 class ProcurementLine(Base):
@@ -228,3 +252,48 @@ class MarketSnapshot(Base):
     material_id: Mapped[str] = mapped_column(String(40), index=True, nullable=False)
     snap_date: Mapped["Date"] = mapped_column(Date, index=True, nullable=False)
     avg_price: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
+
+
+class Rfq(Base):
+    """A request-for-quotation for one material/product line, sent to approved vendors. Collected
+    quotes are compared (price / delivery / payment terms), then one is awarded -> a purchase order.
+    PDF stages 6 (vendor enquiry), 7 (quotation comparison), 8 (vendor finalization)."""
+    __tablename__ = "rfqs"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    material_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    product_id: Mapped[str] = mapped_column(String(64), default="")
+    product_name: Mapped[str] = mapped_column(String(200), default="")
+    qty: Mapped[Decimal] = mapped_column(Numeric(16, 3), default=Decimal("0"))
+    note: Mapped[str] = mapped_column(String(300), default="")
+    status: Mapped[str] = mapped_column(String(12), default=RFQ_OPEN, nullable=False)
+    created_by: Mapped[str] = mapped_column(String(120), default="")
+    awarded_vendor_id: Mapped[str] = mapped_column(String(48), default="")
+    awarded_quote_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    order_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    quotes: Mapped[list["RfqQuote"]] = relationship(
+        back_populates="rfq", cascade="all, delete-orphan")
+
+    @property
+    def code(self) -> str:
+        return f"RFQ-{self.id}"
+
+
+class RfqQuote(Base):
+    """A vendor's response to an RFQ - the hub records it on the vendor's behalf."""
+    __tablename__ = "rfq_quotes"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    rfq_id: Mapped[int] = mapped_column(ForeignKey("rfqs.id"), index=True)
+    vendor_id: Mapped[str] = mapped_column(String(48), nullable=False)
+    vendor_name: Mapped[str] = mapped_column(String(160), default="")
+    unit_price: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
+    delivery_days: Mapped[int] = mapped_column(Integer, default=0)
+    payment_terms: Mapped[str] = mapped_column(String(80), default="")
+    quality_note: Mapped[str] = mapped_column(String(200), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    rfq: Mapped["Rfq"] = relationship(back_populates="quotes")

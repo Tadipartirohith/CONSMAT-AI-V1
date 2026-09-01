@@ -326,3 +326,47 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
 def receive_order(order_id: int, db: Session = Depends(get_db)):
     """Post each line to inventory-service as an inbound receipt, then mark received."""
     return _run(orders.receive_order, db=db, order_id=order_id)
+
+
+@router.post("/procurement/orders/{order_id}/invoice", response_model=schemas.OrderOut,
+             dependencies=[Depends(HUB_WRITE)])
+def record_supplier_invoice(order_id: int, body: schemas.SupplierInvoiceIn, db: Session = Depends(get_db)):
+    """Record the supplier's invoice amount for the 3-way match (ordered <-> received <-> invoiced)."""
+    return _run(service.record_supplier_invoice, db=db, order_id=order_id, amount=body.amount)
+
+
+# ---- RFQ: request for quotation -> compare -> award (PDF stages 6-8) ----
+
+@router.get("/rfqs", response_model=list[schemas.RfqOut])
+def list_rfqs(status: str | None = None, db: Session = Depends(get_db)):
+    return service.list_rfqs(db, status)
+
+
+@router.post("/rfqs", response_model=schemas.RfqOut, status_code=201, dependencies=[Depends(HUB_WRITE)])
+def create_rfq(body: schemas.RfqIn, user: dict = Depends(current_user), db: Session = Depends(get_db)):
+    return _run(service.create_rfq, db=db, material_id=body.material_id, product_id=body.product_id,
+                product_name=body.product_name, qty=body.qty, note=body.note,
+                created_by=user.get("name", ""))
+
+
+@router.get("/rfqs/{rfq_id}", response_model=schemas.RfqOut)
+def get_rfq(rfq_id: int, db: Session = Depends(get_db)):
+    r = service.get_rfq(db, rfq_id)
+    if r is None:
+        raise HTTPException(404, f"Unknown RFQ: {rfq_id}")
+    return r
+
+
+@router.post("/rfqs/{rfq_id}/quotes", response_model=schemas.RfqQuoteOut, status_code=201,
+             dependencies=[Depends(HUB_WRITE)])
+def add_quote(rfq_id: int, body: schemas.RfqQuoteIn, db: Session = Depends(get_db)):
+    return _run(service.add_quote, db=db, rfq_id=rfq_id, vendor_id=body.vendor_id,
+                unit_price=body.unit_price, delivery_days=body.delivery_days,
+                payment_terms=body.payment_terms, quality_note=body.quality_note)
+
+
+@router.post("/rfqs/{rfq_id}/award", response_model=schemas.RfqOut, dependencies=[Depends(HUB_WRITE)])
+def award_rfq(rfq_id: int, body: schemas.AwardIn, user: dict = Depends(current_user),
+              db: Session = Depends(get_db)):
+    return _run(service.award_rfq, db=db, rfq_id=rfq_id, quote_id=body.quote_id,
+                decided_by=user.get("name", ""))
